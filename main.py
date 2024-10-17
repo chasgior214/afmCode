@@ -2,7 +2,7 @@ from AFMImageCollection import AFMImageCollection
 from datetime import timedelta
 import matplotlib.pyplot as plt
 
-folder_path = "D:/afmCode/DataFolder"
+folder_path = "C:/Users/chasg/afmCode/DataFolder" # Erfan's is D:/afmCode/DataFolder
 collection = AFMImageCollection(folder_path)
 num_images = collection.get_number_of_images()
 print("=================================================")
@@ -20,7 +20,6 @@ t = collection.get_image(0).get_datetime()
 T = [] 
 max_height = [] 
 
-
 for i in range(num_images):
     
     x,y,max_value, shift = collection.get_image(i).get_trimmed_trace_z(3)
@@ -32,5 +31,6 @@ x,y,max_value, shift = collection.get_image(0).get_trimmed_trace_z(3)
 
 
 plt.scatter(T,max_height)
+plt.xlabel('Time (hours)')
+plt.ylabel('Max Height (nm)')
 plt.show()
-

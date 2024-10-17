@@ -4,10 +4,10 @@ import os
 import numpy as np
 import pandas as pd 
 
-class AFMImageCollection: 
+class AFMImageCollection:
     def __init__(self, folder_path):
         self.images = self.load_ibw_files_from_folder(folder_path)
-    
+
     def load_ibw_files_from_folder(self, folder_path):
         images = [] 
         for file_name in os.listdir(folder_path):
@@ -28,14 +28,14 @@ class AFMImageCollection:
         else:
             print(f"No image at index {index}")
             return None
-    
+
     def get_number_of_images(self):
         return len(self.images)
-    
-    def print_datetime(self):
+
+    def print_datetimes(self):
         for i, image in enumerate(self.images):
             print(f"Image {i}: {image.get_datetime()}")
-    
+
     def print_conversion_rates(self):
         for i, image in enumerate(self.images):
             print(f"Image {i} has the conversion rate of {image.get_conversion_rate()} microns per pixel")
@@ -48,7 +48,6 @@ class AFMImageCollection:
             if event.button == 3:  # Right-click
                 rejected_images.append(image.get_fileName())
                 plt.close()  # Close the plot window
-                
             # Check if the left mouse button was clicked (accept)
             elif event.button == 1:  # Left-click
                 plt.close()  # Close the plot window
@@ -77,9 +76,8 @@ class AFMImageCollection:
                 print(filename)
         else:
             print("No images were rejected.")
-    
-    def review_phase(self):
 
+    def review_phase(self):
         rejected_images = []
 
         def on_click(event, image):
@@ -89,23 +87,26 @@ class AFMImageCollection:
             elif event.button == 1: 
                 plt.close() 
 
-        for i, image in enumerate(self.images):
+        for image in self.images:
             max_Zvalue, max_Zposition = image.get_maximum_Zpoint()
             max_Hvalue, max_Hposition = image.get_maximum_Hpoint()
 
             if max_Zvalue and max_Hvalue is not None:
                 phase_image = image.get_phase_retrace()
                 file_name = image.get_fileName() 
-                binary_phase_image = np.where(phase_image >90,1,0) #all values greater than 90 are set to 1 
+                binary_phase_image = np.where(phase_image >90,1,0) # all values greater than 90 are set to 1 
+
                 fig, axes = plt.subplots(1, 2, figsize=(12,6))
                 axes[0].imshow(phase_image, cmap='gray', aspect='auto')
                 axes[0].scatter(max_Zposition[1], max_Zposition[0], color='red', marker='x')
                 axes[0].scatter(max_Hposition[1], max_Hposition[0], color='blue')
                 axes[0].set_title(f"Original Phase -{file_name}")
+
                 axes[1].imshow(binary_phase_image, cmap='gray', aspect='auto')
                 axes[1].scatter(max_Zposition[1], max_Zposition[0], color='red', marker='x')
                 axes[1].scatter(max_Hposition[1], max_Hposition[0], color='blue')
                 axes[1].set_title("Phase values less than 90 are set to 0")
+
                 cid = fig.canvas.mpl_connect('button_press_event', lambda event: on_click(event, image))
                 mng = plt.get_current_fig_manager()
                 try:
@@ -132,46 +133,41 @@ class AFMImageCollection:
             'File_Name' : [],
             'Date_Time' : [] 
         }
-        for i, image in enumerate(self.images):
+        for image in self.images:
             data['File_Name'].append(image.get_fileName())
             data['Date_Time'].append(image.get_datetime())
         df = pd.DataFrame(data)
         df.to_excel('Data_DateTime.xlsx', index=False)
         print("Data exported to Data_DateTime.xlsx")
-    
-    def export_shift(self,l):
+
+    def export_shift(self, length):
         data = {
             'File_Name' : [],
             'H_shift' : [],
             'Z_shift' : []
         }
-        for i, image in enumerate(self.images):
+        for image in self.images:
             data['File_Name'].append(image.get_fileName())
-            a = image.get_trimmed_trace_h(l)
-            data['H_shift'].append(a[3])
-            b = image.get_trimmed_trace_z(l)
-            data['Z_shift'].append(b[3])
+            data['H_shift'].append(image.get_trimmed_trace_h(length)[3])
+            data['Z_shift'].append(image.get_trimmed_trace_z(length)[3])
         df = pd.DataFrame(data)
         df.to_excel('Data_shift.xlsx', index=False)
         print("Data shift exported to Data_shift.xlsx")
-    
-    def export_deflection_time(self,l):
+
+    def export_deflection_time(self, length):
         data = {
             'File_Name' : [],
             'Time_Delta': [],
             'Max_deflection_h': [],
             'Max_deflection_z': []
         }
-        t = self.get_image(0).get_datetime()
-        for i, image in enumerate(self.images):
+        t_0 = self.get_image(0).get_datetime()
+        for image in self.images:
             data['File_Name'].append(image.get_fileName())
-            a = image.get_trimmed_trace_h(l)
-            data['Max_deflection_h'].append(a[2])
-            b = image.get_trimmed_trace_z(l)
-            data['Max_deflection_z'].append(b[2])
-            timediff = image.get_datetime() - t 
-            data['Time_Delta'].append(timediff.total_seconds())
+            data['Max_deflection_h'].append(image.get_trimmed_trace_h(length)[2])
+            data['Max_deflection_z'].append(image.get_trimmed_trace_z(length)[2])
+            time_diff = image.get_datetime() - t_0
+            data['Time_Delta'].append(time_diff.total_seconds())
         df = pd.DataFrame(data)
         df.to_excel("Time_V_deflection.xlsx", index=False)
         print("time V deflection exported to Time_V_deflection.xlsx")
-
