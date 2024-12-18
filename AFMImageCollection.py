@@ -1,8 +1,8 @@
 from AFMImage import AFMImage
 import matplotlib.pyplot as plt
-import os 
+import os
 import numpy as np
-import pandas as pd 
+import pandas as pd
 
 class AFMImageCollection:
     def __init__(self, folder_path):
