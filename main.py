@@ -13,9 +13,10 @@ print("=================================================")
 
 for i in range(num_images):
     image = collection.get_image(i)
+    # vis.export_heightmap_3d_surface(image)
     vis.height_and_defln_row_selector(image)
-    # note height_and_defln is currently modified to correct for a slope
-    # vis.height_and_defln(image, 9.891)
+    # note height_and_defln is currently modified to correct for a specific slope
+    # vis.height_and_defln(image, 2.383)
 
 
 # collection.review_phase()

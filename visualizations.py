@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
 
-def height_and_defln(image, line_height):
+def height_and_defln(image, line_height, slope = (-4113.2 - (-4036.1)) / (9.08 - 0.76)):
     scan_size = image.get_scan_size()
 
     height_retrace = image.get_height_retrace()
@@ -34,10 +34,10 @@ def height_and_defln(image, line_height):
     height, width = deflection_retrace.shape
     aspect_ratio = height / width
     toplot = height_retrace[nearest_y_to_plot, :]
-    # height_retrace is slanted down and to the right due to poor leveling of the sample. Correcting for this by subtracting the slope of the line from the height_retrace. Slope defined by line that connects (4.73, 102.3) and (6.63, 88.3)
-    slope = (88.3 - 102.3) / (6.63 - 4.73)
-    toplot = toplot - slope * x
-    # TODO add option to correct for slope as a parameter
+    # If height_retrace is slanted correct for this by subtracting the slope of the line from the height_retrace
+    if slope:
+        toplot = toplot - slope * x
+
     ax2.plot(x, toplot)
     ax2.set_title(f"Height at y = {line_height} μm")
     ax2.set_xlabel("x (μm)")
@@ -174,6 +174,37 @@ def height_and_defln_row_selector(image, initial_line_height=0):
 
     plt.show()
 
+def export_heightmap_3d_surface(image):
+    scan_size = image.get_scan_size()
+    height_retrace = image.get_height_retrace()
+
+    x_pixel_count = height_retrace.shape[1]
+    y_pixel_count = height_retrace.shape[0]
+    
+    # Calculate y dimension based on aspect ratio
+    y_dimension = scan_size * y_pixel_count / x_pixel_count
+
+    # Generate x and y coordinates with correct dimensions
+    x = np.linspace(0, scan_size, x_pixel_count)  # x-coordinates in microns
+    y = np.linspace(0, y_dimension, y_pixel_count)  # y-coordinates in microns
+    X, Y = np.meshgrid(x, y)
+
+    # Use Plotly for the interactive 3D plot
+    import plotly.graph_objects as go
+
+    fig = go.Figure(data=[go.Surface(z=height_retrace, x=X, y=Y, colorscale='Viridis')])
+    fig.update_layout(
+        title="Height Retrace (Entire Image)",
+        scene=dict(
+            xaxis_title="x (μm)",
+            yaxis_title="y (μm)",
+            zaxis_title="Height (nm)",
+            aspectmode='data'  # Maintain the data's aspect ratio
+        )
+    )
+    
+    # Save as an interactive HTML file
+    fig.write_html("3d_plot.html")
 
 if __name__ == '__main__':
     from AFMImageCollection import AFMImageCollection
