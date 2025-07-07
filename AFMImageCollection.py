@@ -46,7 +46,7 @@ class AFMImageCollection:
         def on_click(event, image, max_position):
             # Check if the right mouse button was clicked (reject)
             if event.button == 3:  # Right-click
-                rejected_images.append(image.get_fileName())
+                rejected_images.append(image.get_filename())
                 plt.close()  # Close the plot window
             # Check if the left mouse button was clicked (accept)
             elif event.button == 1:  # Left-click
@@ -82,7 +82,7 @@ class AFMImageCollection:
 
         def on_click(event, image):
             if event.button == 3:
-                rejected_images.append(image.get_fileName())
+                rejected_images.append(image.get_filename())
                 plt.close()
             elif event.button == 1: 
                 plt.close() 
@@ -93,7 +93,7 @@ class AFMImageCollection:
 
             if max_Zvalue and max_Hvalue is not None:
                 phase_image = image.get_phase_retrace()
-                file_name = image.get_fileName() 
+                file_name = image.get_filename() 
                 binary_phase_image = np.where(phase_image >90,1,0) # all values greater than 90 are set to 1 
 
                 fig, axes = plt.subplots(1, 2, figsize=(12,6))
@@ -134,7 +134,7 @@ class AFMImageCollection:
             'Date_Time' : [] 
         }
         for image in self.images:
-            data['File_Name'].append(image.get_fileName())
+            data['File_Name'].append(image.get_filename())
             data['Date_Time'].append(image.get_datetime())
         df = pd.DataFrame(data)
         df.to_excel('Data_DateTime.xlsx', index=False)
@@ -147,7 +147,7 @@ class AFMImageCollection:
             'Z_shift' : []
         }
         for image in self.images:
-            data['File_Name'].append(image.get_fileName())
+            data['File_Name'].append(image.get_filename())
             data['H_shift'].append(image.get_trimmed_trace_h(length)[3])
             data['Z_shift'].append(image.get_trimmed_trace_z(length)[3])
         df = pd.DataFrame(data)
@@ -163,7 +163,7 @@ class AFMImageCollection:
         }
         t_0 = self.get_image(0).get_datetime()
         for image in self.images:
-            data['File_Name'].append(image.get_fileName())
+            data['File_Name'].append(image.get_filename())
             data['Max_deflection_h'].append(image.get_trimmed_trace_h(length)[2])
             data['Max_deflection_z'].append(image.get_trimmed_trace_z(length)[2])
             time_diff = image.get_datetime() - t_0

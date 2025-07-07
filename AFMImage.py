@@ -4,7 +4,7 @@ from datetime import datetime
 
 class AFMImage:
     """
-    The AFMImage class represents an AFM image as numpy arrays and metadata.
+    The AFMImage class represents an AFM image as numpy arrays and metadata. Channel 0-3 extraction is based on the default order for tapping mode, channels 4-5 are for postprocessed data.
     
     Attributes:
     ----------
@@ -20,15 +20,14 @@ class AFMImage:
     # Class initialization and loading of the .ibw file
     def __init__(self, file_path):
         self.data = self.load_ibw_file(file_path)
-        if self.data:
-            wave = self.data.get('wave', {})
-            self.wave_data = wave.get('wData')
-            self.note = wave.get('note', b'').decode('utf-8', 'replace')
-            self.labels = wave.get('labels', [])
-        else:
-            self.wave_data = None
-            self.note = None
-            self.labels = []
+        if not self.data or 'wave' not in self.data:
+            raise RuntimeError(f"Cannot load wave from {file_path}")
+        wave = self.data['wave']
+        self.hdr  = wave['wave_header']
+        self.bname = self.hdr['bname']
+        self.wave_data = wave['wData']
+        self.note = wave['note'].decode('utf-8', 'replace')
+        self.labels = wave['labels']
 
     def load_ibw_file(self, file_path):
         """Load an Igor Binary Wave (.ibw) file from the specified file path."""
@@ -45,16 +44,17 @@ class AFMImage:
             return np.rot90(self.wave_data[:, :, index], k=1) * unit_conversion
         return None
 
-    def get_height_retrace(self):
+    # Note that the channel order for extractions below is for tapping mode (raw data channels 0-3, postprocessed with AFM software 4-5)
+    def get_height_retrace(self): # same default channel (0) for contact mode
         return self.get_retrace_data(0, unit_conversion=1e9) # Units are in nm
 
-    def get_amplitude_retrace(self):
+    def get_amplitude_retrace(self): # default for channel 1 in contact mode is deflection, but both give high contrast to surface topographies, so can be used for both if just looking at topographical features qualitatively
         return self.get_retrace_data(1)
 
     def get_phase_retrace(self):
         return self.get_retrace_data(2)
 
-    def get_ZSensorRetrace(self):
+    def get_ZSensorRetrace(self): # default for channel 2 in contact is z-sensor
         return self.get_retrace_data(3, unit_conversion=1e9) # Units are in nm
 
     def get_FlatHeight(self):
@@ -91,7 +91,7 @@ class AFMImage:
     def get_pointsLines(self):
         return float(self._extract_parameter('PointsLines'))
 
-    def get_fileName(self):
+    def get_filename(self):
         return self._extract_parameter('FileName')
 
     def _extract_parameter(self, key, alternative_keys=None):

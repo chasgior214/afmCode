@@ -2,11 +2,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
 
-def height_and_defln(image, line_height, slope = (-4113.2 - (-4036.1)) / (9.08 - 0.76)):
+def height_and_defln(image, line_height, slope = None):
     scan_size = image.get_scan_size()
 
     height_retrace = image.get_height_retrace()
-    deflection_retrace = image.get_amplitude_retrace()
+    contrast_map = image.get_amplitude_retrace()
 
     x_pixel_count = height_retrace.shape[1]
     y_pixel_count = height_retrace.shape[0]
@@ -25,13 +25,13 @@ def height_and_defln(image, line_height, slope = (-4113.2 - (-4036.1)) / (9.08 -
     plt.subplots_adjust(bottom=0.25)  # Adjust layout to make space for sliders
 
     # Initial plots
-    im = ax1.imshow(deflection_retrace, cmap='grey', extent=extent)
+    im = ax1.imshow(contrast_map, cmap='grey', extent=extent)
     ax1.axhline(y=line_height, color='r', linestyle='--')
-    ax1.set_title(f"Deflection Retrace")
+    ax1.set_title(f"Contrast Map")
     ax1.set_ylabel("y (μm)")
 
     # Calculate the initial aspect ratio of ax1
-    height, width = deflection_retrace.shape
+    height, width = contrast_map.shape
     aspect_ratio = height / width
     toplot = height_retrace[nearest_y_to_plot, :]
     # If height_retrace is slanted correct for this by subtracting the slope of the line from the height_retrace
@@ -50,8 +50,8 @@ def height_and_defln(image, line_height, slope = (-4113.2 - (-4036.1)) / (9.08 -
     # Create sliders for vmin and vmax
     ax_vmin = plt.axes([0.2, 0.15, 0.6, 0.03], facecolor='lightgrey')
     ax_vmax = plt.axes([0.2, 0.1, 0.6, 0.03], facecolor='lightgrey')
-    slider_vmin = Slider(ax_vmin, 'vmin (x10^9)', np.min(deflection_retrace) * 1e9, np.max(deflection_retrace) * 1e9, valinit=0)
-    slider_vmax = Slider(ax_vmax, 'vmax (x10^9)', np.min(deflection_retrace) * 1e9, np.max(deflection_retrace) * 1e9, valinit=1e9)
+    slider_vmin = Slider(ax_vmin, 'vmin (x10^9)', np.min(contrast_map) * 1e9, np.max(contrast_map) * 1e9, valinit=0)
+    slider_vmax = Slider(ax_vmax, 'vmax (x10^9)', np.min(contrast_map) * 1e9, np.max(contrast_map) * 1e9, valinit=1e9)
 
     # Update function for the sliders
     def update(val):
@@ -67,7 +67,7 @@ def height_and_defln(image, line_height, slope = (-4113.2 - (-4036.1)) / (9.08 -
 def height_and_defln_row_selector(image, initial_line_height=0):
     scan_size = image.get_scan_size()
     height_retrace = image.get_height_retrace()
-    deflection_retrace = image.get_amplitude_retrace()
+    contrast_map = image.get_amplitude_retrace()
 
     x_pixel_count = height_retrace.shape[1]
     y_pixel_count = height_retrace.shape[0]
@@ -79,73 +79,99 @@ def height_and_defln_row_selector(image, initial_line_height=0):
 
     line_height = initial_line_height
     y_pixels = np.arange(0, y_pixel_count)
-    # Find the nearest y pixel in y_pixels to the line height
     nearest_y_to_plot = y_pixel_count - 1 - min(y_pixels, key=lambda y_pixel: abs(y_pixel * pixel_size - line_height))
 
+    selected_points = []  # To store the two right-clicked points
+    cumulative_adjusted_height = None  # To store the cumulative adjusted height retrace
+    selected_heights = []  # List to store the selected height values
+
     def update_plots(event):
-        nonlocal line_height, nearest_y_to_plot
+        nonlocal line_height, nearest_y_to_plot, selected_points, cumulative_adjusted_height, selected_heights
 
-        # Check if the click event occurred within the bounds of ax1
-        if event.inaxes != ax1:
-            return  # Ignore clicks outside ax1
+        # Check if the event is triggered during zooming or panning
+        if plt.get_current_fig_manager().toolbar.mode != '':
+            return  # Ignore events during zoom or pan
 
-        # Check if zoom or pan mode is active
-        if fig.canvas.toolbar.mode:
-            # Synchronize the x-axis of ax2 with ax1.
-            xlim = ax1.get_xlim()  # Get the x-axis limits from ax1
-            ax2.set_xlim(xlim)  # Apply the same x-axis limits to ax2
+        if event.inaxes == ax1 and event.button == 1:  # Left-click on the top plot
+            line_height = float(event.ydata)
+            if line_height < 0 or line_height >= contrast_map.shape[0]:
+                return  # Ignore clicks outside the valid range
+            nearest_y_to_plot = y_pixel_count - 1 - min(y_pixels, key=lambda y_pixel: abs(y_pixel * pixel_size - line_height))
 
-            # Dynamically scale the y-axis of ax2 based on the new x-axis limits
-            x_min, x_max = xlim
-            indices = np.where((x >= x_min) & (x <= x_max))[0]
-            if len(indices) > 0:
-                y_min = np.min(height_retrace[nearest_y_to_plot, indices]) * 1.1
-                y_max = np.max(height_retrace[nearest_y_to_plot, indices]) * 1.1
-                ax2.set_ylim(y_min, y_max)  # Adjust the y-axis limits
+            # Reset cumulative_adjusted_height for the new y location
+            cumulative_adjusted_height = height_retrace[nearest_y_to_plot, :].copy()
 
-            fig.canvas.draw_idle()  # Redraw the figure
-            return  # Ignore updates during zoom or pan
+            # Clear the existing plots
+            ax1.cla()
+            ax2.cla()
 
-        # Get the y-coordinate from the click event and update the line_height variable
-        line_height = float(event.ydata)
-        if line_height < 0 or line_height >= deflection_retrace.shape[0]:
-            return  # Ignore clicks outside the valid range
-        nearest_y_to_plot = y_pixel_count - 1 - min(y_pixels, key=lambda y_pixel: abs(y_pixel * pixel_size - line_height))
+            # Redraw the upper plot
+            ax1.imshow(contrast_map, cmap='grey', extent=extent, vmin=slider_vmin.val / 1e9, vmax=slider_vmax.val / 1e9)
+            ax1.axhline(y=line_height, color='r', linestyle='--')
+            ax1.set_title("Contrast Map")
+            ax1.set_ylabel("y (μm)")
 
-        # Clear the existing plots
-        ax1.cla()
-        ax2.cla()
+            # Redraw the lower plot
+            ax2.plot(x, cumulative_adjusted_height)
+            ax2.set_xlim(0, scan_size)  # Ensure x-axis matches upper plot
+            ax2.set_title(f"Height at y = {round(line_height, 3)} μm")
+            ax2.set_xlabel("x (μm)")
+            ax2.set_ylabel("Height (nm)")
 
-        # Redraw the upper plot
-        ax1.imshow(deflection_retrace, cmap='grey', extent=extent, vmin=slider_vmin.val / 1e9, vmax=slider_vmax.val / 1e9)
-        ax1.axhline(y=line_height, color='r', linestyle='--')
-        ax1.set_title("Deflection Retrace")
-        ax1.set_ylabel("y (μm)")
+            # Refresh the figure
+            fig.canvas.draw()
+            return
 
-        # Redraw the lower plot
-        ax2.plot(x, height_retrace[nearest_y_to_plot, :])
-        ax2.set_title(f"Height at y = {round(line_height, 3)} μm")
-        ax2.set_xlabel("x (μm)")
-        ax2.set_ylabel("Height (nm)")
+        if event.inaxes == ax2 and event.button == 3:  # Right-click on the bottom plot
+            selected_points.append((event.xdata, event.ydata))
+            if len(selected_points) == 2:
+                # Calculate the slope based on the two selected points
+                x1, y1 = selected_points[0]
+                x2, y2 = selected_points[1]
+                slope = (y2 - y1) / (x2 - x1)
 
-        # Refresh the figure
-        fig.canvas.draw()
+                # Adjust the displayed height retrace using the slope
+                if cumulative_adjusted_height is None:
+                    cumulative_adjusted_height = height_retrace[nearest_y_to_plot, :].copy()
+                cumulative_adjusted_height -= slope * x
+
+                # Update the lower plot
+                ax2.cla()
+                ax2.plot(x, cumulative_adjusted_height)
+                ax2.set_xlim(0, scan_size)  # Ensure x-axis matches upper plot
+                ax2.set_title(f"Height at y = {round(line_height, 3)} μm (Slope Corrected)")
+                ax2.set_xlabel("x (μm)")
+                ax2.set_ylabel("Height (nm)")
+
+                fig.canvas.draw()
+
+                # Reset selected_points to allow further adjustments
+                selected_points = []
+            return
+
+        if event.inaxes == ax2 and event.button == 1:  # Left-click on the bottom plot
+            selected_heights.append(event.ydata)  # Store the height value
+            if len(selected_heights) > 2:
+                selected_heights.pop(0)  # Keep only the two most recent heights
+            print(f"Height value at x = {event.xdata:.3f} μm: {event.ydata:.3f} nm")
+            return
 
     # Create the figure and axes
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 10))
     plt.subplots_adjust(bottom=0.25)  # Adjust layout to make space for sliders
 
     # Initial plots
-    im = ax1.imshow(deflection_retrace, cmap='grey', extent=extent)
+    im = ax1.imshow(contrast_map, cmap='grey', extent=extent)
     ax1.axhline(y=line_height, color='r', linestyle='--')
-    ax1.set_title("Deflection Retrace")
+    ax1.set_title("Contrast Map")
     ax1.set_ylabel("y (μm)")
 
     # Calculate the initial aspect ratio of ax1
-    height, width = deflection_retrace.shape
+    height, width = contrast_map.shape
     aspect_ratio = height / width
 
     ax2.plot(x, height_retrace[nearest_y_to_plot, :])
+    ax2.set_xlim(0, scan_size)  # Ensure x-axis matches upper plot
     ax2.set_title(f"Height at y = {line_height} μm")
     ax2.set_xlabel("x (μm)")
     ax2.set_ylabel("Height (nm)")
@@ -157,11 +183,12 @@ def height_and_defln_row_selector(image, initial_line_height=0):
     # Create sliders for vmin and vmax
     ax_vmin = plt.axes([0.2, 0.15, 0.6, 0.03], facecolor='lightgrey')
     ax_vmax = plt.axes([0.2, 0.1, 0.6, 0.03], facecolor='lightgrey')
-    slider_vmin = Slider(ax_vmin, 'vmin (x10^9)', np.min(deflection_retrace) * 1e9, np.max(deflection_retrace) * 1e9, valinit=0)
-    slider_vmax = Slider(ax_vmax, 'vmax (x10^9)', np.min(deflection_retrace) * 1e9, np.max(deflection_retrace) * 1e9, valinit=1e9)
+    slider_vmin = Slider(ax_vmin, 'vmin (x10^9)', np.min(contrast_map) * 1e9, np.max(contrast_map) * 1e9, valinit=0)
+    slider_vmax = Slider(ax_vmax, 'vmax (x10^9)', np.min(contrast_map) * 1e9, np.max(contrast_map) * 1e9, valinit=1e9)
 
     # Update function for the sliders
     def update_slider(val):
+        # Update the contrast of the contrast map
         im.set_clim(vmin=slider_vmin.val / 1e9, vmax=slider_vmax.val / 1e9)
         fig.canvas.draw_idle()
 
@@ -169,10 +196,47 @@ def height_and_defln_row_selector(image, initial_line_height=0):
     slider_vmin.on_changed(update_slider)
     slider_vmax.on_changed(update_slider)
 
-    # Connect the click event to the update function
+    # Ensure sliders remain functional after height selection
     fig.canvas.mpl_connect('button_press_event', update_plots)
 
+    from matplotlib.widgets import Button
+    ax_button = plt.axes([0.82, 0.05, 0.15, 0.05])
+    btn_set_max = Button(ax_button, 'Set Max Height')
+
+    # Add Set Min Height button
+    ax_button_min = plt.axes([0.65, 0.05, 0.15, 0.05])
+    btn_set_min = Button(ax_button_min, 'Set Min Height')
+
+    def set_max_height(event):
+        ydata = cumulative_adjusted_height if cumulative_adjusted_height is not None else height_retrace[nearest_y_to_plot, :]
+        max_idx = np.argmax(ydata)
+        max_x = x[max_idx]
+        max_y = ydata[max_idx]
+        selected_heights.append(max_y)  # Store the height value
+        if len(selected_heights) > 2:
+            selected_heights.pop(0)  # Keep only the two most recent heights
+        print(f"Max height at x = {max_x:.3f} μm: {max_y:.3f} nm (Set by button)")
+
+    def set_min_height(event):
+        ydata = cumulative_adjusted_height if cumulative_adjusted_height is not None else height_retrace[nearest_y_to_plot, :]
+        min_idx = np.argmin(ydata)
+        min_x = x[min_idx]
+        min_y = ydata[min_idx]
+        selected_heights.append(min_y)  # Store the height value
+        if len(selected_heights) > 2:
+            selected_heights.pop(0)  # Keep only the two most recent heights
+        print(f"Min height at x = {min_x:.3f} μm: {min_y:.3f} nm (Set by button)")
+
+    btn_set_max.on_clicked(set_max_height)
+    btn_set_min.on_clicked(set_min_height)
+    fig.canvas.manager.set_window_title(str(image.bname) + image.get_datetime().strftime(" %Y-%m-%d %H:%M:%S"))
+
     plt.show()
+
+    if len(selected_heights) == 1:
+        return selected_heights[0]  # Return the single selected height
+    elif len(selected_heights) == 2:
+        return selected_heights  # Return the two most recent selected heights
 
 def export_heightmap_3d_surface(image):
     scan_size = image.get_scan_size()
@@ -205,15 +269,3 @@ def export_heightmap_3d_surface(image):
     
     # Save as an interactive HTML file
     fig.write_html("3d_plot.html")
-
-if __name__ == '__main__':
-    from AFMImageCollection import AFMImageCollection
-    import os
-    folder_path = "C:/Users/chasg/afmCode/DataFolder" # Erfan's is D:/afmCode/DataFolder
-    collection = AFMImageCollection(folder_path)
-
-    for i in range(collection.get_number_of_images()):
-        image = collection.get_image(i)
-        # height_and_defln(image, 6.5)
-        height_and_defln_row_selector(image)
-        # break
