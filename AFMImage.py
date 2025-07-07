@@ -44,11 +44,13 @@ class AFMImage:
             return np.rot90(self.wave_data[:, :, index], k=1) * unit_conversion
         return None
 
-    # Note that the channel order for extractions below is for tapping mode (raw data channels 0-3, postprocessed with AFM software 4-5)
-    def get_height_retrace(self): # same default channel (0) for contact mode
+    # Note that the channel order for extractions below is for tapping mode after channel 1 (raw data channels 0-3, postprocessed with AFM software 4-5)
+    def get_height_retrace(self):
+        """Get retrace data for channel 0, which is the default channel for height in both tapping and contact modes."""
         return self.get_retrace_data(0, unit_conversion=1e9) # Units are in nm
 
-    def get_amplitude_retrace(self): # default for channel 1 in contact mode is deflection, but both give high contrast to surface topographies, so can be used for both if just looking at topographical features qualitatively
+    def get_contrast_retrace(self):
+        """Get retrace data for channel 1, which is the default channel for amplitude in tapping mode and deflection in contact mode. Both give high contrast to surface topographies, so can be used to extract a high-contrast qualitative map of topographical features from images taken in either mode."""
         return self.get_retrace_data(1)
 
     def get_phase_retrace(self):

@@ -6,7 +6,7 @@ def height_and_defln(image, line_height, slope = None):
     scan_size = image.get_scan_size()
 
     height_retrace = image.get_height_retrace()
-    contrast_map = image.get_amplitude_retrace()
+    contrast_map = image.get_contrast_retrace()
 
     x_pixel_count = height_retrace.shape[1]
     y_pixel_count = height_retrace.shape[0]
@@ -67,7 +67,7 @@ def height_and_defln(image, line_height, slope = None):
 def height_and_defln_row_selector(image, initial_line_height=0):
     scan_size = image.get_scan_size()
     height_retrace = image.get_height_retrace()
-    contrast_map = image.get_amplitude_retrace()
+    contrast_map = image.get_contrast_retrace()
 
     x_pixel_count = height_retrace.shape[1]
     y_pixel_count = height_retrace.shape[0]
