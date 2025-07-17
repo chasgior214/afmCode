@@ -22,7 +22,7 @@ for i in range(num_images):
 
 
     taken = image.get_datetime()
-    depressurized = taken.replace(hour=14, minute=13, second=26)
+    depressurized = taken.replace(hour=12, minute=46, second=1)
     time_unpressurized = taken - depressurized
     print(f"Time since depressurized: {time_unpressurized}")
 

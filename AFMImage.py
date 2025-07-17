@@ -4,7 +4,7 @@ from datetime import datetime
 
 class AFMImage:
     """
-    The AFMImage class represents an AFM image as numpy arrays and metadata. Channel 0-3 extraction is based on the default order for tapping mode, channels 4-5 are for postprocessed data.
+    The AFMImage class represents an AFM image as numpy arrays and metadata.
     
     Attributes:
     ----------
@@ -39,33 +39,54 @@ class AFMImage:
 
     # Retrace Data Methods
     def get_retrace_data(self, index, unit_conversion=1):
-        """Get retrace data for a specific index with optional unit conversion."""
+        """Get retrace for a specific index with optional unit conversion."""
         if self.wave_data is not None:
             return np.rot90(self.wave_data[:, :, index], k=1) * unit_conversion
         return None
 
-    # Note that the channel order for extractions below is for tapping mode after channel 1 (raw data channels 0-3, postprocessed with AFM software 4-5)
+    # Note that the index order for extractions below is for tapping mode after index 1 (raw data indexes 0-3, postprocessed with AFM software 4-8)
     def get_height_retrace(self):
-        """Get retrace data for channel 0, which is the default channel for height in both tapping and contact modes."""
+        """Get retrace for index 0, which is the default index for height in both tapping and contact modes."""
         return self.get_retrace_data(0, unit_conversion=1e9) # Units are in nm
 
     def get_contrast_retrace(self):
-        """Get retrace data for channel 1, which is the default channel for amplitude in tapping mode and deflection in contact mode. Both give high contrast to surface topographies, so can be used to extract a high-contrast qualitative map of topographical features from images taken in either mode."""
+        """Get retrace for index 1, which is the default index for amplitude in tapping mode and deflection in contact mode. Both give high contrast to surface topographies, so can be used to extract a high-contrast qualitative map of topographical features from images taken in either mode."""
         return self.get_retrace_data(1)
 
     def get_phase_retrace(self):
-        return self.get_retrace_data(2)
+        """If a tapping mode image, this will return the phase retrace (assuming it is stored at the default index, index 2). If a contact mode image, this will return None."""
+        if self.get_imaging_mode() == 'AC Mode':
+            return self.get_retrace_data(2)
+        elif self.get_imaging_mode() == 'Contact':
+            print("Phase retrace is not available for Contact mode images.")
+            return None
 
-    def get_ZSensorRetrace(self): # default for channel 2 in contact is z-sensor
-        return self.get_retrace_data(3, unit_conversion=1e9) # Units are in nm
+    def get_ZSensorRetrace(self):
+        """Get retrace for the Z sensor, pulling from index 3 for tapping mode images and index 2 for contact mode images."""
+        if self.get_imaging_mode() == 'AC Mode':
+            return self.get_retrace_data(3, unit_conversion=1e9) # Units are in nm
+        elif self.get_imaging_mode() == 'Contact':
+            return self.get_retrace_data(2, unit_conversion=1e9)
 
     def get_FlatHeight(self):
-        return self.get_retrace_data(4, unit_conversion=1e9) # Units are in nm
+        """Get the flattened height retrace (assuming postprocessing was done in Igor which put the flat height in the next free index after the Z retrace)."""
+        if self.get_imaging_mode() == 'AC Mode':
+            return self.get_retrace_data(4, unit_conversion=1e9) # Units are in nm
+        elif self.get_imaging_mode() == 'Contact':
+            return self.get_retrace_data(3, unit_conversion=1e9)
 
     def get_FlatZtrace(self):
-        return self.get_retrace_data(5, unit_conversion=1e9) # Units are in nm
+        """Get the flattened Z retrace (assuming postprocessing was done in Igor which put the flat Z retrace in the second next free index after the Z retrace)."""
+        if self.get_imaging_mode() == 'AC Mode':
+            return self.get_retrace_data(5, unit_conversion=1e9)
+        elif self.get_imaging_mode() == 'Contact':
+            return self.get_retrace_data(4, unit_conversion=1e9)
 
     # Metadata Extraction Methods
+    def get_imaging_mode(self):
+        """Get the imaging mode from the note. Tapping is 'AC Mode' and contact is 'Contact'."""
+        return self._extract_parameter('ImagingMode')
+
     def get_scan_rate(self):
         return float(self._extract_parameter('ScanRate')) # Units are Hz
 
@@ -79,10 +100,10 @@ class AFMImage:
         # Since Setpoint might have different keys, adjust as needed
         return float(self._extract_parameter('Setpoint', alternative_keys=['AmplitudeSetpointVolts', 'DeflectionSetpointVolts']))
 
-    def get_date(self): # Assume this returns something like "2024-02-27"
+    def get_date(self):
         return self._extract_parameter('Date')
 
-    def get_time(self): # Assume this returns something like "11:20:48 AM"
+    def get_time(self):
         return self._extract_parameter('Time')
 
     def get_datetime(self):
@@ -108,7 +129,7 @@ class AFMImage:
                         return value
         return None
 
-    # Methods for Altering Data
+    # Methods for extracting maximum points and traces
     def get_maximum_point(self, retrace_function):
         retrace_data = retrace_function()
         if retrace_data is not None:

@@ -32,10 +32,6 @@ class AFMImageCollection:
     def get_number_of_images(self):
         return len(self.images)
 
-    def print_datetimes(self):
-        for i, image in enumerate(self.images):
-            print(f"Image {i}: {image.get_datetime()}")
-
     def print_conversion_rates(self):
         for i, image in enumerate(self.images):
             print(f"Image {i} has the conversion rate of {image.get_conversion_rate()} microns per pixel")
