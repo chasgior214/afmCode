@@ -11,7 +11,8 @@ print("=================================================")
 print(f"Number of images in the array: {num_images}")
 print("=================================================")
 
-# TODO: Make it take the exact time based on line and scan rate
+# TODO: keyboard shortcut for selecting max/min
+
 
 times = []
 deflections = []
@@ -20,16 +21,14 @@ for i in range(num_images):
     # vis.export_heightmap_3d_surface(image)
     # vis.height_and_defln_row_selector(image)
 
-
     taken = image.get_datetime()
     depressurized = taken.replace(hour=12, minute=46, second=1)
-    time_unpressurized = taken - depressurized
-    print(f"Time since depressurized: {time_unpressurized}")
-
+    print(f"Image saved {taken - depressurized} minutes after depressurization")
     try:
-        h1, h2 = vis.height_and_defln_row_selector(image)
+        h1, h2, seconds_since_start = vis.height_and_defln_row_selector(image)
         deflections.append(h2 - h1)
-        times.append(time_unpressurized.total_seconds() / 60)
+        time_unpressurized = (taken - depressurized).total_seconds() - seconds_since_start
+        times.append(time_unpressurized/60)
         print(deflections[i])
         print(times[i])
     except Exception as e:

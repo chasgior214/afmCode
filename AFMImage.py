@@ -11,7 +11,7 @@ class AFMImage:
     data : dict
         The raw data loaded from the .ibw file.
     wave_data : numpy.ndarray
-        The 2D array of data points from the AFM image.
+        The set of 2D arrays of data points from the AFM images.
     note : str
         The note associated with the AFM image.
     labels : list
@@ -100,19 +100,17 @@ class AFMImage:
         # Since Setpoint might have different keys, adjust as needed
         return float(self._extract_parameter('Setpoint', alternative_keys=['AmplitudeSetpointVolts', 'DeflectionSetpointVolts']))
 
-    def get_date(self):
-        return self._extract_parameter('Date')
-
-    def get_time(self):
-        return self._extract_parameter('Time')
-
     def get_datetime(self):
-        combined_str = f"{self.get_date()} {self.get_time()}"
+        combined_str = f"{self._extract_parameter('Date')} {self._extract_parameter('Time')}"
         # Parse the combined string into a datetime object
         return datetime.strptime(combined_str, "%Y-%m-%d %I:%M:%S %p")
 
     def get_pointsLines(self):
         return float(self._extract_parameter('PointsLines'))
+
+    def get_scan_direction(self):
+        """1 if scanning down, 0 if scanning up."""
+        return int(self._extract_parameter('ScanDown'))
 
     def get_filename(self):
         return self._extract_parameter('FileName')

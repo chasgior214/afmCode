@@ -2,76 +2,24 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
 
-def height_and_defln(image, line_height, slope = None):
-    scan_size = image.get_scan_size()
-
-    height_retrace = image.get_height_retrace()
-    contrast_map = image.get_contrast_retrace()
-
-    x_pixel_count = height_retrace.shape[1]
-    y_pixel_count = height_retrace.shape[0]
-    pixel_size = scan_size / x_pixel_count # microns per pixel
-
-    x = np.linspace(0, scan_size, x_pixel_count) # x-coordinates in microns
-    y = np.linspace(0, scan_size, y_pixel_count) # y-coordinates in microns
-    extent = (0, scan_size, 0, scan_size * y_pixel_count / x_pixel_count)
-
-    y_pixels= np.arange(0, y_pixel_count)
-    # find the nearest y pixel in y_pixels to the line height, remembering that the y values decrease to zero as the pixel number increases to y_pixel_count
-    nearest_y_to_plot = y_pixel_count - 1 - min(y_pixels, key=lambda y_pixel: abs(y_pixel * pixel_size - line_height))
-
-    # Create the figure and axes
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 10))
-    plt.subplots_adjust(bottom=0.25)  # Adjust layout to make space for sliders
-
-    # Initial plots
-    im = ax1.imshow(contrast_map, cmap='grey', extent=extent)
-    ax1.axhline(y=line_height, color='r', linestyle='--')
-    ax1.set_title(f"Contrast Map")
-    ax1.set_ylabel("y (μm)")
-
-    # Calculate the initial aspect ratio of ax1
-    height, width = contrast_map.shape
-    aspect_ratio = height / width
-    toplot = height_retrace[nearest_y_to_plot, :]
-    # If height_retrace is slanted correct for this by subtracting the slope of the line from the height_retrace
-    if slope:
-        toplot = toplot - slope * x
-
-    ax2.plot(x, toplot)
-    ax2.set_title(f"Height at y = {line_height} μm")
-    ax2.set_xlabel("x (μm)")
-    ax2.set_ylabel("Height (nm)")
-
-    # Set the same fixed aspect ratio for both axes
-    ax1.set_box_aspect(aspect_ratio)
-    ax2.set_box_aspect(aspect_ratio)
-    
-    # Create sliders for vmin and vmax
-    ax_vmin = plt.axes([0.2, 0.15, 0.6, 0.03], facecolor='lightgrey')
-    ax_vmax = plt.axes([0.2, 0.1, 0.6, 0.03], facecolor='lightgrey')
-    slider_vmin = Slider(ax_vmin, 'vmin (x10^9)', np.min(contrast_map) * 1e9, np.max(contrast_map) * 1e9, valinit=0)
-    slider_vmax = Slider(ax_vmax, 'vmax (x10^9)', np.min(contrast_map) * 1e9, np.max(contrast_map) * 1e9, valinit=1e9)
-
-    # Update function for the sliders
-    def update(val):
-        im.set_clim(vmin=slider_vmin.val / 1e9, vmax=slider_vmax.val / 1e9)
-        fig.canvas.draw_idle()
-
-    # Connect the sliders to the update function
-    slider_vmin.on_changed(update)
-    slider_vmax.on_changed(update)
-
-    plt.show()
-
 def height_and_defln_row_selector(image, initial_line_height=0):
+    # Extract data from the image
+    image_bname = str(image.bname)
+    image_save_date_time = image.get_datetime().strftime("%Y-%m-%d %H:%M:%S")
+
     scan_size = image.get_scan_size()
-    height_retrace = image.get_height_retrace()
+    scan_direction = image.get_scan_direction()
+    scan_rate = image.get_scan_rate()
+
+    height_map = image.get_height_retrace()
     contrast_map = image.get_contrast_retrace()
 
-    x_pixel_count = height_retrace.shape[1]
-    y_pixel_count = height_retrace.shape[0]
+    # Calculate pixel size
+    x_pixel_count = height_map.shape[1]
+    y_pixel_count = height_map.shape[0]
     pixel_size = scan_size / x_pixel_count  # microns per pixel
+
+    imaging_duration = y_pixel_count / scan_rate
 
     x = np.linspace(0, scan_size, x_pixel_count)  # x-coordinates in microns
     y = np.linspace(0, scan_size, y_pixel_count)  # y-coordinates in microns
@@ -84,9 +32,10 @@ def height_and_defln_row_selector(image, initial_line_height=0):
     selected_points = []  # To store the two right-clicked points
     cumulative_adjusted_height = None  # To store the cumulative adjusted height retrace
     selected_heights = []  # List to store the selected height values
+    time_since_start = None  # To store the time since the start of the scan
 
     def update_plots(event):
-        nonlocal line_height, nearest_y_to_plot, selected_points, cumulative_adjusted_height, selected_heights
+        nonlocal line_height, nearest_y_to_plot, selected_points, cumulative_adjusted_height, selected_heights, time_since_start
 
         # Check if the event is triggered during zooming or panning
         if plt.get_current_fig_manager().toolbar.mode != '':
@@ -94,12 +43,21 @@ def height_and_defln_row_selector(image, initial_line_height=0):
 
         if event.inaxes == ax1 and event.button == 1:  # Left-click on the top plot
             line_height = float(event.ydata)
+
             if line_height < 0 or line_height >= contrast_map.shape[0]:
                 return  # Ignore clicks outside the valid range
+
             nearest_y_to_plot = y_pixel_count - 1 - min(y_pixels, key=lambda y_pixel: abs(y_pixel * pixel_size - line_height))
 
+            # Calculate time between start of scan and when the selected line was imaged
+            ratio = nearest_y_to_plot / y_pixel_count
+            if scan_direction == 1: # Scanning down
+                time_since_start = ratio * imaging_duration
+            else: # Scanning up
+                time_since_start = (1 - ratio) * imaging_duration
+
             # Reset cumulative_adjusted_height for the new y location
-            cumulative_adjusted_height = height_retrace[nearest_y_to_plot, :].copy()
+            cumulative_adjusted_height = height_map[nearest_y_to_plot, :].copy()
 
             # Clear the existing plots
             ax1.cla()
@@ -132,7 +90,7 @@ def height_and_defln_row_selector(image, initial_line_height=0):
 
                 # Adjust the displayed height retrace using the slope
                 if cumulative_adjusted_height is None:
-                    cumulative_adjusted_height = height_retrace[nearest_y_to_plot, :].copy()
+                    cumulative_adjusted_height = height_map[nearest_y_to_plot, :].copy()
                 cumulative_adjusted_height -= slope * x
 
                 # Update the lower plot
@@ -170,7 +128,7 @@ def height_and_defln_row_selector(image, initial_line_height=0):
     height, width = contrast_map.shape
     aspect_ratio = height / width
 
-    ax2.plot(x, height_retrace[nearest_y_to_plot, :])
+    ax2.plot(x, height_map[nearest_y_to_plot, :])
     ax2.set_xlim(0, scan_size)  # Ensure x-axis matches upper plot
     ax2.set_title(f"Height at y = {line_height} μm")
     ax2.set_xlabel("x (μm)")
@@ -208,7 +166,7 @@ def height_and_defln_row_selector(image, initial_line_height=0):
     btn_set_min = Button(ax_button_min, 'Set Min Height')
 
     def set_max_height(event):
-        ydata = cumulative_adjusted_height if cumulative_adjusted_height is not None else height_retrace[nearest_y_to_plot, :]
+        ydata = cumulative_adjusted_height if cumulative_adjusted_height is not None else height_map[nearest_y_to_plot, :]
         max_idx = np.argmax(ydata)
         max_x = x[max_idx]
         max_y = ydata[max_idx]
@@ -218,7 +176,7 @@ def height_and_defln_row_selector(image, initial_line_height=0):
         print(f"Max height at x = {max_x:.3f} μm: {max_y:.3f} nm (Set by button)")
 
     def set_min_height(event):
-        ydata = cumulative_adjusted_height if cumulative_adjusted_height is not None else height_retrace[nearest_y_to_plot, :]
+        ydata = cumulative_adjusted_height if cumulative_adjusted_height is not None else height_map[nearest_y_to_plot, :]
         min_idx = np.argmin(ydata)
         min_x = x[min_idx]
         min_y = ydata[min_idx]
@@ -229,21 +187,22 @@ def height_and_defln_row_selector(image, initial_line_height=0):
 
     btn_set_max.on_clicked(set_max_height)
     btn_set_min.on_clicked(set_min_height)
-    fig.canvas.manager.set_window_title(str(image.bname) + image.get_datetime().strftime(" %Y-%m-%d %H:%M:%S"))
+
+    fig.canvas.manager.set_window_title(image_bname + " - " + image_save_date_time)
 
     plt.show()
 
     if len(selected_heights) == 1:
-        return selected_heights[0]  # Return the single selected height
+        return selected_heights[0], time_since_start  # Return the single selected height and time since start
     elif len(selected_heights) == 2:
-        return selected_heights  # Return the two most recent selected heights
+        return selected_heights[0], selected_heights[1], time_since_start  # Return the two most recent selected heights and time since start
 
 def export_heightmap_3d_surface(image):
     scan_size = image.get_scan_size()
-    height_retrace = image.get_height_retrace()
+    height_map = image.get_height_retrace()
 
-    x_pixel_count = height_retrace.shape[1]
-    y_pixel_count = height_retrace.shape[0]
+    x_pixel_count = height_map.shape[1]
+    y_pixel_count = height_map.shape[0]
     
     # Calculate y dimension based on aspect ratio
     y_dimension = scan_size * y_pixel_count / x_pixel_count
@@ -256,7 +215,7 @@ def export_heightmap_3d_surface(image):
     # Use Plotly for the interactive 3D plot
     import plotly.graph_objects as go
 
-    fig = go.Figure(data=[go.Surface(z=height_retrace, x=X, y=Y, colorscale='Viridis')])
+    fig = go.Figure(data=[go.Surface(z=height_map, x=X, y=Y, colorscale='Viridis')])
     fig.update_layout(
         title="Height Retrace (Entire Image)",
         scene=dict(
