@@ -19,13 +19,12 @@ deflections = []
 for i in range(num_images):
     image = collection.get_image(i)
     # vis.export_heightmap_3d_surface(image)
-    # vis.height_and_defln_row_selector(image)
 
     taken = image.get_datetime()
     depressurized = taken.replace(hour=12, minute=46, second=1)
     print(f"Image saved {taken - depressurized} minutes after depressurization")
     try:
-        h1, h2, seconds_since_start = vis.height_and_defln_row_selector(image)
+        h1, h2, seconds_since_start = vis.select_heights(image)
         deflections.append(h2 - h1)
         time_unpressurized = (taken - depressurized).total_seconds() - seconds_since_start
         times.append(time_unpressurized/60)
