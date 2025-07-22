@@ -37,23 +37,33 @@ def select_heights(image, initial_line_height=0):
     time_since_start = None  # To store the time since the start of the scan
 
     def update_stats_display():
+        """Refresh the text panel summarizing selection info."""
         ax4.cla()
         ax4.axis('off')
         lines = []
-        for idx, (h, xh, yh) in enumerate(selected_heights_info[-2:][::-1], 1):
-            lines.append(f"Selected {idx}: {h:.3f} nm at ({xh:.3f}, {yh:.3f}) μm")
         if time_since_start is not None:
             lines.append(f"Line imaged {time_since_start:.2f} seconds after imaging began")
+
+        for idx, (h, xh, yh) in enumerate(selected_heights_info[-2:][::-1], 1):
+            lines.append(f"Selected {idx}: {h:.3f} nm at ({xh:.3f}, {yh:.3f}) μm")
+
+        if len(selected_heights_info) == 2:
+            diff = selected_heights_info[-1][0] - selected_heights_info[-2][0]
+            lines.append(f"Difference: {diff:.3f} nm")
+
         ydata = cumulative_adjusted_height if cumulative_adjusted_height is not None else height_map[nearest_y_to_plot, :]
         max_idx = np.argmax(ydata)
         min_idx = np.argmin(ydata)
         lines.append(f"Max cross-section: {ydata[max_idx]:.3f} nm at x={x[max_idx]:.3f} μm")
         lines.append(f"Min cross-section: {ydata[min_idx]:.3f} nm at x={x[min_idx]:.3f} μm")
+
         ax4.text(0.05, 0.95, '\n'.join(lines), va='top')
         fig.canvas.draw_idle()
 
     def update_plots(event):
-        nonlocal line_height, nearest_y_to_plot, selected_points, cumulative_adjusted_height, selected_heights, selected_heights_info, time_since_start, im, im_phase
+        nonlocal line_height, nearest_y_to_plot, selected_points, cumulative_adjusted_height
+        nonlocal selected_heights, selected_heights_info, time_since_start
+        nonlocal im, im_phase, hline_contrast, hline_phase, cross_line
 
         # Check if the event is triggered during zooming or panning
         if plt.get_current_fig_manager().toolbar.mode != '':
@@ -77,35 +87,20 @@ def select_heights(image, initial_line_height=0):
             # Reset cumulative_adjusted_height for the new y location
             cumulative_adjusted_height = height_map[nearest_y_to_plot, :].copy()
 
-            # Clear the existing plots
-            ax1.cla()
-            ax2.cla()
-            if phase_map is not None:
-                ax3.cla()
+            # Update the horizontal indicator lines
+            hline_contrast.set_ydata([line_height, line_height])
+            if hline_phase is not None:
+                hline_phase.set_ydata([line_height, line_height])
 
-            # Redraw the upper plot
-            im = ax1.imshow(contrast_map, cmap='grey', extent=extent, vmin=slider_vmin.val / 1e9, vmax=slider_vmax.val / 1e9)
-            ax1.axhline(y=line_height, color='r', linestyle='--')
-            ax1.set_title("Contrast Map")
-            ax1.set_ylabel("y (μm)")
-
-            if phase_map is not None:
-                im_phase = ax3.imshow(phase_map, cmap='grey', extent=extent,
-                                       vmin=slider_phase_vmin.val, vmax=slider_phase_vmax.val)
-                ax3.axhline(y=line_height, color='r', linestyle='--')
-                ax3.set_title("Phase Retrace")
-                ax3.set_ylabel("y (μm)")
-
-            # Redraw the lower plot
-            ax2.plot(x, cumulative_adjusted_height)
-            ax2.set_xlim(0, scan_size)  # Ensure x-axis matches upper plot
+            # Update the lower plot without clearing the axis
+            cross_line.set_ydata(cumulative_adjusted_height)
+            ax2.relim()
+            ax2.autoscale_view()
             ax2.set_title(f"Height at y = {round(line_height, 3)} μm")
-            ax2.set_xlabel("x (μm)")
-            ax2.set_ylabel("Height (nm)")
             update_stats_display()
 
             # Refresh the figure
-            fig.canvas.draw()
+            fig.canvas.draw_idle()
             return
 
         if event.inaxes == ax2 and event.button == 3:  # Right-click on the bottom plot
@@ -121,16 +116,14 @@ def select_heights(image, initial_line_height=0):
                     cumulative_adjusted_height = height_map[nearest_y_to_plot, :].copy()
                 cumulative_adjusted_height -= slope * x
 
-                # Update the lower plot
-                ax2.cla()
-                ax2.plot(x, cumulative_adjusted_height)
-                ax2.set_xlim(0, scan_size)  # Ensure x-axis matches upper plot
+                # Update the lower plot without clearing
+                cross_line.set_ydata(cumulative_adjusted_height)
+                ax2.relim()
+                ax2.autoscale_view()
                 ax2.set_title(f"Height at y = {round(line_height, 3)} μm (Slope Corrected)")
-                ax2.set_xlabel("x (μm)")
-                ax2.set_ylabel("Height (nm)")
 
                 update_stats_display()
-                fig.canvas.draw()
+                fig.canvas.draw_idle()
 
                 # Reset selected_points to allow further adjustments
                 selected_points = []
@@ -151,27 +144,38 @@ def select_heights(image, initial_line_height=0):
     fig, ((ax1, ax3), (ax2, ax4)) = plt.subplots(2, 2, figsize=(12, 10))
     plt.subplots_adjust(bottom=0.25)  # Adjust layout to make space for sliders
 
+    # Maximize the window if possible
+    manager = plt.get_current_fig_manager()
+    try:
+        manager.window.showMaximized()
+    except Exception:
+        try:
+            manager.window.state('zoomed')
+        except Exception:
+            pass
+
     # Initial plots
     im = ax1.imshow(contrast_map, cmap='grey', extent=extent)
-    ax1.axhline(y=line_height, color='r', linestyle='--')
+    hline_contrast = ax1.axhline(y=line_height, color='r', linestyle='--')
     ax1.set_title("Contrast Map")
     ax1.set_ylabel("y (μm)")
 
     if phase_map is not None:
         im_phase = ax3.imshow(phase_map, cmap='grey', extent=extent,
                               vmin=np.min(phase_map), vmax=np.max(phase_map))
-        ax3.axhline(y=line_height, color='r', linestyle='--')
+        hline_phase = ax3.axhline(y=line_height, color='r', linestyle='--')
         ax3.set_title("Phase Retrace")
         ax3.set_ylabel("y (μm)")
     else:
         im_phase = None
+        hline_phase = None
         ax3.axis('off')
 
     # Calculate the initial aspect ratio of ax1
     height, width = contrast_map.shape
     aspect_ratio = height / width
 
-    ax2.plot(x, height_map[nearest_y_to_plot, :])
+    cross_line, = ax2.plot(x, height_map[nearest_y_to_plot, :])
     ax2.set_xlim(0, scan_size)  # Ensure x-axis matches upper plot
     ax2.set_title(f"Height at y = {line_height} μm")
     ax2.set_xlabel("x (μm)")
@@ -253,6 +257,19 @@ def select_heights(image, initial_line_height=0):
 
     btn_set_max.on_clicked(set_max_height)
     btn_set_min.on_clicked(set_min_height)
+
+    # Override toolbar home to always rescale the cross-section
+    toolbar = plt.get_current_fig_manager().toolbar
+    if toolbar is not None and hasattr(toolbar, "home"):
+        orig_home = toolbar.home
+
+        def _home(*args, **kwargs):
+            orig_home(*args, **kwargs)
+            ax2.relim()
+            ax2.autoscale_view()
+            fig.canvas.draw_idle()
+
+        toolbar.home = _home
 
     fig.canvas.manager.set_window_title(image_bname + " - " + image_save_date_time)
 

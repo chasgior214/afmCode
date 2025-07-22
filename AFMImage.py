@@ -44,9 +44,9 @@ class AFMImage:
             return np.rot90(self.wave_data[:, :, index], k=1) * unit_conversion
         return None
 
-    # Note that the index order for extractions below is for tapping mode after index 1 (raw data indexes 0-3, postprocessed with AFM software 4-8)
+    # Tapping mode: raw data indexes 0-3, contact mode: raw data indexes 0-2
     def get_height_retrace(self):
-        """Get retrace for index 0, which is the default index for height in both tapping and contact modes."""
+        """Get retrace for index 0, which is the default index for height in both tapping and contact modes. Converts units to nm."""
         return self.get_retrace_data(0, unit_conversion=1e9) # Units are in nm
 
     def get_contrast_retrace(self):
@@ -62,21 +62,21 @@ class AFMImage:
             return None
 
     def get_ZSensorRetrace(self):
-        """Get retrace for the Z sensor, pulling from index 3 for tapping mode images and index 2 for contact mode images."""
+        """Get retrace for the Z sensor, pulling from index 3 for tapping mode images and index 2 for contact mode images. Converts units to nm."""
         if self.get_imaging_mode() == 'AC Mode':
             return self.get_retrace_data(3, unit_conversion=1e9) # Units are in nm
         elif self.get_imaging_mode() == 'Contact':
             return self.get_retrace_data(2, unit_conversion=1e9)
 
     def get_FlatHeight(self):
-        """Get the flattened height retrace (assuming postprocessing was done in Igor which put the flat height in the next free index after the Z retrace)."""
+        """Get the flattened height retrace (assuming postprocessing was done in Igor which put the flat height in the next free index after the Z retrace). Converts units to nm."""
         if self.get_imaging_mode() == 'AC Mode':
             return self.get_retrace_data(4, unit_conversion=1e9) # Units are in nm
         elif self.get_imaging_mode() == 'Contact':
             return self.get_retrace_data(3, unit_conversion=1e9)
 
     def get_FlatZtrace(self):
-        """Get the flattened Z retrace (assuming postprocessing was done in Igor which put the flat Z retrace in the second next free index after the Z retrace)."""
+        """Get the flattened Z retrace (assuming postprocessing was done in Igor which put the flat Z retrace in the second next free index after the Z retrace). Converts units to nm."""
         if self.get_imaging_mode() == 'AC Mode':
             return self.get_retrace_data(5, unit_conversion=1e9)
         elif self.get_imaging_mode() == 'Contact':
