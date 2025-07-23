@@ -11,7 +11,18 @@ def select_heights(image, initial_line_height=0):
     scan_direction = image.get_scan_direction()
     scan_rate = image.get_scan_rate()
 
-    height_map = image.get_height_retrace()
+    # Determine which height data to use. If flattened data is available use it
+    # and update the title prefix accordingly.
+    imaging_mode = image.get_imaging_mode()
+    title_prefix = "Height"
+    if imaging_mode == 'AC Mode' and image.wave_data.shape[2] > 4:
+        height_map = image.get_FlatHeight()
+        title_prefix = "Flattened Height"
+    elif imaging_mode == 'Contact' and image.wave_data.shape[2] > 3:
+        height_map = image.get_FlatHeight()
+        title_prefix = "Flattened Height"
+    else:
+        height_map = image.get_height_retrace()
     contrast_map = image.get_contrast_retrace()
     phase_map = image.get_phase_retrace()
 
@@ -96,7 +107,7 @@ def select_heights(image, initial_line_height=0):
             cross_line.set_ydata(cumulative_adjusted_height)
             ax2.relim()
             ax2.autoscale_view()
-            ax2.set_title(f"Height at y = {round(line_height, 3)} μm")
+            ax2.set_title(f"{title_prefix} at y = {round(line_height, 3)} μm")
             update_stats_display()
 
             # Refresh the figure
@@ -120,7 +131,7 @@ def select_heights(image, initial_line_height=0):
                 cross_line.set_ydata(cumulative_adjusted_height)
                 ax2.relim()
                 ax2.autoscale_view()
-                ax2.set_title(f"Height at y = {round(line_height, 3)} μm (Slope Corrected)")
+                ax2.set_title(f"{title_prefix} at y = {round(line_height, 3)} μm (Slope Corrected)")
 
                 update_stats_display()
                 fig.canvas.draw_idle()
@@ -177,7 +188,7 @@ def select_heights(image, initial_line_height=0):
 
     cross_line, = ax2.plot(x, height_map[nearest_y_to_plot, :])
     ax2.set_xlim(0, scan_size)  # Ensure x-axis matches upper plot
-    ax2.set_title(f"Height at y = {line_height} μm")
+    ax2.set_title(f"{title_prefix} at y = {line_height} μm")
     ax2.set_xlabel("x (μm)")
     ax2.set_ylabel("Height (nm)")
 

@@ -208,10 +208,7 @@ class AFMImage:
                 x.append(zxx[i])
                 y.append(raw_trace[i])
         
-        if y[0] < 0:
-            shift = -y[0]
-        else:
-            shift = y[0]
+        shift = np.abs(y[0])
         
         for i in range(len(y)):
             y[i] = y[i] + shift 
@@ -228,10 +225,7 @@ class AFMImage:
                 x.append(hxx[i])
                 y.append(raw_trace[i])
         
-        if y[0] < 0:
-            shift = -y[0]
-        else:
-            shift = y[0]
+        shift = np.abs(y[0])
         
         for i in range(len(y)):
             y[i] = y[i] + shift 

@@ -46,7 +46,6 @@ plt.show()
 
 # collection.review_phase()
 
-
 # collection.export_deflection_time(3)
 # collection.export_shift(3)
 
@@ -56,14 +55,12 @@ plt.show()
 # max_height = [] 
 
 # for i in range(num_images):
-    
 #     x,y,max_value, shift = collection.get_image(i).get_trimmed_trace_z(3)
 #     timediff = collection.get_image(i).get_datetime() - t 
 #     T.append(timediff.total_seconds()/3600)
 #     max_height.append(max_value)
     
 # x,y,max_value, shift = collection.get_image(0).get_trimmed_trace_z(3)
-
 
 # plt.scatter(T,max_height)
 # plt.xlabel('Time (hours)')
