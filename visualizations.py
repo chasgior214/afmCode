@@ -166,20 +166,22 @@ def select_heights(image, initial_line_height=0):
             if info is not None:
                 h, xh, yh = info
                 color = 'purple' if idx == 1 else 'orange'
-                label = f"Selected {idx}: {h:.3f} nm at ({xh:.3f}, {yh:.3f}) μm"
+                label = f"Point {idx}: {h:.3f} nm at ({xh:.3f}, {yh:.3f}) μm"
                 if locked_slot == idx - 1:
                     label += " (locked)"
                 entries.append((label, color))
 
         if all(info is not None for info in selected_slots):
             diff = selected_slots[1][0] - selected_slots[0][0]
-            entries.append((f"Difference: {diff:.3f} nm", 'black'))
+            xdiff = selected_slots[1][1] - selected_slots[0][1]
+            entries.append((f"Δz: {diff:.3f} nm", 'black'))
+            entries.append((f"Δx: {xdiff:.3f} μm", 'black'))
 
         ydata = cumulative_adjusted_height if cumulative_adjusted_height is not None else height_map[nearest_y_to_plot, :]
         max_idx = np.argmax(ydata)
         min_idx = np.argmin(ydata)
-        entries.append((f"Max cross-section: {ydata[max_idx]:.3f} nm at x={x[max_idx]:.3f} μm", 'black'))
-        entries.append((f"Min cross-section: {ydata[min_idx]:.3f} nm at x={x[min_idx]:.3f} μm", 'black'))
+        entries.append((f"Max z cross-section: {ydata[max_idx]:.3f} nm at x={x[max_idx]:.3f} μm", 'black'))
+        entries.append((f"Min z cross-section: {ydata[min_idx]:.3f} nm at x={x[min_idx]:.3f} μm", 'black'))
 
         ypos = 0.95
         for text, color in entries:
@@ -348,23 +350,20 @@ def select_heights(image, initial_line_height=0):
     fig.canvas.mpl_connect('button_press_event', update_plots)
 
     from matplotlib.widgets import Button
-    ax_button = plt.axes([0.82, 0.05, 0.15, 0.05])
-    btn_set_max = Button(ax_button, 'Max Cross-Section Height (1)')
-
-    # Add Set Min Height button
-    ax_button_min = plt.axes([0.65, 0.05, 0.15, 0.05])
-    btn_set_min = Button(ax_button_min, 'Min Cross-Section Height (2)')
-
-    # Add buttons for global max/min
-    ax_button_gmax = plt.axes([0.48, 0.05, 0.15, 0.05])
-    btn_global_max = Button(ax_button_gmax, 'Max Global Height (3)')
-
-    ax_button_gmin = plt.axes([0.31, 0.05, 0.15, 0.05])
-    btn_global_min = Button(ax_button_gmin, 'Min Global Height (4)')
-
-    # Lock selection button
     ax_button_lock = plt.axes([0.14, 0.05, 0.15, 0.05])
     btn_lock = Button(ax_button_lock, 'Lock Selection (w)')
+
+    ax_button = plt.axes([0.31, 0.05, 0.15, 0.05])
+    btn_set_max = Button(ax_button, 'Max Cross-Section Height (1)')
+
+    ax_button_min = plt.axes([0.48, 0.05, 0.15, 0.05])
+    btn_set_min = Button(ax_button_min, 'Min Cross-Section Height (2)')
+
+    ax_button_gmax = plt.axes([0.65, 0.05, 0.15, 0.05])
+    btn_global_max = Button(ax_button_gmax, 'Max Global Height (3)')
+
+    ax_button_gmin = plt.axes([0.82, 0.05, 0.15, 0.05])
+    btn_global_min = Button(ax_button_gmin, 'Min Global Height (4)')
 
     def set_max_height(event=None):
         """Select the maximum value within the visible part of the cross-section."""
@@ -457,6 +456,11 @@ def select_heights(image, initial_line_height=0):
             set_global_min()
         elif event.key == 'w':
             toggle_lock()
+        elif event.key == 'z':
+            # Activate zoom mode in the toolbar
+            toolbar = plt.get_current_fig_manager().toolbar
+            if toolbar is not None and hasattr(toolbar, "zoom"):
+                toolbar.zoom()
 
     fig.canvas.mpl_connect('key_press_event', _hotkey)
 
@@ -491,6 +495,10 @@ def select_heights(image, initial_line_height=0):
                 ylim = (max(0, y0 - half), min(scan_size, y0 + half))
                 event.inaxes.set_xlim(*xlim)
                 event.inaxes.set_ylim(*ylim)
+                try:
+                    tb.zoom()
+                except Exception:
+                    pass
             zoom_press_xy = None
 
     fig.canvas.mpl_connect('button_press_event', _zoom_press)
