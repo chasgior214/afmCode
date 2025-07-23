@@ -43,75 +43,163 @@ def select_heights(image, initial_line_height=0):
 
     selected_points = []  # To store the two right-clicked points
     cumulative_adjusted_height = None  # To store the cumulative adjusted height retrace
-    selected_heights = []  # List to store the selected height values
-    selected_heights_info = []  # (height, x, y)
+
+    # Slots for the two selectable height values
+    selected_slots = [None, None]  # [(height, x, y), ...]
+
+    # Handles for vertical and horizontal indicator lines for selected heights
+    selected_vlines = [[], []]  # [[ax1_line, ax2_line, ax3_line?], ...]
+    selected_hlines = [None, None]  # [ax2_line, ...]
+    next_slot = 0  # Which slot to overwrite next
+    locked_slot = None  # Slot index that should not be overwritten
+
     time_since_start = None  # To store the time since the start of the scan
+
+    def _apply_line_colors():
+        """Update indicator line colors based on selection order."""
+        colors = ['purple', 'orange']
+        for idx, vls in enumerate(selected_vlines):
+            for ln in vls:
+                ln.set_color(colors[idx])
+        for idx, ln in enumerate(selected_hlines):
+            if ln is not None:
+                ln.set_color(colors[idx])
+
+    def _visible_x_slice():
+        """Return slice of indices within the visible x-range of the cross-section plot."""
+        xmin, xmax = sorted(ax2.get_xlim())
+        start = np.searchsorted(x, xmin, side="left")
+        end = np.searchsorted(x, xmax, side="right")
+        return slice(start, end)
+
+    def _y_to_index(y_val):
+        """Convert a y-axis value to a row index in height_map."""
+        bottom_idx = min(y_pixels, key=lambda yp: abs(yp * pixel_size - y_val))
+        return y_pixel_count - 1 - bottom_idx
+
+    def _visible_matrix_slices():
+        """Return slices for the currently visible region of the image axes."""
+        xlim = sorted(ax1.get_xlim())
+        ylim = sorted(ax1.get_ylim())
+        xs = slice(np.searchsorted(x, xlim[0], side="left"),
+                   np.searchsorted(x, xlim[1], side="right"))
+        y_start = _y_to_index(ylim[1])  # lower index
+        y_end = _y_to_index(ylim[0]) + 1  # upper index inclusive
+        if y_start > y_end:
+            y_start, y_end = y_end, y_start
+        ys = slice(y_start, y_end)
+        return ys, xs
+
+    def _update_cross_section(new_height):
+        """Change which row is used for the cross-section plots."""
+        nonlocal line_height, nearest_y_to_plot, cumulative_adjusted_height, time_since_start
+        line_height = float(new_height)
+        if line_height < 0 or line_height >= contrast_map.shape[0]:
+            return
+
+        nearest_y_to_plot = y_pixel_count - 1 - min(
+            y_pixels, key=lambda y_pixel: abs(y_pixel * pixel_size - line_height)
+        )
+
+        ratio = nearest_y_to_plot / y_pixel_count
+        if scan_direction == 1:  # Scanning down
+            time_since_start = ratio * imaging_duration
+        else:
+            time_since_start = (1 - ratio) * imaging_duration
+
+        cumulative_adjusted_height = height_map[nearest_y_to_plot, :].copy()
+        hline_contrast.set_ydata([line_height, line_height])
+        if hline_phase is not None:
+            hline_phase.set_ydata([line_height, line_height])
+
+        cross_line.set_ydata(cumulative_adjusted_height)
+        ax2.set_autoscaley_on(True)
+        ax2.relim()
+        ax2.autoscale_view(scalex=False)
+        ax2.set_title(f"{title_prefix} at y = {round(line_height, 3)} μm")
+        update_stats_display()
+        fig.canvas.draw_idle()
+
+    def _record_selection(x_val, h_val):
+        """Store a selected height and draw indicator lines."""
+        nonlocal next_slot, locked_slot
+        colors = ['purple', 'orange']
+
+        slot = next_slot if locked_slot is None else 1 - locked_slot
+
+        # Remove any existing lines in this slot
+        for ln in selected_vlines[slot]:
+            ln.remove()
+        selected_vlines[slot] = []
+        if selected_hlines[slot] is not None:
+            selected_hlines[slot].remove()
+            selected_hlines[slot] = None
+
+        # Draw new indicator lines
+        vls = [ax1.axvline(x_val, linestyle=':', color=colors[slot]),
+               ax2.axvline(x_val, linestyle=':', color=colors[slot])]
+        if phase_map is not None:
+            vls.append(ax3.axvline(x_val, linestyle=':', color=colors[slot]))
+        selected_vlines[slot] = vls
+        selected_hlines[slot] = ax2.axhline(h_val, linestyle=':', color=colors[slot])
+
+        selected_slots[slot] = (h_val, x_val, line_height)
+
+        if locked_slot is None:
+            next_slot = 1 - slot
+        else:
+            next_slot = 1 - locked_slot
+
+        _apply_line_colors()
 
     def update_stats_display():
         """Refresh the text panel summarizing selection info."""
         ax4.cla()
         ax4.axis('off')
-        lines = []
+
+        entries = []
         if time_since_start is not None:
-            lines.append(f"Line imaged {time_since_start:.2f} seconds after imaging began")
+            entries.append((f"Line imaged {time_since_start:.2f} seconds after imaging began", 'black'))
 
-        for idx, (h, xh, yh) in enumerate(selected_heights_info[-2:][::-1], 1):
-            lines.append(f"Selected {idx}: {h:.3f} nm at ({xh:.3f}, {yh:.3f}) μm")
+        # Display selected heights for both slots
+        for idx, info in enumerate(selected_slots, 1):
+            if info is not None:
+                h, xh, yh = info
+                color = 'purple' if idx == 1 else 'orange'
+                label = f"Selected {idx}: {h:.3f} nm at ({xh:.3f}, {yh:.3f}) μm"
+                if locked_slot == idx - 1:
+                    label += " (locked)"
+                entries.append((label, color))
 
-        if len(selected_heights_info) == 2:
-            diff = selected_heights_info[-1][0] - selected_heights_info[-2][0]
-            lines.append(f"Difference: {diff:.3f} nm")
+        if all(info is not None for info in selected_slots):
+            diff = selected_slots[1][0] - selected_slots[0][0]
+            entries.append((f"Difference: {diff:.3f} nm", 'black'))
 
         ydata = cumulative_adjusted_height if cumulative_adjusted_height is not None else height_map[nearest_y_to_plot, :]
         max_idx = np.argmax(ydata)
         min_idx = np.argmin(ydata)
-        lines.append(f"Max cross-section: {ydata[max_idx]:.3f} nm at x={x[max_idx]:.3f} μm")
-        lines.append(f"Min cross-section: {ydata[min_idx]:.3f} nm at x={x[min_idx]:.3f} μm")
+        entries.append((f"Max cross-section: {ydata[max_idx]:.3f} nm at x={x[max_idx]:.3f} μm", 'black'))
+        entries.append((f"Min cross-section: {ydata[min_idx]:.3f} nm at x={x[min_idx]:.3f} μm", 'black'))
 
-        ax4.text(0.05, 0.95, '\n'.join(lines), va='top')
+        ypos = 0.95
+        for text, color in entries:
+            ax4.text(0.05, ypos, text, va='top', color=color)
+            ypos -= 0.05
+
         fig.canvas.draw_idle()
 
     def update_plots(event):
         nonlocal line_height, nearest_y_to_plot, selected_points, cumulative_adjusted_height
-        nonlocal selected_heights, selected_heights_info, time_since_start
+        nonlocal time_since_start, next_slot
         nonlocal im, im_phase, hline_contrast, hline_phase, cross_line
+        nonlocal selected_vlines, selected_hlines, selected_slots
 
         # Check if the event is triggered during zooming or panning
         if plt.get_current_fig_manager().toolbar.mode != '':
             return  # Ignore events during zoom or pan
 
         if event.inaxes in (ax1, ax3) and event.button == 1:  # Left-click on either image
-            line_height = float(event.ydata)
-
-            if line_height < 0 or line_height >= contrast_map.shape[0]:
-                return  # Ignore clicks outside the valid range
-
-            nearest_y_to_plot = y_pixel_count - 1 - min(y_pixels, key=lambda y_pixel: abs(y_pixel * pixel_size - line_height))
-
-            # Calculate time between start of scan and when the selected line was imaged
-            ratio = nearest_y_to_plot / y_pixel_count
-            if scan_direction == 1: # Scanning down
-                time_since_start = ratio * imaging_duration
-            else: # Scanning up
-                time_since_start = (1 - ratio) * imaging_duration
-
-            # Reset cumulative_adjusted_height for the new y location
-            cumulative_adjusted_height = height_map[nearest_y_to_plot, :].copy()
-
-            # Update the horizontal indicator lines
-            hline_contrast.set_ydata([line_height, line_height])
-            if hline_phase is not None:
-                hline_phase.set_ydata([line_height, line_height])
-
-            # Update the lower plot without clearing the axis
-            cross_line.set_ydata(cumulative_adjusted_height)
-            ax2.relim()
-            ax2.autoscale_view()
-            ax2.set_title(f"{title_prefix} at y = {round(line_height, 3)} μm")
-            update_stats_display()
-
-            # Refresh the figure
-            fig.canvas.draw_idle()
+            _update_cross_section(event.ydata)
             return
 
         if event.inaxes == ax2 and event.button == 3:  # Right-click on the bottom plot
@@ -141,14 +229,18 @@ def select_heights(image, initial_line_height=0):
             return
 
         if event.inaxes == ax2 and event.button == 1:  # Left-click on the bottom plot
-            selected_heights.append(event.ydata)  # Store the height value
-            selected_heights_info.append((event.ydata, event.xdata, line_height))
-            if len(selected_heights) > 2:
-                selected_heights.pop(0)  # Keep only the two most recent heights
-            if len(selected_heights_info) > 2:
-                selected_heights_info.pop(0)
-            print(f"Height value at x = {event.xdata:.3f} μm: {event.ydata:.3f} nm")
+            if event.key == 'control':
+                height_val = event.ydata
+            else:
+                ydata = cumulative_adjusted_height if cumulative_adjusted_height is not None else height_map[nearest_y_to_plot, :]
+                idx = np.argmin(np.abs(x - event.xdata))
+                height_val = ydata[idx]
+
+            _record_selection(event.xdata, height_val)
+
+            print(f"Height value at x = {event.xdata:.3f} μm: {height_val:.3f} nm")
             update_stats_display()
+            fig.canvas.draw_idle()
             return
 
     # Create the figure and axes in a 2x2 grid
@@ -213,6 +305,25 @@ def select_heights(image, initial_line_height=0):
         slider_phase_vmin = Slider(ax_phase_vmin, 'phase vmin', np.min(phase_map), np.max(phase_map), valinit=np.min(phase_map))
         slider_phase_vmax = Slider(ax_phase_vmax, 'phase vmax', np.min(phase_map), np.max(phase_map), valinit=np.max(phase_map))
 
+    syncing_zoom = False
+
+    def _sync_zoom(ax):
+        nonlocal syncing_zoom
+        if syncing_zoom:
+            return
+        syncing_zoom = True
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
+        if ax is ax1 and phase_map is not None:
+            ax3.set_xlim(xlim)
+            ax3.set_ylim(ylim)
+        elif ax is ax3:
+            ax1.set_xlim(xlim)
+            ax1.set_ylim(ylim)
+        ax2.set_xlim(xlim)
+        fig.canvas.draw_idle()
+        syncing_zoom = False
+
     # Update function for the sliders
     def update_slider(val):
         im.set_clim(vmin=slider_vmin.val / 1e9, vmax=slider_vmax.val / 1e9)
@@ -227,47 +338,163 @@ def select_heights(image, initial_line_height=0):
         slider_phase_vmin.on_changed(update_slider)
         slider_phase_vmax.on_changed(update_slider)
 
+    ax1.callbacks.connect('xlim_changed', lambda evt: _sync_zoom(ax1))
+    ax1.callbacks.connect('ylim_changed', lambda evt: _sync_zoom(ax1))
+    if phase_map is not None:
+        ax3.callbacks.connect('xlim_changed', lambda evt: _sync_zoom(ax3))
+        ax3.callbacks.connect('ylim_changed', lambda evt: _sync_zoom(ax3))
+
     # Ensure sliders remain functional after height selection
     fig.canvas.mpl_connect('button_press_event', update_plots)
 
     from matplotlib.widgets import Button
     ax_button = plt.axes([0.82, 0.05, 0.15, 0.05])
-    btn_set_max = Button(ax_button, 'Set Max Height')
+    btn_set_max = Button(ax_button, 'Max Cross-Section Height (1)')
 
     # Add Set Min Height button
     ax_button_min = plt.axes([0.65, 0.05, 0.15, 0.05])
-    btn_set_min = Button(ax_button_min, 'Set Min Height')
+    btn_set_min = Button(ax_button_min, 'Min Cross-Section Height (2)')
 
-    def set_max_height(event):
+    # Add buttons for global max/min
+    ax_button_gmax = plt.axes([0.48, 0.05, 0.15, 0.05])
+    btn_global_max = Button(ax_button_gmax, 'Max Global Height (3)')
+
+    ax_button_gmin = plt.axes([0.31, 0.05, 0.15, 0.05])
+    btn_global_min = Button(ax_button_gmin, 'Min Global Height (4)')
+
+    # Lock selection button
+    ax_button_lock = plt.axes([0.14, 0.05, 0.15, 0.05])
+    btn_lock = Button(ax_button_lock, 'Lock Selection (w)')
+
+    def set_max_height(event=None):
+        """Select the maximum value within the visible part of the cross-section."""
         ydata = cumulative_adjusted_height if cumulative_adjusted_height is not None else height_map[nearest_y_to_plot, :]
-        max_idx = np.argmax(ydata)
-        max_x = x[max_idx]
-        max_y = ydata[max_idx]
-        selected_heights.append(max_y)
-        selected_heights_info.append((max_y, max_x, line_height))
-        if len(selected_heights) > 2:
-            selected_heights.pop(0)
-        if len(selected_heights_info) > 2:
-            selected_heights_info.pop(0)
+        sl = _visible_x_slice()
+        if sl.stop - sl.start > 0:
+            sub_y = ydata[sl]
+            local_idx = sl.start + int(np.argmax(sub_y))
+        else:
+            local_idx = int(np.argmax(ydata))
+        max_x = x[local_idx]
+        max_y = ydata[local_idx]
+        _record_selection(max_x, max_y)
         print(f"Max height at x = {max_x:.3f} μm: {max_y:.3f} nm (Set by button)")
         update_stats_display()
 
-    def set_min_height(event):
+    def set_min_height(event=None):
+        """Select the minimum value within the visible part of the cross-section."""
         ydata = cumulative_adjusted_height if cumulative_adjusted_height is not None else height_map[nearest_y_to_plot, :]
-        min_idx = np.argmin(ydata)
-        min_x = x[min_idx]
-        min_y = ydata[min_idx]
-        selected_heights.append(min_y)
-        selected_heights_info.append((min_y, min_x, line_height))
-        if len(selected_heights) > 2:
-            selected_heights.pop(0)
-        if len(selected_heights_info) > 2:
-            selected_heights_info.pop(0)
+        sl = _visible_x_slice()
+        if sl.stop - sl.start > 0:
+            sub_y = ydata[sl]
+            local_idx = sl.start + int(np.argmin(sub_y))
+        else:
+            local_idx = int(np.argmin(ydata))
+        min_x = x[local_idx]
+        min_y = ydata[local_idx]
+        _record_selection(min_x, min_y)
         print(f"Min height at x = {min_x:.3f} μm: {min_y:.3f} nm (Set by button)")
+        update_stats_display()
+
+    def set_global_max(event=None):
+        """Select the maximum height within the visible image region."""
+        ys, xs = _visible_matrix_slices()
+        sub = height_map[ys, xs]
+        iy_local, ix_local = np.unravel_index(np.argmax(sub), sub.shape)
+        iy = ys.start + iy_local
+        ix = xs.start + ix_local
+        x_val = x[ix]
+        height_val = height_map[iy, ix]
+        y_val = (y_pixel_count - 1 - iy) * pixel_size
+        _update_cross_section(y_val)
+        _record_selection(x_val, height_val)
+        print(f"Global max height {height_val:.3f} nm at ({x_val:.3f}, {y_val:.3f}) μm")
+        update_stats_display()
+
+    def set_global_min(event=None):
+        """Select the minimum height within the visible image region."""
+        ys, xs = _visible_matrix_slices()
+        sub = height_map[ys, xs]
+        iy_local, ix_local = np.unravel_index(np.argmin(sub), sub.shape)
+        iy = ys.start + iy_local
+        ix = xs.start + ix_local
+        x_val = x[ix]
+        height_val = height_map[iy, ix]
+        y_val = (y_pixel_count - 1 - iy) * pixel_size
+        _update_cross_section(y_val)
+        _record_selection(x_val, height_val)
+        print(f"Global min height {height_val:.3f} nm at ({x_val:.3f}, {y_val:.3f}) μm")
+        update_stats_display()
+
+    def toggle_lock(event=None):
+        """Lock or unlock the most recently selected slot."""
+        nonlocal locked_slot, next_slot
+        if locked_slot is None:
+            target = 1 - next_slot
+            if selected_slots[target] is not None:
+                locked_slot = target
+                next_slot = 1 - locked_slot
+                print(f"Locked selection {locked_slot + 1}")
+        else:
+            print("Unlocked selection")
+            locked_slot = None
         update_stats_display()
 
     btn_set_max.on_clicked(set_max_height)
     btn_set_min.on_clicked(set_min_height)
+    btn_global_max.on_clicked(set_global_max)
+    btn_global_min.on_clicked(set_global_min)
+    btn_lock.on_clicked(toggle_lock)
+
+    def _hotkey(event):
+        if event.key == '1':
+            set_max_height()
+        elif event.key == '2':
+            set_min_height()
+        elif event.key == '3':
+            set_global_max()
+        elif event.key == '4':
+            set_global_min()
+        elif event.key == 'w':
+            toggle_lock()
+
+    fig.canvas.mpl_connect('key_press_event', _hotkey)
+
+    # --- Zoom click handling ---
+    zoom_press_xy = None
+
+    def _zoom_press(event):
+        nonlocal zoom_press_xy
+        tb = plt.get_current_fig_manager().toolbar
+        if tb is not None and tb.mode == 'zoom rect' and event.button == 1 and event.inaxes in (ax1, ax3):
+            zoom_press_xy = (event.x, event.y)
+        else:
+            zoom_press_xy = None
+
+    def _zoom_release(event):
+        nonlocal zoom_press_xy
+        tb = plt.get_current_fig_manager().toolbar
+        if (
+            tb is not None
+            and tb.mode == 'zoom rect'
+            and zoom_press_xy is not None
+            and event.button == 1
+            and event.inaxes in (ax1, ax3)
+        ):
+            dx = event.x - zoom_press_xy[0]
+            dy = event.y - zoom_press_xy[1]
+            if abs(dx) < 5 and abs(dy) < 5 and event.xdata is not None and event.ydata is not None:
+                x0 = event.xdata
+                y0 = event.ydata
+                half = 3
+                xlim = (max(0, x0 - half), min(scan_size, x0 + half))
+                ylim = (max(0, y0 - half), min(scan_size, y0 + half))
+                event.inaxes.set_xlim(*xlim)
+                event.inaxes.set_ylim(*ylim)
+            zoom_press_xy = None
+
+    fig.canvas.mpl_connect('button_press_event', _zoom_press)
+    fig.canvas.mpl_connect('button_release_event', _zoom_release)
 
     # Override toolbar home to always rescale the cross-section
     toolbar = plt.get_current_fig_manager().toolbar
@@ -276,8 +503,10 @@ def select_heights(image, initial_line_height=0):
 
         def _home(*args, **kwargs):
             orig_home(*args, **kwargs)
+            ax2.set_autoscaley_on(True)
             ax2.relim()
             ax2.autoscale_view()
+            ax2.set_xlim(ax1.get_xlim())
             fig.canvas.draw_idle()
 
         toolbar.home = _home
@@ -286,10 +515,11 @@ def select_heights(image, initial_line_height=0):
 
     plt.show()
 
-    if len(selected_heights) == 1:
-        return selected_heights[0], time_since_start  # Return the single selected height and time since start
-    elif len(selected_heights) == 2:
-        return selected_heights[0], selected_heights[1], time_since_start  # Return the two most recent selected heights and time since start
+    final_heights = [info[0] for info in selected_slots if info is not None]
+    if len(final_heights) == 1:
+        return final_heights[0], time_since_start  # Return the single selected height and time since start
+    elif len(final_heights) == 2:
+        return final_heights[0], final_heights[1], time_since_start  # Return both selected heights and time since start
 
 def export_heightmap_3d_surface(image):
     scan_size = image.get_scan_size()

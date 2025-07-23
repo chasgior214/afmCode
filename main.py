@@ -11,9 +11,6 @@ print("=================================================")
 print(f"Number of images in the array: {num_images}")
 print("=================================================")
 
-# TODO: keyboard shortcut for selecting max/min
-
-
 times = []
 deflections = []
 for i in range(num_images):
