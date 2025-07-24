@@ -22,19 +22,13 @@ class AFMImageCollection:
         images.sort(key=lambda image: image.get_datetime())
         return images
 
-    def get_image(self, index):
-        if 0 <= index < len(self.images):
-            return self.images[index]
-        else:
-            print(f"No image at index {index}")
-            return None
-
-    def get_number_of_images(self):
-        return len(self.images)
+    def __len__(self): return len(self.images)
+    def __getitem__(self, index): return self.images[index]
+    def __iter__(self): yield from self.images
 
     def print_conversion_rates(self):
-        for i, image in enumerate(self.images):
-            print(f"Image {i} has the conversion rate of {image.get_conversion_rate()} microns per pixel")
+        for image in self.images:
+            print(f"Image {image.bname} has the conversion rate of {image.get_conversion_rate()} microns per pixel")
 
     def review_maximum_Zpoints(self):
         rejected_images = []
@@ -87,7 +81,7 @@ class AFMImageCollection:
             max_Zvalue, max_Zposition = image.get_maximum_Zpoint()
             max_Hvalue, max_Hposition = image.get_maximum_Hpoint()
 
-            if max_Zvalue and max_Hvalue is not None:
+            if max_Zvalue is not None and max_Hvalue is not None:
                 phase_image = image.get_phase_retrace()
                 file_name = image.get_filename() 
                 binary_phase_image = np.where(phase_image >90,1,0) # all values greater than 90 are set to 1 
@@ -124,18 +118,6 @@ class AFMImageCollection:
         else:
             print("No images were rejected.")
 
-    def export_datetime(self):
-        data = {
-            'File_Name' : [],
-            'Date_Time' : [] 
-        }
-        for image in self.images:
-            data['File_Name'].append(image.get_filename())
-            data['Date_Time'].append(image.get_datetime())
-        df = pd.DataFrame(data)
-        df.to_excel('Data_DateTime.xlsx', index=False)
-        print("Data exported to Data_DateTime.xlsx")
-
     def export_shift(self, length):
         data = {
             'File_Name' : [],
@@ -157,7 +139,7 @@ class AFMImageCollection:
             'Max_deflection_h': [],
             'Max_deflection_z': []
         }
-        t_0 = self.get_image(0).get_datetime()
+        t_0 = self[0].get_datetime()
         for image in self.images:
             data['File_Name'].append(image.get_filename())
             data['Max_deflection_h'].append(image.get_trimmed_trace_h(length)[2])
