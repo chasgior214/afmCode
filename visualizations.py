@@ -294,9 +294,6 @@ def select_heights(image, initial_line_height=0):
         hline_phase = None
         ax3.axis('off')
 
-    # Calculate the initial aspect ratio of ax1
-    height, width = contrast_map.shape
-    aspect_ratio = height / width
 
     cross_line, = ax2.plot(x, height_map[nearest_y_to_plot, :])
     ax2.set_xlim(0, scan_size)  # Ensure x-axis matches upper plot
@@ -304,11 +301,15 @@ def select_heights(image, initial_line_height=0):
     ax2.set_xlabel("x (μm)")
     ax2.set_ylabel("Height (nm)")
 
-    # Set the same fixed aspect ratio for image axes
-    ax1.set_box_aspect(aspect_ratio)
-    ax2.set_box_aspect(aspect_ratio)
+    # Ensure 1 μm in x corresponds to 1 μm in y regardless of zoom
+    ax1.set_aspect('equal', adjustable='box')
     if phase_map is not None:
-        ax3.set_box_aspect(aspect_ratio)
+        ax3.set_aspect('equal', adjustable='box')
+
+    # Match the cross-section width with the image plots
+    height, width = contrast_map.shape
+    aspect_ratio = height / width
+    ax2.set_box_aspect(aspect_ratio)
 
     ax4.axis('off')
     update_stats_display()
@@ -547,8 +548,8 @@ def select_heights(image, initial_line_height=0):
                 x0 = event.xdata
                 y0 = event.ydata
                 half = 3
-                xlim = (max(0, x0 - half), min(scan_size, x0 + half))
-                ylim = (max(0, y0 - half), min(scan_size, y0 + half))
+                xlim = (x0 - half, x0 + half)
+                ylim = (y0 - half, y0 + half)
                 event.inaxes.set_xlim(*xlim)
                 event.inaxes.set_ylim(*ylim)
                 try:
