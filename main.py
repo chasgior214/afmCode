@@ -14,7 +14,7 @@ print("=================================================")
 times = []
 deflections = []
 depressurized = collection[0].get_datetime()
-depressurized = depressurized.replace(hour=15, minute=46, second=1) # comment out to set t = 0 to first image time
+depressurized = depressurized.replace(hour=13, minute=50, second=20) # comment out to set t = 0 to first image time
 if collection[0].get_datetime() < depressurized: # depressurization and first image time likely cross midnight
     depressurized = depressurized - timedelta(days=1)
 

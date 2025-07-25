@@ -53,6 +53,8 @@ def select_heights(image, initial_line_height=0):
     next_slot = 0  # Which slot to overwrite next
     locked_slot = None  # Slot index that should not be overwritten
 
+    last_input = None  # Track the last user action for double-press logic
+
     time_since_start = None  # To store the time since the start of the scan
 
     def _apply_line_colors():
@@ -190,17 +192,23 @@ def select_heights(image, initial_line_height=0):
 
         fig.canvas.draw_idle()
 
-    def update_plots(event):
+    dragging = False  # True when left mouse is held on an image
+
+    def _on_press(event):
         nonlocal line_height, nearest_y_to_plot, selected_points, cumulative_adjusted_height
         nonlocal time_since_start, next_slot
         nonlocal im, im_phase, hline_contrast, hline_phase, cross_line
         nonlocal selected_vlines, selected_hlines, selected_slots
+        nonlocal last_input, dragging
+
+        last_input = 'mouse'
 
         # Check if the event is triggered during zooming or panning
         if plt.get_current_fig_manager().toolbar.mode != '':
             return  # Ignore events during zoom or pan
 
         if event.inaxes in (ax1, ax3) and event.button == 1:  # Left-click on either image
+            dragging = True
             _update_cross_section(event.ydata)
             return
 
@@ -244,6 +252,16 @@ def select_heights(image, initial_line_height=0):
             update_stats_display()
             fig.canvas.draw_idle()
             return
+
+    def _on_move(event):
+        nonlocal dragging
+        if dragging and event.inaxes in (ax1, ax3) and event.ydata is not None:
+            _update_cross_section(event.ydata)
+
+    def _on_release(event):
+        nonlocal dragging
+        if event.button == 1:
+            dragging = False
 
     # Create the figure and axes in a 2x2 grid
     fig, ((ax1, ax3), (ax2, ax4)) = plt.subplots(2, 2, figsize=(12, 10))
@@ -347,23 +365,34 @@ def select_heights(image, initial_line_height=0):
         ax3.callbacks.connect('ylim_changed', lambda evt: _sync_zoom(ax3))
 
     # Ensure sliders remain functional after height selection
-    fig.canvas.mpl_connect('button_press_event', update_plots)
+    fig.canvas.mpl_connect('button_press_event', _on_press)
+    fig.canvas.mpl_connect('motion_notify_event', _on_move)
+    fig.canvas.mpl_connect('button_release_event', _on_release)
 
     from matplotlib.widgets import Button
-    ax_button_lock = plt.axes([0.14, 0.05, 0.15, 0.05])
-    btn_lock = Button(ax_button_lock, 'Lock Selection (w)')
+    # Make buttons smaller and fit on the same line
+    btn_width = 0.12
+    btn_height = 0.045
+    btn_y = 0.05
+    btn_spacing = 0.01
 
-    ax_button = plt.axes([0.31, 0.05, 0.15, 0.05])
-    btn_set_max = Button(ax_button, 'Max Cross-Section Height (1)')
+    ax_button_lock = plt.axes([0.08, btn_y, btn_width, btn_height])
+    btn_lock = Button(ax_button_lock, 'Lock Point (w)')
 
-    ax_button_min = plt.axes([0.48, 0.05, 0.15, 0.05])
-    btn_set_min = Button(ax_button_min, 'Min Cross-Section Height (2)')
+    ax_button = plt.axes([0.08 + (btn_width + btn_spacing) * 1, btn_y, btn_width, btn_height])
+    btn_set_max = Button(ax_button, 'Max Cross-Section (1)')
 
-    ax_button_gmax = plt.axes([0.65, 0.05, 0.15, 0.05])
-    btn_global_max = Button(ax_button_gmax, 'Max Global Height (3)')
+    ax_button_min = plt.axes([0.08 + (btn_width + btn_spacing) * 2, btn_y, btn_width, btn_height])
+    btn_set_min = Button(ax_button_min, 'Min Cross-Section (2)')
 
-    ax_button_gmin = plt.axes([0.82, 0.05, 0.15, 0.05])
-    btn_global_min = Button(ax_button_gmin, 'Min Global Height (4)')
+    ax_button_gmax = plt.axes([0.08 + (btn_width + btn_spacing) * 3, btn_y, btn_width, btn_height])
+    btn_global_max = Button(ax_button_gmax, 'Max Global (3)')
+
+    ax_button_gmin = plt.axes([0.08 + (btn_width + btn_spacing) * 4, btn_y, btn_width, btn_height])
+    btn_global_min = Button(ax_button_gmin, 'Min Global (4)')
+
+    ax_button_mode = plt.axes([0.08 + (btn_width + btn_spacing) * 5, btn_y, btn_width, btn_height])
+    btn_mode_height = Button(ax_button_mode, 'Mode, 0.5nm Bins (5)')
 
     def set_max_height(event=None):
         """Select the maximum value within the visible part of the cross-section."""
@@ -425,10 +454,32 @@ def select_heights(image, initial_line_height=0):
         print(f"Global min height {height_val:.3f} nm at ({x_val:.3f}, {y_val:.3f}) μm")
         update_stats_display()
 
+    def set_mode_height(event=None):
+        """Select the mode height from the current cross-section using 0.5 nm bins."""
+        ydata = cumulative_adjusted_height if cumulative_adjusted_height is not None else height_map[nearest_y_to_plot, :]
+        if ydata.size == 0:
+            return
+        bins = np.arange(np.min(ydata), np.max(ydata) + 0.5, 0.5)
+        if bins.size < 2:
+            return
+        hist, edges = np.histogram(ydata, bins=bins)
+        mode_idx = int(np.argmax(hist))
+        mode_val = (edges[mode_idx] + edges[mode_idx + 1]) / 2
+        idx = int(np.argmin(np.abs(ydata - mode_val)))
+        _record_selection(x[idx], ydata[idx])
+        print(
+            f"Mode height ~{mode_val:.3f} nm at x = {x[idx]:.3f} μm (Set by button)"
+        )
+        update_stats_display()
+
     def toggle_lock(event=None):
-        """Lock or unlock the most recently selected slot."""
-        nonlocal locked_slot, next_slot
-        if locked_slot is None:
+        """Lock or unlock selections. Double 'w' locks the opposite slot."""
+        nonlocal locked_slot, next_slot, last_input
+        if locked_slot is not None and last_input == 'w':
+            locked_slot = 1 - locked_slot
+            next_slot = 1 - locked_slot
+            print(f"Locked selection {locked_slot + 1}")
+        elif locked_slot is None:
             target = 1 - next_slot
             if selected_slots[target] is not None:
                 locked_slot = target
@@ -437,15 +488,18 @@ def select_heights(image, initial_line_height=0):
         else:
             print("Unlocked selection")
             locked_slot = None
+        last_input = 'w'
         update_stats_display()
 
     btn_set_max.on_clicked(set_max_height)
     btn_set_min.on_clicked(set_min_height)
     btn_global_max.on_clicked(set_global_max)
     btn_global_min.on_clicked(set_global_min)
+    btn_mode_height.on_clicked(set_mode_height)
     btn_lock.on_clicked(toggle_lock)
 
     def _hotkey(event):
+        nonlocal last_input
         if event.key == '1':
             set_max_height()
         elif event.key == '2':
@@ -454,13 +508,15 @@ def select_heights(image, initial_line_height=0):
             set_global_max()
         elif event.key == '4':
             set_global_min()
+        elif event.key == '5':
+            set_mode_height()
         elif event.key == 'w':
             toggle_lock()
         elif event.key == 'z':
-            # Activate zoom mode in the toolbar
             toolbar = plt.get_current_fig_manager().toolbar
             if toolbar is not None and hasattr(toolbar, "zoom"):
                 toolbar.zoom()
+        last_input = event.key
 
     fig.canvas.mpl_connect('key_press_event', _hotkey)
 
