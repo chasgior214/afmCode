@@ -14,7 +14,7 @@ print("=================================================")
 times = []
 deflections = []
 depressurized = collection[0].get_datetime()
-depressurized = depressurized.replace(hour=13, minute=50, second=20) # comment out to set t = 0 to first image time
+depressurized = depressurized.replace(hour=17, minute=31, second=20) # comment out to set t = 0 to first image time
 if collection[0].get_datetime() < depressurized: # depressurization and first image time likely cross midnight
     depressurized = depressurized - timedelta(days=1)
 
@@ -24,11 +24,11 @@ for image in collection:
     # vis.export_heightmap_3d_surface(image)
 
     taken = image.get_datetime()
-    print(f"Image saved {taken - depressurized} minutes after depressurization")
+    print(f"Image {image.bname} saved {taken - depressurized} minutes after depressurization")
     try:
-        h1, h2, seconds_since_start = vis.select_heights(image)
+        h1, h2, line_time_offset = vis.select_heights(image)
         deflections.append(h2 - h1)
-        time_unpressurized = (taken - depressurized).total_seconds() - seconds_since_start
+        time_unpressurized = (taken - depressurized).total_seconds() + line_time_offset
         times.append(time_unpressurized/60)
         print(deflections[-1])
         print(times[-1])

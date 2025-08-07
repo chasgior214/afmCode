@@ -93,8 +93,17 @@ class AFMImage:
     def get_scan_size(self):
         return float(self._extract_parameter('ScanSize'))*1e6 # Units are um 
 
-    def get_drive_amplitude(self):
+    def get_initial_drive_amplitude(self):
+        """Get the initial drive amplitude from the note (if drive amplitude not changed during imaging, this will be the drive amplitude for the entire image). Converts units to mV."""
         return float(self._extract_parameter('DriveAmplitude'))*1e3 # Units are in mV
+
+    def get_x_offset(self):
+        """Get the X offset from the note. Converts units to um."""
+        return float(self._extract_parameter('XOffset'))*1e6
+
+    def get_y_offset(self):
+        """Get the Y offset from the note. Converts units to um."""
+        return float(self._extract_parameter('YOffset'))*1e6
 
     def get_setpoint(self):
         # Since Setpoint might have different keys, adjust as needed

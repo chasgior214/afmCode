@@ -163,6 +163,11 @@ def select_heights(image, initial_line_height=0):
         if time_since_start is not None:
             entries.append((f"Line imaged {time_since_start:.2f} seconds after imaging began", 'black'))
 
+        entries.append((f"Scan Rate: {scan_rate:.2f} Hz", 'black'))
+        entries.append((f"Drive Amplitude: {image.get_initial_drive_amplitude():.2f} mV", 'black'))
+        entries.append((f"X-offset: {image.get_x_offset():.2f} μm", 'black'))
+        entries.append((f"Y-offset: {image.get_y_offset():.2f} μm", 'black'))
+
         # Display selected heights for both slots
         for idx, info in enumerate(selected_slots, 1):
             if info is not None:
@@ -582,9 +587,9 @@ def select_heights(image, initial_line_height=0):
 
     final_heights = [info[0] for info in selected_slots if info is not None]
     if len(final_heights) == 1:
-        return final_heights[0], time_since_start  # Return the single selected height and time since start
+        return final_heights[0], time_since_start - imaging_duration  # Return the single selected height and time before end that line was imaged
     elif len(final_heights) == 2:
-        return final_heights[0], final_heights[1], time_since_start  # Return both selected heights and time since start
+        return final_heights[0], final_heights[1], time_since_start - imaging_duration  # Return both selected heights and time before end that line was imaged
 
 def export_heightmap_3d_surface(image):
     scan_size = image.get_scan_size()
