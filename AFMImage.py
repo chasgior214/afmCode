@@ -62,7 +62,7 @@ class AFMImage:
             return None
 
     def get_ZSensorRetrace(self):
-        """Get retrace for the Z sensor, pulling from index 3 for tapping mode images and index 2 for contact mode images. Converts units to nm."""
+        """Get retrace for the Z sensor, pulling from index 3 for tapping mode images and index 2 for contact mode images (their default indexes). Converts units to nm."""
         if self.get_imaging_mode() == 'AC Mode':
             return self.get_retrace_data(3, unit_conversion=1e9) # Units are in nm
         elif self.get_imaging_mode() == 'Contact':

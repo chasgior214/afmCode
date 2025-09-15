@@ -122,12 +122,19 @@ def select_heights(image, initial_line_height=0):
         update_stats_display()
         fig.canvas.draw_idle()
 
-    def _record_selection(x_val, h_val):
+    def _record_selection(x_val, h_val, slot_override=None, *, advance=True):
         """Store a selected height and draw indicator lines."""
         nonlocal next_slot, locked_slot
         colors = ['purple', 'orange']
 
-        slot = next_slot if locked_slot is None else 1 - locked_slot
+        if slot_override is None:
+            slot = next_slot if locked_slot is None else 1 - locked_slot
+        else:
+            slot = slot_override
+            if slot not in (0, 1):
+                raise ValueError("slot_override must be 0 or 1")
+            if locked_slot is not None and slot == locked_slot:
+                return False
 
         # Remove any existing lines in this slot
         for ln in selected_vlines[slot]:
@@ -147,12 +154,14 @@ def select_heights(image, initial_line_height=0):
 
         selected_slots[slot] = (h_val, x_val, line_height)
 
-        if locked_slot is None:
-            next_slot = 1 - slot
-        else:
-            next_slot = 1 - locked_slot
+        if advance:
+            if locked_slot is None:
+                next_slot = 1 - slot
+            else:
+                next_slot = 1 - locked_slot
 
         _apply_line_colors()
+        return True
 
     def update_stats_display():
         """Refresh the text panel summarizing selection info."""
@@ -251,11 +260,10 @@ def select_heights(image, initial_line_height=0):
                 idx = np.argmin(np.abs(x - event.xdata))
                 height_val = ydata[idx]
 
-            _record_selection(event.xdata, height_val)
-
-            print(f"Height value at x = {event.xdata:.3f} μm: {height_val:.3f} nm")
-            update_stats_display()
-            fig.canvas.draw_idle()
+            if _record_selection(event.xdata, height_val):
+                print(f"Height value at x = {event.xdata:.3f} μm: {height_val:.3f} nm")
+                update_stats_display()
+                fig.canvas.draw_idle()
             return
 
     def _on_move(event):
@@ -331,10 +339,34 @@ def select_heights(image, initial_line_height=0):
         slider_phase_vmin = Slider(ax_phase_vmin, 'phase vmin', np.min(phase_map), np.max(phase_map), valinit=np.min(phase_map))
         slider_phase_vmax = Slider(ax_phase_vmax, 'phase vmax', np.min(phase_map), np.max(phase_map), valinit=np.max(phase_map))
 
+    def _update_visible_ranges():
+        """Reset slider ranges to the data limits of the visible region."""
+        ys, xs = _visible_matrix_slices()
+        sub_contrast = contrast_map[ys, xs]
+        cmin = float(np.min(sub_contrast))
+        cmax = float(np.max(sub_contrast))
+        for sl in (slider_vmin, slider_vmax):
+            sl.valmin = cmin * 1e9
+            sl.valmax = cmax * 1e9
+            sl.ax.set_xlim(sl.valmin, sl.valmax)
+        slider_vmin.set_val(slider_vmin.valmin)
+        slider_vmax.set_val(slider_vmax.valmax)
+        if phase_map is not None:
+            sub_phase = phase_map[ys, xs]
+            pmin = float(np.min(sub_phase))
+            pmax = float(np.max(sub_phase))
+            for sl in (slider_phase_vmin, slider_phase_vmax):
+                sl.valmin = pmin
+                sl.valmax = pmax
+                sl.ax.set_xlim(sl.valmin, sl.valmax)
+            slider_phase_vmin.set_val(pmin)
+            slider_phase_vmax.set_val(pmax)
+
     syncing_zoom = False
+    pending_zoom_autoset = False
 
     def _sync_zoom(ax):
-        nonlocal syncing_zoom
+        nonlocal syncing_zoom, pending_zoom_autoset
         if syncing_zoom:
             return
         syncing_zoom = True
@@ -347,6 +379,10 @@ def select_heights(image, initial_line_height=0):
             ax1.set_xlim(xlim)
             ax1.set_ylim(ylim)
         ax2.set_xlim(xlim)
+        _update_visible_ranges()
+        if pending_zoom_autoset:
+            pending_zoom_autoset = False
+            _auto_select_zoom_points()
         fig.canvas.draw_idle()
         syncing_zoom = False
 
@@ -363,6 +399,8 @@ def select_heights(image, initial_line_height=0):
     if phase_map is not None:
         slider_phase_vmin.on_changed(update_slider)
         slider_phase_vmax.on_changed(update_slider)
+
+    _update_visible_ranges()
 
     ax1.callbacks.connect('xlim_changed', lambda evt: _sync_zoom(ax1))
     ax1.callbacks.connect('ylim_changed', lambda evt: _sync_zoom(ax1))
@@ -411,9 +449,9 @@ def select_heights(image, initial_line_height=0):
             local_idx = int(np.argmax(ydata))
         max_x = x[local_idx]
         max_y = ydata[local_idx]
-        _record_selection(max_x, max_y)
-        print(f"Max height at x = {max_x:.3f} μm: {max_y:.3f} nm (Set by button)")
-        update_stats_display()
+        if _record_selection(max_x, max_y):
+            print(f"Max height at x = {max_x:.3f} μm: {max_y:.3f} nm (Set by button)")
+            update_stats_display()
 
     def set_min_height(event=None):
         """Select the minimum value within the visible part of the cross-section."""
@@ -426,14 +464,16 @@ def select_heights(image, initial_line_height=0):
             local_idx = int(np.argmin(ydata))
         min_x = x[local_idx]
         min_y = ydata[local_idx]
-        _record_selection(min_x, min_y)
-        print(f"Min height at x = {min_x:.3f} μm: {min_y:.3f} nm (Set by button)")
-        update_stats_display()
+        if _record_selection(min_x, min_y):
+            print(f"Min height at x = {min_x:.3f} μm: {min_y:.3f} nm (Set by button)")
+            update_stats_display()
 
-    def set_global_max(event=None):
+    def set_global_max(event=None, *, slot=None, advance=True, silent=False):
         """Select the maximum height within the visible image region."""
         ys, xs = _visible_matrix_slices()
         sub = height_map[ys, xs]
+        if sub.size == 0:
+            return False
         iy_local, ix_local = np.unravel_index(np.argmax(sub), sub.shape)
         iy = ys.start + iy_local
         ix = xs.start + ix_local
@@ -441,14 +481,24 @@ def select_heights(image, initial_line_height=0):
         height_val = height_map[iy, ix]
         y_val = (y_pixel_count - 1 - iy) * pixel_size
         _update_cross_section(y_val)
-        _record_selection(x_val, height_val)
-        print(f"Global max height {height_val:.3f} nm at ({x_val:.3f}, {y_val:.3f}) μm")
-        update_stats_display()
+        success = _record_selection(
+            x_val,
+            height_val,
+            slot_override=slot,
+            advance=advance,
+        )
+        if success:
+            if not silent:
+                print(f"Global max height {height_val:.3f} nm at ({x_val:.3f}, {y_val:.3f}) μm")
+            update_stats_display()
+        return success
 
-    def set_global_min(event=None):
+    def set_global_min(event=None, *, slot=None, advance=True, silent=False):
         """Select the minimum height within the visible image region."""
         ys, xs = _visible_matrix_slices()
         sub = height_map[ys, xs]
+        if sub.size == 0:
+            return False
         iy_local, ix_local = np.unravel_index(np.argmin(sub), sub.shape)
         iy = ys.start + iy_local
         ix = xs.start + ix_local
@@ -456,27 +506,54 @@ def select_heights(image, initial_line_height=0):
         height_val = height_map[iy, ix]
         y_val = (y_pixel_count - 1 - iy) * pixel_size
         _update_cross_section(y_val)
-        _record_selection(x_val, height_val)
-        print(f"Global min height {height_val:.3f} nm at ({x_val:.3f}, {y_val:.3f}) μm")
-        update_stats_display()
+        success = _record_selection(
+            x_val,
+            height_val,
+            slot_override=slot,
+            advance=advance,
+        )
+        if success:
+            if not silent:
+                print(f"Global min height {height_val:.3f} nm at ({x_val:.3f}, {y_val:.3f}) μm")
+            update_stats_display()
+        return success
 
-    def set_mode_height(event=None):
+    def set_mode_height(event=None, *, slot=None, advance=True, silent=False):
         """Select the mode height from the current cross-section using 0.5 nm bins."""
         ydata = cumulative_adjusted_height if cumulative_adjusted_height is not None else height_map[nearest_y_to_plot, :]
         if ydata.size == 0:
-            return
+            return False
         bins = np.arange(np.min(ydata), np.max(ydata) + 0.5, 0.5)
         if bins.size < 2:
-            return
+            return False
         hist, edges = np.histogram(ydata, bins=bins)
         mode_idx = int(np.argmax(hist))
         mode_val = (edges[mode_idx] + edges[mode_idx + 1]) / 2
         idx = int(np.argmin(np.abs(ydata - mode_val)))
-        _record_selection(x[idx], ydata[idx])
-        print(
-            f"Mode height ~{mode_val:.3f} nm at x = {x[idx]:.3f} μm (Set by button)"
+        success = _record_selection(
+            x[idx],
+            ydata[idx],
+            slot_override=slot,
+            advance=advance,
         )
-        update_stats_display()
+        if success:
+            if not silent:
+                print(
+                    f"Mode height ~{mode_val:.3f} nm at x = {x[idx]:.3f} μm (Set by button)"
+                )
+            update_stats_display()
+        return success
+
+    def _auto_select_zoom_points():
+        """Populate default selections after a zoom interaction."""
+        if locked_slot == 1:
+            return
+        success_max = set_global_max(slot=1, silent=True)
+        if not success_max:
+            return
+        if locked_slot == 0:
+            return
+        set_mode_height(slot=0, silent=True)
 
     def toggle_lock(event=None):
         """Lock or unlock selections. Double 'w' locks the opposite slot."""
@@ -538,7 +615,7 @@ def select_heights(image, initial_line_height=0):
             zoom_press_xy = None
 
     def _zoom_release(event):
-        nonlocal zoom_press_xy
+        nonlocal zoom_press_xy, pending_zoom_autoset
         tb = plt.get_current_fig_manager().toolbar
         if (
             tb is not None
@@ -547,6 +624,7 @@ def select_heights(image, initial_line_height=0):
             and event.button == 1
             and event.inaxes in (ax1, ax3)
         ):
+            pending_zoom_autoset = True
             dx = event.x - zoom_press_xy[0]
             dy = event.y - zoom_press_xy[1]
             if abs(dx) < 5 and abs(dy) < 5 and event.xdata is not None and event.ydata is not None:
@@ -557,10 +635,10 @@ def select_heights(image, initial_line_height=0):
                 ylim = (y0 - half, y0 + half)
                 event.inaxes.set_xlim(*xlim)
                 event.inaxes.set_ylim(*ylim)
-                try:
-                    tb.zoom()
-                except Exception:
-                    pass
+            try:
+                tb.zoom()
+            except Exception:
+                pass
             zoom_press_xy = None
 
     fig.canvas.mpl_connect('button_press_event', _zoom_press)
@@ -568,18 +646,21 @@ def select_heights(image, initial_line_height=0):
 
     # Override toolbar home to always rescale the cross-section
     toolbar = plt.get_current_fig_manager().toolbar
-    if toolbar is not None and hasattr(toolbar, "home"):
-        orig_home = toolbar.home
+    if toolbar is not None:
+        if hasattr(toolbar, "home"):
+            orig_home = toolbar.home
 
-        def _home(*args, **kwargs):
-            orig_home(*args, **kwargs)
-            ax2.set_autoscaley_on(True)
-            ax2.relim()
-            ax2.autoscale_view()
-            ax2.set_xlim(ax1.get_xlim())
-            fig.canvas.draw_idle()
+            def _home(*args, **kwargs):
+                orig_home(*args, **kwargs)
+                ax2.set_autoscaley_on(True)
+                ax2.relim()
+                ax2.autoscale_view()
+                ax2.set_xlim(ax1.get_xlim())
+                fig.canvas.draw_idle()
 
-        toolbar.home = _home
+            toolbar.home = _home
+        if hasattr(toolbar, "zoom"):
+            toolbar.zoom()
 
     fig.canvas.manager.set_window_title(image_bname + " - " + image_save_date_time)
 
