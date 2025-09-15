@@ -49,7 +49,8 @@ def select_heights(image, initial_line_height=0):
 
     # Handles for vertical and horizontal indicator lines for selected heights
     selected_vlines = [[], []]  # [[ax1_line, ax2_line, ax3_line?], ...]
-    selected_hlines = [None, None]  # [ax2_line, ...]
+    selected_cross_hlines = [None, None]  # [ax2_line, ...]
+    selected_image_hlines = [[], []]  # [[ax1_line, ax3_line?], ...]
     next_slot = 0  # Which slot to overwrite next
     locked_slot = None  # Slot index that should not be overwritten
 
@@ -63,7 +64,7 @@ def select_heights(image, initial_line_height=0):
         for idx, vls in enumerate(selected_vlines):
             for ln in vls:
                 ln.set_color(colors[idx])
-        for idx, ln in enumerate(selected_hlines):
+        for idx, ln in enumerate(selected_cross_hlines):
             if ln is not None:
                 ln.set_color(colors[idx])
 
@@ -140,9 +141,12 @@ def select_heights(image, initial_line_height=0):
         for ln in selected_vlines[slot]:
             ln.remove()
         selected_vlines[slot] = []
-        if selected_hlines[slot] is not None:
-            selected_hlines[slot].remove()
-            selected_hlines[slot] = None
+        if selected_cross_hlines[slot] is not None:
+            selected_cross_hlines[slot].remove()
+            selected_cross_hlines[slot] = None
+        for ln in selected_image_hlines[slot]:
+            ln.remove()
+        selected_image_hlines[slot] = []
 
         # Draw new indicator lines
         vls = [ax1.axvline(x_val, linestyle=':', color=colors[slot]),
@@ -150,7 +154,13 @@ def select_heights(image, initial_line_height=0):
         if phase_map is not None:
             vls.append(ax3.axvline(x_val, linestyle=':', color=colors[slot]))
         selected_vlines[slot] = vls
-        selected_hlines[slot] = ax2.axhline(h_val, linestyle=':', color=colors[slot])
+        selected_cross_hlines[slot] = ax2.axhline(h_val, linestyle=':', color=colors[slot])
+
+        y_val = line_height
+        img_lines = [ax1.axhline(y_val, linestyle=':', color='r')]
+        if phase_map is not None:
+            img_lines.append(ax3.axhline(y_val, linestyle=':', color='r'))
+        selected_image_hlines[slot] = img_lines
 
         selected_slots[slot] = (h_val, x_val, line_height)
 
@@ -212,7 +222,7 @@ def select_heights(image, initial_line_height=0):
         nonlocal line_height, nearest_y_to_plot, selected_points, cumulative_adjusted_height
         nonlocal time_since_start, next_slot
         nonlocal im, im_phase, hline_contrast, hline_phase, cross_line
-        nonlocal selected_vlines, selected_hlines, selected_slots
+        nonlocal selected_vlines, selected_cross_hlines, selected_image_hlines, selected_slots
         nonlocal last_input, dragging
 
         last_input = 'mouse'
