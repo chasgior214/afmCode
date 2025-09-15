@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import visualizations as vis
 import csv
+import os
 
 folder_path = "C:/Users/chasg/afmCode/DataFolder"
 collection = AFMImageCollection(folder_path)
@@ -18,7 +19,8 @@ save_to_csv = 1 # set true to save to CSV
 # set if saving to CSV:
 sample_number = 40
 transfer_location = 't(1.5,7)'
-cavity_position = '(3,9)'
+cavity_position = '(5,7)'
+
 
 
 times = []
@@ -52,7 +54,15 @@ print(times)
 # save to CSV
 if save_to_csv:
     date_time_depressurized = depressurized.strftime('%Y%m%d_%H%M%S')
-    with open(f'{folder_path}/deflation_curves/deflection_curve_{sample_number}_depressurized{date_time_depressurized}_loc{transfer_location}_cav{cavity_position}.csv', mode='w', newline='') as file:
+    filename = f'deflection_curve_{sample_number}_depressurized{date_time_depressurized}_loc{transfer_location}_cav{cavity_position}.csv'
+    dir_path = os.path.join(folder_path, 'deflation_curves')
+    file_path = os.path.join(dir_path, filename)
+    if not os.path.exists(dir_path):
+        os.makedirs(dir_path)
+    if os.path.exists(file_path):
+        print(f"File {file_path} already exists. Data will be saved to RENAME_ME.csv instead.")
+        file_path = 'RENAME_ME.csv'
+    with open(file_path, mode='w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(['Time (minutes)', 'Deflection (nm)'])
         for t, d in zip(times, deflections):
