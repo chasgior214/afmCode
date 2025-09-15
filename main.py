@@ -3,18 +3,28 @@ from datetime import timedelta, datetime
 import numpy as np
 import matplotlib.pyplot as plt
 import visualizations as vis
+import csv
 
-folder_path = "C:/Users/chasg/afmCode/DataFolder" # Erfan's is D:/afmCode/DataFolder
+folder_path = "C:/Users/chasg/afmCode/DataFolder"
 collection = AFMImageCollection(folder_path)
 num_images = len(collection)
 print("=================================================")
 print(f"Number of images in the array: {num_images}")
 print("=================================================")
 
+############################ INPUTS ############################
+depressurized_time = '18:38:47' # 'HH:MM:SS' format
+save_to_csv = 1 # set true to save to CSV
+# set if saving to CSV:
+sample_number = 40
+transfer_location = 't(1.5,7)'
+cavity_position = '(3,9)'
+
+
 times = []
 deflections = []
 depressurized = collection[0].get_datetime()
-depressurized = depressurized.replace(hour=17, minute=31, second=20) # comment out to set t = 0 to first image time
+depressurized = depressurized.replace(hour=int(depressurized_time.split(':')[0]), minute=int(depressurized_time.split(':')[1]), second=int(depressurized_time.split(':')[2])) # comment out to set t = 0 to first image time
 if collection[0].get_datetime() < depressurized: # depressurization and first image time likely cross midnight
     depressurized = depressurized - timedelta(days=1)
 
@@ -38,6 +48,16 @@ for image in collection:
 
 print(deflections)
 print(times)
+
+# save to CSV
+if save_to_csv:
+    date_time_depressurized = depressurized.strftime('%Y%m%d_%H%M%S')
+    with open(f'{folder_path}/deflation_curves/deflection_curve_{sample_number}_depressurized{date_time_depressurized}_loc{transfer_location}_cav{cavity_position}.csv', mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(['Time (minutes)', 'Deflection (nm)'])
+        for t, d in zip(times, deflections):
+            writer.writerow([t, d])
+
 # plot deflection vs time
 plt.scatter(times, deflections)
 plt.xlabel('Time since depressurization (minutes)')

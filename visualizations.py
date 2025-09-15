@@ -35,7 +35,9 @@ def select_heights(image, initial_line_height=0):
 
     x = np.linspace(0, scan_size, x_pixel_count)  # x-coordinates in microns
     y = np.linspace(0, scan_size, y_pixel_count)  # y-coordinates in microns
-    extent = (0, scan_size, 0, scan_size * y_pixel_count / x_pixel_count)
+    # True y dimension in microns (keeps pixels square in physical units)
+    y_dimension = scan_size * y_pixel_count / x_pixel_count
+    extent = (0, scan_size, 0, y_dimension)
 
     line_height = initial_line_height
     y_pixels = np.arange(0, y_pixel_count)
@@ -96,9 +98,14 @@ def select_heights(image, initial_line_height=0):
     def _update_cross_section(new_height):
         """Change which row is used for the cross-section plots."""
         nonlocal line_height, nearest_y_to_plot, cumulative_adjusted_height, time_since_start
+        # Clamp to valid y-range in microns (0 .. y_dimension)
         line_height = float(new_height)
-        if line_height < 0 or line_height >= contrast_map.shape[0]:
+        if not np.isfinite(line_height):
             return
+        if line_height < 0:
+            line_height = 0.0
+        elif line_height > y_dimension:
+            line_height = y_dimension
 
         nearest_y_to_plot = y_pixel_count - 1 - min(
             y_pixels, key=lambda y_pixel: abs(y_pixel * pixel_size - line_height)
@@ -374,6 +381,7 @@ def select_heights(image, initial_line_height=0):
 
     syncing_zoom = False
     pending_zoom_autoset = False
+    zoom_autoset_timer = None
 
     def _sync_zoom(ax):
         nonlocal syncing_zoom, pending_zoom_autoset
@@ -390,9 +398,33 @@ def select_heights(image, initial_line_height=0):
             ax1.set_ylim(ylim)
         ax2.set_xlim(xlim)
         _update_visible_ranges()
+        # Defer auto-select until after all limit change callbacks have fired
+        # to ensure we use the final zoomed x/y ranges.
         if pending_zoom_autoset:
-            pending_zoom_autoset = False
-            _auto_select_zoom_points()
+            nonlocal zoom_autoset_timer
+            def _run_autoset_from_timer():
+                nonlocal pending_zoom_autoset, zoom_autoset_timer
+                if pending_zoom_autoset:
+                    pending_zoom_autoset = False
+                    _auto_select_zoom_points()
+                zoom_autoset_timer = None
+
+            # Use a short single-shot timer to run after current UI updates.
+            if zoom_autoset_timer is not None:
+                try:
+                    zoom_autoset_timer.stop()
+                except Exception:
+                    pass
+                zoom_autoset_timer = None
+            try:
+                zoom_autoset_timer = fig.canvas.new_timer(interval=50)
+                zoom_autoset_timer.single_shot = True
+                zoom_autoset_timer.add_callback(_run_autoset_from_timer)
+                zoom_autoset_timer.start()
+            except Exception:
+                # Fallback: run immediately if timer creation fails
+                pending_zoom_autoset = False
+                _auto_select_zoom_points()
         fig.canvas.draw_idle()
         syncing_zoom = False
 
