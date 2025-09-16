@@ -77,6 +77,32 @@ def select_heights(image, initial_line_height=0):
         end = np.searchsorted(x, xmax, side="right")
         return slice(start, end)
 
+    # New: autoscale ax2 y-limits to the currently visible x-range
+    def _autoscale_ax2_y_to_visible():
+        ydata = cumulative_adjusted_height if cumulative_adjusted_height is not None else height_map[nearest_y_to_plot, :]
+        sl = _visible_x_slice()
+        yd = ydata[sl] if (sl.stop - sl.start) > 0 else ydata
+        if yd.size == 0 or not np.isfinite(yd).any():
+            return
+        ymin = float(np.nanmin(yd))
+        ymax = float(np.nanmax(yd))
+        if ymin == ymax:
+            pad = 1.0 if ymin == 0.0 else abs(ymin) * 0.05
+            ymin -= pad
+            ymax += pad
+
+        # Add an extra 5% padding to the computed span (both sides)
+        span = ymax - ymin
+        if span <= 0:
+            # Fallback small padding if something went wrong
+            extra = 1.0
+        else:
+            extra = span * 0.05
+        ymin -= extra
+        ymax += extra
+
+        ax2.set_ylim(ymin, ymax)
+
     def _y_to_index(y_val):
         """Convert a y-axis value to a row index in height_map."""
         bottom_idx = min(y_pixels, key=lambda yp: abs(yp * pixel_size - y_val))
@@ -123,9 +149,7 @@ def select_heights(image, initial_line_height=0):
             hline_phase.set_ydata([line_height, line_height])
 
         cross_line.set_ydata(cumulative_adjusted_height)
-        ax2.set_autoscaley_on(True)
-        ax2.relim()
-        ax2.autoscale_view(scalex=False)
+        _autoscale_ax2_y_to_visible()
         ax2.set_title(f"{title_prefix} at y = {round(line_height, 3)} μm")
         update_stats_display()
         fig.canvas.draw_idle()
@@ -258,8 +282,7 @@ def select_heights(image, initial_line_height=0):
 
                 # Update the lower plot without clearing
                 cross_line.set_ydata(cumulative_adjusted_height)
-                ax2.relim()
-                ax2.autoscale_view()
+                _autoscale_ax2_y_to_visible()
                 ax2.set_title(f"{title_prefix} at y = {round(line_height, 3)} μm (Slope Corrected)")
 
                 update_stats_display()
@@ -397,6 +420,7 @@ def select_heights(image, initial_line_height=0):
             ax1.set_xlim(xlim)
             ax1.set_ylim(ylim)
         ax2.set_xlim(xlim)
+        _autoscale_ax2_y_to_visible()
         _update_visible_ranges()
         # Defer auto-select until after all limit change callbacks have fired
         # to ensure we use the final zoomed x/y ranges.
@@ -449,6 +473,8 @@ def select_heights(image, initial_line_height=0):
     if phase_map is not None:
         ax3.callbacks.connect('xlim_changed', lambda evt: _sync_zoom(ax3))
         ax3.callbacks.connect('ylim_changed', lambda evt: _sync_zoom(ax3))
+    # Also adapt y-axis when user zooms/pans directly on the cross-section
+    ax2.callbacks.connect('xlim_changed', lambda evt: _autoscale_ax2_y_to_visible())
 
     # Ensure sliders remain functional after height selection
     fig.canvas.mpl_connect('button_press_event', _on_press)
@@ -694,10 +720,8 @@ def select_heights(image, initial_line_height=0):
 
             def _home(*args, **kwargs):
                 orig_home(*args, **kwargs)
-                ax2.set_autoscaley_on(True)
-                ax2.relim()
-                ax2.autoscale_view()
                 ax2.set_xlim(ax1.get_xlim())
+                _autoscale_ax2_y_to_visible()
                 fig.canvas.draw_idle()
 
             toolbar.home = _home

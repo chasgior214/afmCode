@@ -14,12 +14,12 @@ print(f"Number of images in the array: {num_images}")
 print("=================================================")
 
 ############################ INPUTS ############################
-depressurized_time = '18:38:47' # 'HH:MM:SS' format
+depressurized_time = '15:16:45' # 'HH:MM:SS' format
 save_to_csv = 1 # set true to save to CSV
 # set if saving to CSV:
-sample_number = 40
-transfer_location = 't(1.5,7)'
-cavity_position = '(5,7)'
+sample_number = 37
+transfer_location = '$(6,3)'
+cavity_position = 'black'
 
 
 
@@ -54,7 +54,7 @@ print(times)
 # save to CSV
 if save_to_csv:
     date_time_depressurized = depressurized.strftime('%Y%m%d_%H%M%S')
-    filename = f'deflection_curve_{sample_number}_depressurized{date_time_depressurized}_loc{transfer_location}_cav{cavity_position}.csv'
+    filename = f'deflation_curve_{sample_number}_depressurized{date_time_depressurized}_loc{transfer_location}_cav{cavity_position}.csv'
     dir_path = os.path.join(folder_path, 'deflation_curves')
     file_path = os.path.join(dir_path, filename)
     if not os.path.exists(dir_path):
