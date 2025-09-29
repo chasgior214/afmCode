@@ -258,11 +258,34 @@ def select_heights(image, initial_line_height=0):
 
         last_input = 'mouse'
 
-        # Check if the event is triggered during zooming or panning
-        if plt.get_current_fig_manager().toolbar.mode != '':
-            return  # Ignore events during zoom or pan
+        # Allow right-click selection even while zoom/pan tools active
+        toolbar = plt.get_current_fig_manager().toolbar
+        if toolbar is not None and toolbar.mode != '':
+            # If not a right-click on image axes, ignore
+            if not (event.button == 3 and event.inaxes in (ax1, ax3)):
+                return
 
-        if event.inaxes in (ax1, ax3) and event.button == 1:  # Left-click on either image
+        # right-click on contrast / phase image to set y, slot 1, and mode in slot 0
+        if event.button == 3 and event.inaxes in (ax1, ax3):
+            if event.xdata is None or event.ydata is None:
+                return
+            # 1) Set the cross-section to this y
+            _update_cross_section(event.ydata)
+
+            # 2) Put the height at clicked x into slot 1
+            ydata_line = cumulative_adjusted_height if cumulative_adjusted_height is not None else height_map[nearest_y_to_plot, :]
+            idx = int(np.argmin(np.abs(x - event.xdata)))
+            h_val = ydata_line[idx]
+            _record_selection(x[idx], h_val, slot_override=1, advance=False)
+
+            # 3) Put mode for this line into slot 0
+            set_mode_height(slot=0, advance=False, silent=True)
+
+            update_stats_display()
+            fig.canvas.draw_idle()
+            return
+
+        if event.inaxes in (ax1, ax3) and event.button == 1:  # Left-click drag to change y
             dragging = True
             _update_cross_section(event.ydata)
             return
