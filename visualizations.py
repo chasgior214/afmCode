@@ -725,8 +725,16 @@ def select_heights(image, initial_line_height=0):
                 fig.canvas.draw_idle()
 
             toolbar.home = _home
-        if hasattr(toolbar, "zoom"):
+        # Only auto-enter zoom mode for sufficiently large scans in both axes
+        if (scan_size >= 8 and y_dimension >= 5) and hasattr(toolbar, "zoom"):
             toolbar.zoom()
+
+    # Auto-select when x < 8 μm OR y < 5 μm
+    if (scan_size < 8) or (y_dimension < 5):
+        # Global max in slot 1 (orange), mode in slot 0 (purple)
+        set_global_max(slot=1, silent=True)
+        set_mode_height(slot=0, silent=True)
+        update_stats_display()
 
     fig.canvas.manager.set_window_title(image_bname + " - " + image_save_date_time)
 

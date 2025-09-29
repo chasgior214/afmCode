@@ -14,12 +14,12 @@ print(f"Number of images in the array: {num_images}")
 print("=================================================")
 
 ############################ INPUTS ############################
-depressurized_time = '15:16:45' # 'HH:MM:SS' format
+depressurized_time = '12:27:29' # 'HH:MM:SS' format
 save_to_csv = 1 # set true to save to CSV
 # set if saving to CSV:
 sample_number = 37
 transfer_location = '$(6,3)'
-cavity_position = 'black'
+cavity_position = 'red'
 
 
 
@@ -60,7 +60,10 @@ if save_to_csv:
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
     if os.path.exists(file_path):
-        print(f"File {file_path} already exists. Data will be saved to RENAME_ME.csv instead.")
+        print(f"File {file_path} already exists")
+        # if RENAME_ME.csv also already exists, tell user to rename it first, pause program
+        if os.path.exists('RENAME_ME.csv'):
+            input("Please rename or delete RENAME_ME.csv and press Enter to continue...") 
         file_path = 'RENAME_ME.csv'
     with open(file_path, mode='w', newline='') as file:
         writer = csv.writer(file)
