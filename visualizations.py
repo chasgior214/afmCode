@@ -59,6 +59,7 @@ def select_heights(image, initial_line_height=0):
     last_input = None  # Track the last user action for double-press logic
 
     time_since_start = None  # To store the time since the start of the scan
+    aborted = False  # Set True when user presses Tab to cancel/exit
 
     def _apply_line_colors():
         """Update indicator line colors based on selection order."""
@@ -77,7 +78,7 @@ def select_heights(image, initial_line_height=0):
         end = np.searchsorted(x, xmax, side="right")
         return slice(start, end)
 
-    # New: autoscale ax2 y-limits to the currently visible x-range
+    # autoscale ax2 y-limits to the currently visible x-range
     def _autoscale_ax2_y_to_visible():
         ydata = cumulative_adjusted_height if cumulative_adjusted_height is not None else height_map[nearest_y_to_plot, :]
         sl = _visible_x_slice()
@@ -652,15 +653,12 @@ def select_heights(image, initial_line_height=0):
         if locked_slot is not None and last_input == 'w':
             locked_slot = 1 - locked_slot
             next_slot = 1 - locked_slot
-            print(f"Locked selection {locked_slot + 1}")
         elif locked_slot is None:
             target = 1 - next_slot
             if selected_slots[target] is not None:
                 locked_slot = target
                 next_slot = 1 - locked_slot
-                print(f"Locked selection {locked_slot + 1}")
         else:
-            print("Unlocked selection")
             locked_slot = None
         last_input = 'w'
         update_stats_display()
@@ -673,7 +671,7 @@ def select_heights(image, initial_line_height=0):
     btn_lock.on_clicked(toggle_lock)
 
     def _hotkey(event):
-        nonlocal last_input
+        nonlocal last_input, aborted
         if event.key == '1':
             set_max_height()
         elif event.key == '2':
@@ -690,6 +688,10 @@ def select_heights(image, initial_line_height=0):
             toolbar = plt.get_current_fig_manager().toolbar
             if toolbar is not None and hasattr(toolbar, "zoom"):
                 toolbar.zoom()
+        elif event.key == 'tab':  # abort and close
+            aborted = True
+            plt.close(fig)
+            return
         last_input = event.key
 
     fig.canvas.mpl_connect('key_press_event', _hotkey)
@@ -763,6 +765,9 @@ def select_heights(image, initial_line_height=0):
 
     plt.show()
 
+    if aborted:
+        return None  # Canceled by Tab key
+
     final_heights = [info[0] for info in selected_slots if info is not None]
     if len(final_heights) == 1:
         return final_heights[0], time_since_start - imaging_duration  # Return the single selected height and time before end that line was imaged
@@ -770,8 +775,17 @@ def select_heights(image, initial_line_height=0):
         return final_heights[0], final_heights[1], time_since_start - imaging_duration  # Return both selected heights and time before end that line was imaged
 
 def export_heightmap_3d_surface(image):
+    imaging_mode = image.get_imaging_mode()
     scan_size = image.get_scan_size()
-    height_map = image.get_height_retrace()
+    if imaging_mode == 'AC Mode' and image.wave_data.shape[2] > 4:
+        height_map = image.get_FlatHeight()
+        title_prefix = "Flattened Height"
+    elif imaging_mode == 'Contact' and image.wave_data.shape[2] > 3:
+        height_map = image.get_FlatHeight()
+        title_prefix = "Flattened Height"
+    else:
+        height_map = image.get_height_retrace()
+        title_prefix = "Height Retrace"
 
     x_pixel_count = height_map.shape[1]
     y_pixel_count = height_map.shape[0]
@@ -789,7 +803,7 @@ def export_heightmap_3d_surface(image):
 
     fig = go.Figure(data=[go.Surface(z=height_map, x=X, y=Y, colorscale='Viridis')])
     fig.update_layout(
-        title="Height Retrace (Entire Image)",
+        title=f"{title_prefix} (Entire Image)",
         scene=dict(
             xaxis_title="x (μm)",
             yaxis_title="y (μm)",

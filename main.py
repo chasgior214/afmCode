@@ -14,8 +14,8 @@ print(f"Number of images in the array: {num_images}")
 print("=================================================")
 
 ############################ INPUTS ############################
-depressurized_time = '12:27:29' # 'HH:MM:SS' format
-save_to_csv = 1 # set true to save to CSV
+depressurized_time = '16:05:25' # 'HH:MM:SS' format
+save_to_csv = 1  # set true to save to CSV
 # set if saving to CSV:
 sample_number = 37
 transfer_location = '$(6,3)'
