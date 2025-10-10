@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
 
-def select_heights(image, initial_line_height=0):
+def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     # Extract data from the image
     image_bname = str(image.bname)
     image_save_date_time = image.get_datetime().strftime("%Y-%m-%d %H:%M:%S")
@@ -763,16 +763,37 @@ def select_heights(image, initial_line_height=0):
 
     fig.canvas.manager.set_window_title(image_bname + " - " + image_save_date_time)
 
+    # If initial selections were provided, apply them after the plots are created
+    # initial_selected_slots expected as a list like [(h,x,y), (h,x,y)] or None
+    if initial_selected_slots:
+        try:
+            for idx, info in enumerate(initial_selected_slots):
+                if info is None:
+                    continue
+                # info expected as (h, x, y) or similar; record into slot idx
+                h_val, x_val, y_val = info
+                # set cross-section to provided y (line height)
+                _update_cross_section(y_val)
+                # record selection into the given slot without advancing
+                _record_selection(x_val, h_val, slot_override=idx, advance=False)
+        except Exception:
+            # ignore any malformed initial selection data
+            pass
+
     plt.show()
 
     if aborted:
         return None  # Canceled by Tab key
 
-    final_heights = [info[0] for info in selected_slots if info is not None]
-    if len(final_heights) == 1:
-        return final_heights[0], time_since_start - imaging_duration  # Return the single selected height and time before end that line was imaged
-    elif len(final_heights) == 2:
-        return final_heights[0], final_heights[1], time_since_start - imaging_duration  # Return both selected heights and time before end that line was imaged
+    # Return a structured result so callers can store positions and reuse them
+    time_offset = None
+    if time_since_start is not None:
+        time_offset = time_since_start - imaging_duration
+
+    return {
+        'selected_slots': selected_slots,  # list [ (h,x,y) | None, (h,x,y) | None ]
+        'time_offset': time_offset,
+    }
 
 def export_heightmap_3d_surface(image):
     imaging_mode = image.get_imaging_mode()

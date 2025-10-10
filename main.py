@@ -14,7 +14,7 @@ print(f"Number of images in the array: {num_images}")
 print("=================================================")
 
 ############################ INPUTS ############################
-depressurized_time = '16:05:25' # 'HH:MM:SS' format
+depressurized_time = '14:56:36' # 'HH:MM:SS' format
 save_to_csv = 1  # set true to save to CSV
 # set if saving to CSV:
 sample_number = 37
@@ -32,20 +32,39 @@ if collection[0].get_datetime() < depressurized: # depressurization and first im
 
 print(f"Depressurized at {depressurized}\n")
 
-for image in collection:
-    # vis.export_heightmap_3d_surface(image)
+# Open an interactive navigator so the user can pick images in any order
+selections = collection.navigate_images()
 
-    taken = image.get_datetime()
-    print(f"Image {image.bname} saved {taken - depressurized} minutes after depressurization")
+# selections is a dict keyed by image index -> {'selected_slots': [slot0, slot1], 'time_offset': val}
+if selections is None:
+    selections = {}
+
+for idx in sorted(selections.keys()):
     try:
-        h1, h2, line_time_offset = vis.select_heights(image)
-        deflections.append(h2 - h1)
-        time_unpressurized = (taken - depressurized).total_seconds() + line_time_offset
-        times.append(time_unpressurized/60)
-        print(deflections[-1])
-        print(times[-1])
+        res = selections[idx]
+        image = collection[idx]
+        taken = image.get_datetime()
+        print(f"Image {image.bname} saved {taken - depressurized} after depressurization")
+
+        slots = res.get('selected_slots', [None, None])
+        time_offset = res.get('time_offset')
+
+        # Only record deflection if both slots selected
+        if slots[0] is not None and slots[1] is not None:
+            h1 = slots[0][0]
+            h2 = slots[1][0]
+            deflections.append(h2 - h1)
+            if time_offset is None:
+                print(f"No time offset for image {image.bname}; skipping time entry")
+            else:
+                time_unpressurized = (taken - depressurized).total_seconds() + time_offset
+                times.append(time_unpressurized / 60)
+                print(f"Deflection: {deflections[-1]:.3f} nm")
+                print(f"Time: {times[-1]:.3f} minutes")
+        else:
+            print(f"Image {image.bname} has incomplete selections; skipping deflection/time entry")
     except Exception as e:
-        print(f"Error processing image {image.bname}: {e}")
+        print(f"Error processing selection for image index {idx}: {e}")
         continue
 
 print(deflections)

@@ -3,6 +3,9 @@ import matplotlib.pyplot as plt
 import os
 import numpy as np
 import pandas as pd
+import tkinter as tk
+from tkinter import ttk
+import visualizations as vis
 
 class AFMImageCollection:
     def __init__(self, folder_path):
@@ -149,3 +152,90 @@ class AFMImageCollection:
         df = pd.DataFrame(data)
         df.to_excel("Time_V_deflection.xlsx", index=False)
         print("time V deflection exported to Time_V_deflection.xlsx")
+
+    def navigate_images(self):
+        """Open a small navigator window listing all images with their times,
+        show which ones have selections (with checkmarks) and allow jumping
+        back-and-forth. Stores selections in memory so returning to an image
+        will show previous selections inside select_heights.
+        """
+        # store selections by index: {'selected_slots': [(...), (...)] , 'time_offset': val}
+        selections = {}
+
+        root = tk.Tk()
+        root.title('AFM Image Navigator')
+
+        frame = ttk.Frame(root, padding=8)
+        frame.pack(fill='both', expand=True)
+
+        cols = ('#', 'Filename', 'Time', 'Done', 'Deflection (nm)')
+        tree = ttk.Treeview(frame, columns=cols, show='headings', selectmode='browse')
+        for c in cols:
+            tree.heading(c, text=c)
+        tree.column('#', width=30, anchor='center')
+        tree.column('Filename', width=220)
+        tree.column('Time', width=140)
+        tree.column('Done', width=60, anchor='center')
+        tree.column('Deflection (nm)', width=110, anchor='e')
+
+        scrollbar = ttk.Scrollbar(frame, orient='vertical', command=tree.yview)
+        tree.configure(yscroll=scrollbar.set)
+        tree.pack(side='left', fill='both', expand=True)
+        scrollbar.pack(side='right', fill='y')
+
+        # populate
+        for idx, img in enumerate(self.images):
+            dt = img.get_datetime().strftime('%Y-%m-%d %H:%M:%S') if img.get_datetime() is not None else ''
+            tree.insert('', 'end', iid=str(idx), values=(idx+1, img.get_filename(), dt, '', ''))
+
+        def open_image(event=None):
+            sel = tree.selection()
+            if not sel:
+                return
+            idx = int(sel[0])
+            img = self.images[idx]
+
+            # Prepare initial slots if we have prior selections
+            init_slots = None
+            if idx in selections and selections[idx].get('selected_slots'):
+                init_slots = selections[idx]['selected_slots']
+
+            # Call existing select_heights; it now accepts initial selections and returns a dict
+            res = vis.select_heights(img, initial_selected_slots=init_slots)
+            if res is None:
+                return
+
+            # store result
+            selections[idx] = res
+
+            # Update tree: mark done and deflection (if two slots present compute difference)
+            done = any(s is not None for s in res['selected_slots'])
+            deflect = ''
+            ss = res['selected_slots']
+            if ss[0] is not None and ss[1] is not None:
+                deflect = f"{ss[1][0] - ss[0][0]:.3f}"
+            elif ss[0] is not None:
+                deflect = f"{ss[0][0]:.3f}"
+            tree.set(str(idx), 'Done', '✓' if done else '')
+            tree.set(str(idx), 'Deflection (nm)', deflect)
+
+        # Let the Treeview handle Up/Down navigation itself (default behavior).
+        # Bind Enter and Space to open the selected image.
+        tree.bind('<Double-1>', open_image)
+        tree.bind('<Return>', lambda e: open_image())
+        tree.bind('<space>', lambda e: open_image())
+
+        btn_frame = ttk.Frame(root, padding=6)
+        btn_frame.pack(fill='x')
+        btn_open = ttk.Button(btn_frame, text='Open Selected', command=open_image)
+        btn_open.pack(side='left')
+
+        def close():
+            root.destroy()
+
+        btn_close = ttk.Button(btn_frame, text='Close', command=close)
+        btn_close.pack(side='right')
+
+        root.mainloop()
+
+        return selections
