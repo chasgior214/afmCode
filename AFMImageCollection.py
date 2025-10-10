@@ -225,6 +225,23 @@ class AFMImageCollection:
         tree.bind('<Return>', lambda e: open_image())
         tree.bind('<space>', lambda e: open_image())
 
+        # allow Delete key to clear selections for the selected image
+        def delete_selection(event=None):
+            sel = tree.selection()
+            if not sel:
+                return
+            idx = int(sel[0])
+            # remove stored selections (if any)
+            if idx in selections:
+                del selections[idx]
+                print(f"Selections cleared for image index {idx}")
+            # update UI to reflect cleared selections
+            tree.set(str(idx), 'Done', '')
+            tree.set(str(idx), 'Deflection (nm)', '')
+        # Bind Delete to both the tree (when focused) and root (global for this window)
+        tree.bind('<Delete>', delete_selection)
+        root.bind('<Delete>', delete_selection)
+
         btn_frame = ttk.Frame(root, padding=6)
         btn_frame.pack(fill='x')
         btn_open = ttk.Button(btn_frame, text='Open Selected', command=open_image)
