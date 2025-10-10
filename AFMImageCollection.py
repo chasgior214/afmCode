@@ -168,13 +168,13 @@ class AFMImageCollection:
         frame = ttk.Frame(root, padding=8)
         frame.pack(fill='both', expand=True)
 
-        cols = ('#', 'Filename', 'Time', 'Done', 'Deflection (nm)')
+        cols = ('#', 'Filename', 'Saved At', 'Done', 'Deflection (nm)')
         tree = ttk.Treeview(frame, columns=cols, show='headings', selectmode='browse')
         for c in cols:
             tree.heading(c, text=c)
         tree.column('#', width=30, anchor='center')
         tree.column('Filename', width=220)
-        tree.column('Time', width=140)
+        tree.column('Saved At', width=140)
         tree.column('Done', width=60, anchor='center')
         tree.column('Deflection (nm)', width=110, anchor='e')
 

@@ -5,28 +5,22 @@ import matplotlib.pyplot as plt
 import visualizations as vis
 import csv
 import os
+import path_loader as pl
 
-folder_path = "C:/Users/chasg/afmCode/DataFolder"
+folder_path = pl.afm_images_path
 collection = AFMImageCollection(folder_path)
 num_images = len(collection)
 print("=================================================")
 print(f"Number of images in the array: {num_images}")
 print("=================================================")
 
-############################ INPUTS ############################
-depressurized_time = '14:56:36' # 'HH:MM:SS' format
 save_to_csv = 1  # set true to save to CSV
-# set if saving to CSV:
-sample_number = 37
-transfer_location = '$(6,3)'
-cavity_position = 'red'
-
-
 
 times = []
 deflections = []
+depressurized_time = pl.depressurized_time
 depressurized = collection[0].get_datetime()
-depressurized = depressurized.replace(hour=int(depressurized_time.split(':')[0]), minute=int(depressurized_time.split(':')[1]), second=int(depressurized_time.split(':')[2])) # comment out to set t = 0 to first image time
+depressurized = depressurized.replace(hour=int(depressurized_time[:2]), minute=int(depressurized_time[2:4]), second=int(depressurized_time[4:6])) # comment out to set t = 0 to first image time
 if collection[0].get_datetime() < depressurized: # depressurization and first image time likely cross midnight
     depressurized = depressurized - timedelta(days=1)
 
@@ -72,10 +66,9 @@ print(times)
 
 # save to CSV
 if save_to_csv:
-    date_time_depressurized = depressurized.strftime('%Y%m%d_%H%M%S')
-    filename = f'deflation_curve_{sample_number}_depressurized{date_time_depressurized}_loc{transfer_location}_cav{cavity_position}.csv'
-    dir_path = os.path.join(folder_path, 'deflation_curves')
-    file_path = os.path.join(dir_path, filename)
+    filename = pl.deflation_curve_filename
+    dir_path = pl.deflation_curves_path
+    file_path = pl.deflation_curve_path
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
     if os.path.exists(file_path):
