@@ -9,13 +9,18 @@ import path_loader as pl
 folder = pl.deflation_curves_path
 
 # Find all CSV files in the folder for specified sample and depressurization date/time
-csv_files = glob.glob(os.path.join(folder, f"deflation_curve_{pl.sample_number}_depressurized{pl.depressurized_day}_{pl.depressurized_time}*.csv"))
+csv_files = glob.glob(os.path.join(folder, f"deflation_curve_{pl.sample_number}_depressurized{pl.depressurized_date}_{pl.depressurized_time}*.csv"))
 
 # Set up the plot
 plt.figure(figsize=(8, 6))
 
-# Define a color cycle
-colors = ['black', 'blue', 'green', 'orange', 'red']
+# If the files all contain either 'red', 'blue', 'green', 'orange', or 'black' in their filenames, use those colors for those files
+file_colors = {'red': 'red', 'blue': 'blue', 'green': 'green', 'orange': 'orange', 'black': 'black'}
+if all(any(color in os.path.basename(f) for color in file_colors) for f in csv_files):
+    colors = [next(color for color in file_colors if color in os.path.basename(f)) for f in csv_files]
+else:
+    # Otherwise, use a default color cycle
+    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
 # Plot each CSV as a scatter plot
 for idx, csv_file in enumerate(csv_files):

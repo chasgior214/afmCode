@@ -6,18 +6,40 @@ import pandas as pd
 import tkinter as tk
 from tkinter import ttk
 import visualizations as vis
+from datetime import datetime
 
 class AFMImageCollection:
-    def __init__(self, folder_path):
-        self.images = self.load_ibw_files_from_folder(folder_path)
+    def __init__(self, folder_path, start_datetime=None, end_datetime=None):
+        """
+        Initialize AFMImageCollection with optional datetime filtering.
+        
+        Parameters:
+        -----------
+        folder_path : str
+            Path to folder containing .ibw files
+        start_datetime : datetime, optional
+            Only include images taken at or after this datetime
+        end_datetime : datetime, optional
+            Only include images taken at or before this datetime
+        """
+        self.images = self.load_ibw_files_from_folder(folder_path, start_datetime, end_datetime)
 
-    def load_ibw_files_from_folder(self, folder_path):
+    def load_ibw_files_from_folder(self, folder_path, start_datetime=None, end_datetime=None):
         images = [] 
         for file_name in os.listdir(folder_path):
             file_path = os.path.join(folder_path, file_name)
             if os.path.isfile(file_path) and file_path.endswith('.ibw'):
                 try:
                     afm_image = AFMImage(file_path)
+                    
+                    # Filter by datetime if specified
+                    img_datetime = afm_image.get_datetime()
+                    if img_datetime is not None:
+                        if start_datetime and img_datetime < start_datetime:
+                            continue
+                        if end_datetime and img_datetime > end_datetime:
+                            continue
+                    
                     images.append(afm_image)
                 except Exception as e: 
                     print(f"Error loading file {file_path}: {e}")

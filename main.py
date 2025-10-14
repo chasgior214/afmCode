@@ -7,24 +7,39 @@ import csv
 import os
 import path_loader as pl
 
+################################################################################
+save_to_csv = 1  # set true to save to CSV
+end_hour = None # None to not give end limit
+end_day = None # None to be same day as depressurization date
+################################################################################
+
+depressurized_datetime = pl.depressurized_datetime
+if end_day is not None:
+    end_datetime = depressurized_datetime.replace(day=end_day)
+    if end_hour is not None:
+        end_datetime = end_datetime.replace(hour=end_hour)
+elif end_hour is not None:
+    end_datetime = depressurized_datetime.replace(hour=end_hour)
+
 folder_path = pl.afm_images_path
-collection = AFMImageCollection(folder_path)
+
+if end_day is not None or end_hour is not None:
+    collection = AFMImageCollection(folder_path,
+                                    start_datetime=depressurized_datetime,
+                                    end_datetime=end_datetime)
+else:
+    collection = AFMImageCollection(folder_path,
+                                    start_datetime=depressurized_datetime)
 num_images = len(collection)
+
 print("=================================================")
+print(f"Depressurized at {depressurized_datetime}\n")
 print(f"Number of images in the array: {num_images}")
 print("=================================================")
 
-save_to_csv = 1  # set true to save to CSV
 
 times = []
 deflections = []
-depressurized_time = pl.depressurized_time
-depressurized = collection[0].get_datetime()
-depressurized = depressurized.replace(hour=int(depressurized_time[:2]), minute=int(depressurized_time[2:4]), second=int(depressurized_time[4:6])) # comment out to set t = 0 to first image time
-if collection[0].get_datetime() < depressurized: # depressurization and first image time likely cross midnight
-    depressurized = depressurized - timedelta(days=1)
-
-print(f"Depressurized at {depressurized}\n")
 
 # Open an interactive navigator so the user can pick images in any order
 selections = collection.navigate_images()
@@ -38,7 +53,7 @@ for idx in sorted(selections.keys()):
         res = selections[idx]
         image = collection[idx]
         taken = image.get_datetime()
-        print(f"Image {image.bname} saved {taken - depressurized} after depressurization")
+        print(f"Image {image.bname} saved {taken - depressurized_datetime} after depressurization")
 
         slots = res.get('selected_slots', [None, None])
         time_offset = res.get('time_offset')
@@ -51,7 +66,7 @@ for idx in sorted(selections.keys()):
             if time_offset is None:
                 print(f"No time offset for image {image.bname}; skipping time entry")
             else:
-                time_unpressurized = (taken - depressurized).total_seconds() + time_offset
+                time_unpressurized = (taken - depressurized_datetime).total_seconds() + time_offset
                 times.append(time_unpressurized / 60)
                 print(f"Deflection: {deflections[-1]:.3f} nm")
                 print(f"Time: {times[-1]:.3f} minutes")
@@ -66,22 +81,26 @@ print(times)
 
 # save to CSV
 if save_to_csv:
-    filename = pl.deflation_curve_filename
-    dir_path = pl.deflation_curves_path
-    file_path = pl.deflation_curve_path
-    if not os.path.exists(dir_path):
-        os.makedirs(dir_path)
-    if os.path.exists(file_path):
-        print(f"File {file_path} already exists")
-        # if RENAME_ME.csv also already exists, tell user to rename it first, pause program
-        if os.path.exists('RENAME_ME.csv'):
-            input("Please rename or delete RENAME_ME.csv and press Enter to continue...") 
-        file_path = 'RENAME_ME.csv'
-    with open(file_path, mode='w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(['Time (minutes)', 'Deflection (nm)'])
-        for t, d in zip(times, deflections):
-            writer.writerow([t, d])
+    # only save if there is data
+    if len(deflections) == 0:
+        print("No deflection or time data to save; skipping CSV export")
+    else:
+        filename = pl.deflation_curve_filename
+        dir_path = pl.deflation_curves_path
+        file_path = pl.deflation_curve_path
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
+        if os.path.exists(file_path):
+            print(f"File {file_path} already exists")
+            # if RENAME_ME.csv also already exists, tell user to rename it first, pause program
+            if os.path.exists('RENAME_ME.csv'):
+                input("Please rename or delete RENAME_ME.csv and press Enter to continue...") 
+            file_path = 'RENAME_ME.csv'
+        with open(file_path, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(['Time (minutes)', 'Deflection (nm)'])
+            for t, d in zip(times, deflections):
+                writer.writerow([t, d])
 
 # plot deflection vs time
 plt.scatter(times, deflections)
