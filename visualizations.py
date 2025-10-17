@@ -155,10 +155,23 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         update_stats_display()
         fig.canvas.draw_idle()
 
-    def _record_selection(x_val, h_val, slot_override=None, *, advance=True):
-        """Store a selected height and draw indicator lines."""
+    def _record_selection(x_val, h_val, x_idx=None, y_idx=None, slot_override=None, *, advance=True):
         nonlocal next_slot, locked_slot
         colors = ['purple', 'orange']
+
+        if x_idx is None:
+            if x_val is None:
+                return False
+            x_idx = int(np.argmin(np.abs(x - x_val)))
+        else:
+            x_idx = int(np.clip(x_idx, 0, len(x) - 1))
+        x_val = float(x[x_idx])
+
+        if y_idx is None:
+            y_idx = int(nearest_y_to_plot)
+        else:
+            y_idx = int(np.clip(y_idx, 0, y_pixel_count - 1))
+        y_val = float(line_height)
 
         if slot_override is None:
             slot = next_slot if locked_slot is None else 1 - locked_slot
@@ -194,7 +207,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             img_lines.append(ax3.axhline(y_val, linestyle=':', color='r'))
         selected_image_hlines[slot] = img_lines
 
-        selected_slots[slot] = (h_val, x_val, line_height)
+        selected_slots[slot] = (float(h_val), x_val, y_val, x_idx, y_idx)
 
         if advance:
             if locked_slot is None:
@@ -222,9 +235,15 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         # Display selected heights for both slots
         for idx, info in enumerate(selected_slots, 1):
             if info is not None:
-                h, xh, yh = info
+                if len(info) >= 5:
+                    h, xh, yh, x_idx, y_idx = info[:5]
+                else:
+                    h, xh, yh = info[:3]
+                    x_idx = y_idx = None
                 color = 'purple' if idx == 1 else 'orange'
                 label = f"Point {idx}: {h:.3f} nm at ({xh:.3f}, {yh:.3f}) μm"
+                if x_idx is not None and y_idx is not None:
+                    label += f" [px ({x_idx}, {y_idx})]"
                 if locked_slot == idx - 1:
                     label += " (locked)"
                 entries.append((label, color))
@@ -277,7 +296,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             ydata_line = cumulative_adjusted_height if cumulative_adjusted_height is not None else height_map[nearest_y_to_plot, :]
             idx = int(np.argmin(np.abs(x - event.xdata)))
             h_val = ydata_line[idx]
-            _record_selection(x[idx], h_val, slot_override=1, advance=False)
+            _record_selection(x[idx], h_val, x_idx=idx, y_idx=nearest_y_to_plot, slot_override=1, advance=False)
 
             # 3) Put mode for this line into slot 0
             set_mode_height(slot=0, advance=False, silent=True)
@@ -317,14 +336,17 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             return
 
         if event.inaxes == ax2 and event.button == 1:  # Left-click on the bottom plot
+            if event.xdata is None:
+                return
+            x_idx = int(np.argmin(np.abs(x - event.xdata)))
             if event.key == 'control':
+                if event.ydata is None:
+                    return
                 height_val = event.ydata
             else:
                 ydata = cumulative_adjusted_height if cumulative_adjusted_height is not None else height_map[nearest_y_to_plot, :]
-                idx = np.argmin(np.abs(x - event.xdata))
-                height_val = ydata[idx]
-
-            if _record_selection(event.xdata, height_val):
+                height_val = ydata[x_idx]
+            if _record_selection(event.xdata, height_val, x_idx=x_idx, y_idx=nearest_y_to_plot):
                 print(f"Height value at x = {event.xdata:.3f} μm: {height_val:.3f} nm")
                 update_stats_display()
                 fig.canvas.draw_idle()
@@ -541,7 +563,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             local_idx = int(np.argmax(ydata))
         max_x = x[local_idx]
         max_y = ydata[local_idx]
-        if _record_selection(max_x, max_y):
+        if _record_selection(max_x, max_y, x_idx=local_idx, y_idx=nearest_y_to_plot):
             print(f"Max height at x = {max_x:.3f} μm: {max_y:.3f} nm (Set by button)")
             update_stats_display()
 
@@ -556,7 +578,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             local_idx = int(np.argmin(ydata))
         min_x = x[local_idx]
         min_y = ydata[local_idx]
-        if _record_selection(min_x, min_y):
+        if _record_selection(min_x, min_y, x_idx=local_idx, y_idx=nearest_y_to_plot):
             print(f"Min height at x = {min_x:.3f} μm: {min_y:.3f} nm (Set by button)")
             update_stats_display()
 
@@ -576,6 +598,8 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         success = _record_selection(
             x_val,
             height_val,
+            x_idx=ix,
+            y_idx=iy,
             slot_override=slot,
             advance=advance,
         )
@@ -601,6 +625,8 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         success = _record_selection(
             x_val,
             height_val,
+            x_idx=ix,
+            y_idx=iy,
             slot_override=slot,
             advance=advance,
         )
@@ -625,6 +651,8 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         success = _record_selection(
             x[idx],
             ydata[idx],
+            x_idx=idx,
+            y_idx=nearest_y_to_plot,
             slot_override=slot,
             advance=advance,
         )
@@ -771,11 +799,11 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
                 if info is None:
                     continue
                 # info expected as (h, x, y) or similar; record into slot idx
-                h_val, x_val, y_val = info
-                # set cross-section to provided y (line height)
+                h_val, x_val, y_val = info[:3]
+                x_idx = info[3] if len(info) > 3 else None
+                y_idx = info[4] if len(info) > 4 else None
                 _update_cross_section(y_val)
-                # record selection into the given slot without advancing
-                _record_selection(x_val, h_val, slot_override=idx, advance=False)
+                _record_selection(x_val, h_val, x_idx=x_idx, y_idx=y_idx, slot_override=idx, advance=False)
         except Exception:
             # ignore any malformed initial selection data
             pass

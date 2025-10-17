@@ -4,11 +4,14 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime
+import re
+import tkinter as tk
+from tkinter import ttk
 
 import path_loader as pl
 csv_path = pl.deflation_curve_path
 deflation_curve_slope_path = pl.deflation_curve_slope_path
-deflation_curve_slope_id = pl.deflation_curve_slope_id
+from path_loader import get_deflation_curve_slope_id
 
 def load_csv(path):
 	times = []
@@ -29,77 +32,19 @@ def load_csv(path):
 			defs.append(d)
 	return np.array(times), np.array(defs)
 
-
-def cumulative_linear_fit(x, y):
-	"""Compute cumulative slopes and R^2 for linear fits using points up to each index.
-
-	Returns arrays slope_up_to_i, r2_up_to_i (same length as x)
-	"""
-	n = len(x)
-	slopes = np.full(n, np.nan)
-	r2s = np.full(n, np.nan)
-
-	for i in range(1, n):
-		xi = x[: i + 1]
-		yi = y[: i + 1]
-		# fit linear model y = m*x + b
-		A = np.vstack([xi, np.ones_like(xi)]).T
-		try:
-			m, b = np.linalg.lstsq(A, yi, rcond=None)[0]
-		except Exception:
-			slopes[i] = np.nan
-			r2s[i] = np.nan
-			continue
-		slopes[i] = m
-		# compute r^2
-		y_pred = m * xi + b
-		ss_res = np.sum((yi - y_pred) ** 2)
-		ss_tot = np.sum((yi - np.mean(yi)) ** 2)
-		r2 = 1.0 - ss_res / ss_tot if ss_tot != 0 else 1.0
-		r2s[i] = r2
-
-	# For the first point (index 0) slope is undefined; keep nan or set 0
-	return slopes, r2s
-
-# compute slope to previous point and slope from local 3-point regression
-def adjacent_slopes(x, y):
-	n = len(x)
-	slope_prev = np.full(n, np.nan)
-	slope_local3 = np.full(n, np.nan)
-
-	# slope between current point and previous point
-	for i in range(1, n):
-		dx = x[i] - x[i - 1]
-		if dx != 0:
-			slope_prev[i] = (y[i] - y[i - 1]) / dx
-		else:
-			slope_prev[i] = np.nan
-
-	# slope from linear regression over previous, current, next (3-point window)
-	for i in range(1, n - 1):
-		xi = x[i - 1: i + 2]
-		yi = y[i - 1: i + 2]
-		A = np.vstack([xi, np.ones_like(xi)]).T
-		try:
-			m, b = np.linalg.lstsq(A, yi, rcond=None)[0]
-			slope_local3[i] = m
-		except Exception:
-			slope_local3[i] = np.nan
-
-	return slope_prev, slope_local3
-
-# NEW: helper to read and format saved slope info by ID
-def get_saved_slope_text(path, target_id):
+# helper to read and format saved slope info by ID
+def get_saved_slope_text(deflation_curve_slope_id):
 	try:
-		target = str(target_id)
+		target = str(deflation_curve_slope_id)
 	except Exception:
-		target = f"{target_id}"
-	if not os.path.exists(path):
+		target = f"{deflation_curve_slope_id}"
+	deflation_curve_slope_path = pl.deflation_curve_slope_path
+	if not os.path.exists(deflation_curve_slope_path):
 		return "No saved slope"
 
 	matches = []
 	try:
-		with open(path, 'r', newline='') as fh:
+		with open(deflation_curve_slope_path, 'r', newline='') as fh:
 			reader = csv.reader(fh)
 			header = next(reader, None)
 			for row in reader:
@@ -131,8 +76,76 @@ def get_saved_slope_text(path, target_id):
 		blocks.append(f"slope (nm/min)={slope_val}\nR^2={r2_val}\nsaved={saved_val}")
 	return "\n\n".join(blocks)
 
+# plotting function with interactive selection and slope saving
+def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 
-def plot_results(times, defs, slopes, r2s, slopes_prev, slopes_local3):
+	# compute cumulative linear fit slopes and R^2
+	def cumulative_linear_fit(x, y):
+		"""Compute cumulative slopes and R^2 for linear fits using points up to each index.
+
+		Returns arrays slope_up_to_i, r2_up_to_i, intercepts_up_to_i (same length as x)
+		"""
+		n = len(x)
+		slopes = np.full(n, np.nan)
+		r2s = np.full(n, np.nan)
+		intercepts = np.full(n, np.nan)
+
+		for i in range(1, n):
+			xi = x[: i + 1]
+			yi = y[: i + 1]
+			# fit linear model y = m*x + b
+			A = np.vstack([xi, np.ones_like(xi)]).T
+			try:
+				m, b = np.linalg.lstsq(A, yi, rcond=None)[0]
+			except Exception:
+				slopes[i] = np.nan
+				r2s[i] = np.nan
+				intercepts[i] = np.nan
+				continue
+			slopes[i] = m
+			intercepts[i] = b
+			# compute r^2
+			y_pred = m * xi + b
+			ss_res = np.sum((yi - y_pred) ** 2)
+			ss_tot = np.sum((yi - np.mean(yi)) ** 2)
+			r2 = 1.0 - ss_res / ss_tot if ss_tot != 0 else 1.0
+			r2s[i] = r2
+
+		# For the first point (index 0) slope is undefined; keep nan or set 0
+		return slopes, r2s, intercepts
+
+	# compute slope to previous point and slope from local 3-point regression
+	def adjacent_slopes(x, y):
+		n = len(x)
+		slope_prev = np.full(n, np.nan)
+		slope_local3 = np.full(n, np.nan)
+
+		# slope between current point and previous point
+		for i in range(1, n):
+			dx = x[i] - x[i - 1]
+			if dx != 0:
+				slope_prev[i] = (y[i] - y[i - 1]) / dx
+			else:
+				slope_prev[i] = np.nan
+
+		# slope from linear regression over previous, current, next (3-point window)
+		for i in range(1, n - 1):
+			xi = x[i - 1: i + 2]
+			yi = y[i - 1: i + 2]
+			A = np.vstack([xi, np.ones_like(xi)]).T
+			try:
+				m, b = np.linalg.lstsq(A, yi, rcond=None)[0]
+				slope_local3[i] = m
+			except Exception:
+				slope_local3[i] = np.nan
+
+		return slope_prev, slope_local3
+
+	times, defs = load_csv(curve_path)
+
+	slopes, r2s, intercepts = cumulative_linear_fit(times, defs)
+	slopes_prev, slopes_local3 = adjacent_slopes(times, defs)
+
 	fig, axes = plt.subplots(3, 1, sharex=True, figsize=(8, 9), gridspec_kw={'height_ratios': [3, 1, 1]})
 
 	# Scatter plot of deflection vs time
@@ -269,6 +282,7 @@ def plot_results(times, defs, slopes, r2s, slopes_prev, slopes_local3):
 		r2 = float(r2s[idx]) if not np.isnan(r2s[idx]) else float('nan')
 		s_prev = float(slopes_prev[idx]) if not np.isnan(slopes_prev[idx]) else float('nan')
 		s_local3 = float(slopes_local3[idx]) if not np.isnan(slopes_local3[idx]) else float('nan')
+		b = float(intercepts[idx]) if not np.isnan(intercepts[idx]) else float('nan')
 
 		# remove previous highlights
 		clear_prev()
@@ -276,6 +290,20 @@ def plot_results(times, defs, slopes, r2s, slopes_prev, slopes_local3):
 		# highlight on deflection plot
 		m0, = axes[0].plot(t, d, marker='o', color='red', markersize=9, markeredgecolor='white', zorder=11)
 		prev_artists.append(m0)
+
+		# Plot the line of best fit on the deflection plot if we have valid slope and intercept
+		if not np.isnan(s) and not np.isnan(b):
+			# Get x-axis limits to extend the line across the visible range
+			x_min, x_max = axes[0].get_xlim()
+			line_x = np.array([x_min, x_max])
+			line_y = s * line_x + b
+
+			# Freeze and restore y-limits so plotting doesn't change them
+			ymin, ymax = axes[0].get_ylim()
+			line, = axes[0].plot(line_x, line_y, '--', color='red', linewidth=1.5, alpha=0.7, zorder=10, label='Best fit line')
+			axes[0].set_ylim(ymin, ymax)
+
+			prev_artists.append(line)
 
 		# highlight on R^2 plot (may be nan)
 		if not np.isnan(r2):
@@ -304,7 +332,7 @@ def plot_results(times, defs, slopes, r2s, slopes_prev, slopes_local3):
 			f"local3_slope={s_local3:.6g} nm/min"
 		)
 		# Append "Last Saved" section
-		saved_txt = get_saved_slope_text(deflation_curve_slope_path, deflation_curve_slope_id)
+		saved_txt = get_saved_slope_text(deflation_curve_slope_id)
 		txt += "\n\nLast Saved\n=======\n" + saved_txt
 
 		ann = axes[0].annotate(
@@ -369,6 +397,9 @@ def plot_results(times, defs, slopes, r2s, slopes_prev, slopes_local3):
 					s_prev = float(slopes_prev[idx]) if not np.isnan(slopes_prev[idx]) else float('nan')
 					s_local3 = float(slopes_local3[idx]) if not np.isnan(slopes_local3[idx]) else float('nan')
 					
+					# Get intercept for this index (needed to draw best-fit line)
+					b = float(intercepts[idx]) if not np.isnan(intercepts[idx]) else float('nan')
+					
 					# Re-highlight all markers
 					m0, = axes[0].plot(t, d, marker='o', color='red', markersize=9, markeredgecolor='white', zorder=11)
 					prev_artists.append(m0)
@@ -385,6 +416,19 @@ def plot_results(times, defs, slopes, r2s, slopes_prev, slopes_local3):
 						m4, = axes[2].plot(t, s_local3, marker='s', color='tab:cyan', markersize=8, markeredgecolor='white', zorder=12)
 						prev_artists.append(m4)
 					
+					# Plot the line of best fit
+					if not np.isnan(s) and not np.isnan(b):
+						x_min, x_max = axes[0].get_xlim()
+						line_x = np.array([x_min, x_max])
+						line_y = s * line_x + b
+
+						# Freeze and restore y-limits so plotting doesn't change them
+						ymin, ymax = axes[0].get_ylim()
+						line, = axes[0].plot(line_x, line_y, '--', color='red', linewidth=1.5, alpha=0.7, zorder=10, label='Best fit line')
+						axes[0].set_ylim(ymin, ymax)
+
+						prev_artists.append(line)
+					
 					# Recreate annotation with updated saved info
 					txt = (
 						"Selected Point\n=========\n"
@@ -395,7 +439,7 @@ def plot_results(times, defs, slopes, r2s, slopes_prev, slopes_local3):
 						f"pairwise_prev_slope={s_prev:.6g} nm/min\n"
 						f"local3_slope={s_local3:.6g} nm/min"
 					)
-					saved_txt = get_saved_slope_text(deflation_curve_slope_path, deflation_curve_slope_id)
+					saved_txt = get_saved_slope_text(deflation_curve_slope_id)
 					txt += "\n\nLast Saved\n=======\n" + saved_txt
 					
 					ann = axes[0].annotate(
@@ -441,18 +485,285 @@ def plot_results(times, defs, slopes, r2s, slopes_prev, slopes_local3):
 	plt.show()
 
 
-print(f"Loading data from {csv_path}")
-if not os.path.exists(csv_path):
-	print(f"CSV file not found: {csv_path}")
-	sys.exit(1)
 
-times, defs = load_csv(csv_path)
-if len(times) == 0:
-	print("No data found in CSV")
-	sys.exit(1)
+csv_paths = pl.get_all_deflation_curve_paths()
 
-slopes, r2s = cumulative_linear_fit(times, defs)
-# compute the two additional slope series
-slopes_prev, slopes_local3 = adjacent_slopes(times, defs)
-# pass them into the plotting function
-plot_results(times, defs, slopes, r2s, slopes_prev, slopes_local3)
+filter_by_sample = '37' # set to None to disable filtering
+filter_by_transfer_location = '$(6,3)' # set to None to disable filtering
+filter_by_cavity_position = None # set to None to disable filtering
+filter_by_depressurized_date = None # set to None to disable filtering, or 'YYYYMMDD' string
+filter_by_depressurized_time = None # set to None to disable filtering, or 'HHMMSS' string
+
+if filter_by_sample is not None:
+	csv_paths = [p for p in csv_paths if f"_sample{filter_by_sample}_" in os.path.basename(p)]
+print(len(csv_paths))
+if filter_by_transfer_location is not None:
+	csv_paths = [p for p in csv_paths if f"_loc{filter_by_transfer_location}_" in os.path.basename(p)]
+print(len(csv_paths))
+if filter_by_cavity_position is not None:
+	csv_paths = [p for p in csv_paths if f"_cav{filter_by_cavity_position}" in os.path.basename(p)]
+print(len(csv_paths))
+if filter_by_depressurized_date is not None:
+	csv_paths = [p for p in csv_paths if f"_depressurized{filter_by_depressurized_date}_" in os.path.basename(p)]
+print(len(csv_paths))
+if filter_by_depressurized_time is not None:
+	csv_paths = [p for p in csv_paths if f"_{filter_by_depressurized_time}_" in os.path.basename(p)]
+
+def csv_path_to_slope_id(path):
+	# Expect filenames like:
+	# deflation_curve_sample{sample_number}_depressurized{depressurized_date}_{depressurized_time}_loc{transfer_location}_cav{cavity_position}.csv
+	base = os.path.basename(path)
+
+	# Use regex to robustly capture each component, allowing non-underscore characters for fields.
+	pat = re.compile(
+		r"^deflation_curve_sample(?P<sample>[^_]+)"
+		r"_depressurized(?P<date>[^_]+)_(?P<time>[^_]+)"
+		r"_loc(?P<loc>[^_]+)_cav(?P<cav>[^.]+)\.csv$"
+	)
+	m = pat.match(base)
+	if not m:
+		# helpful debug message
+		raise ValueError(f"Filename does not match expected pattern: {base}")
+
+	sample_number = m.group('sample')
+	depressurized_date = m.group('date')
+	depressurized_time = m.group('time')
+	transfer_location = m.group('loc')
+	cavity_position = m.group('cav')
+
+	# call existing helper to get slope id
+	return get_deflation_curve_slope_id(sample_number, depressurized_date, depressurized_time, transfer_location, cavity_position)
+
+def load_saved_slopes():
+	"""Load all saved slopes into a dictionary keyed by slope_id."""
+	slopes_dict = {}
+	if not os.path.exists(deflation_curve_slope_path):
+		return slopes_dict
+	
+	try:
+		with open(deflation_curve_slope_path, 'r', newline='') as fh:
+			reader = csv.reader(fh)
+			header = next(reader, None)
+			for row in reader:
+				if not row or len(row) < 4:
+					continue
+				slope_id = str(row[0])
+				slope_val = row[1]
+				r2_val = row[2]
+				# Keep the most recent entry for each id
+				slopes_dict[slope_id] = (slope_val, r2_val)
+	except Exception:
+		pass
+	
+	return slopes_dict
+
+def parse_csv_metadata(path):
+	"""Extract metadata from CSV filename."""
+	base = os.path.basename(path)
+	pat = re.compile(
+		r"^deflation_curve_sample(?P<sample>[^_]+)"
+		r"_depressurized(?P<date>[^_]+)_(?P<time>[^_]+)"
+		r"_loc(?P<loc>[^_]+)_cav(?P<cav>[^.]+)\.csv$"
+	)
+	m = pat.match(base)
+	if not m:
+		return None
+	
+	return {
+		'sample': m.group('sample'),
+		'date': m.group('date'),
+		'time': m.group('time'),
+		'loc': m.group('loc'),
+		'cav': m.group('cav')
+	}
+
+def show_csv_table(csv_paths, filter_by_sample, filter_by_transfer_location, 
+				   filter_by_cavity_position, filter_by_depressurized_date, 
+				   filter_by_depressurized_time):
+	"""Display a tkinter table with CSV files and allow loading."""
+	
+	# Load saved slopes
+	saved_slopes = load_saved_slopes()
+	
+	# Parse metadata for all paths
+	table_data = []
+	for idx, path in enumerate(csv_paths):
+		metadata = parse_csv_metadata(path)
+		if metadata is None:
+			continue
+		
+		slope_id = csv_path_to_slope_id(path)
+		slope_val, r2_val = '', ''
+		if slope_id in saved_slopes:
+			slope_val, r2_val = saved_slopes[slope_id]
+			try:
+				slope_val = f"{float(slope_val):.6g}"
+				r2_val = f"{float(r2_val):.6g}"
+			except Exception:
+				pass
+		
+		table_data.append({
+			'index': idx,
+			'path': path,
+			'sample': metadata['sample'],
+			'loc': metadata['loc'],
+			'cav': metadata['cav'],
+			'date': metadata['date'],
+			'time': metadata['time'],
+			'slope': slope_val,
+			'r2': r2_val,
+			'slope_id': slope_id
+		})
+	
+	# Determine which columns to show
+	columns = ['index']
+	if filter_by_sample is None:
+		columns.append('sample')
+	if filter_by_transfer_location is None:
+		columns.append('loc')
+	if filter_by_cavity_position is None:
+		columns.append('cav')
+	if filter_by_depressurized_date is None:
+		columns.append('date')
+	if filter_by_depressurized_time is None:
+		columns.append('time')
+	columns.extend(['slope', 'r2'])
+	
+	# Create tkinter window
+	root = tk.Tk()
+	root.title("Deflation Curve Selector")
+	root.geometry("900x600")
+	
+	# Create frame for table
+	frame = ttk.Frame(root)
+	frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+	
+	# Create treeview with scrollbars
+	tree_scroll_y = ttk.Scrollbar(frame, orient=tk.VERTICAL)
+	tree_scroll_x = ttk.Scrollbar(frame, orient=tk.HORIZONTAL)
+	
+	tree = ttk.Treeview(frame, columns=columns, show='headings',
+						yscrollcommand=tree_scroll_y.set,
+						xscrollcommand=tree_scroll_x.set)
+	
+	tree_scroll_y.config(command=tree.yview)
+	tree_scroll_x.config(command=tree.xview)
+	tree_scroll_y.pack(side=tk.RIGHT, fill=tk.Y)
+	tree_scroll_x.pack(side=tk.BOTTOM, fill=tk.X)
+	tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+	
+	# Configure column headings and widths
+	column_headings = {
+		'index': 'Index',
+		'sample': 'Sample',
+		'loc': 'Location',
+		'cav': 'Cavity',
+		'date': 'Date',
+		'time': 'Time',
+		'slope': 'Saved Slope (nm/min)',
+		'r2': 'Saved R²'
+	}
+	
+	column_widths = {
+		'index': 60,
+		'sample': 70,
+		'loc': 100,
+		'cav': 70,
+		'date': 90,
+		'time': 80,
+		'slope': 150,
+		'r2': 100
+	}
+	
+	for col in columns:
+		tree.heading(col, text=column_headings[col])
+		tree.column(col, width=column_widths[col], anchor=tk.CENTER)
+	
+	# Insert data
+	for item in table_data:
+		values = [item[col] for col in columns]
+		# use the index as the item's iid so we can update values later
+		tree.insert('', tk.END, iid=str(item['index']), values=values, tags=(item['path'], item['slope_id']))
+	
+	# Create button frame
+	button_frame = ttk.Frame(root)
+	button_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+	
+	def on_load():
+		selection = tree.selection()
+		if not selection:
+			return
+		
+		item = tree.item(selection[0])
+		tags = item['tags']
+		if not tags:
+			return
+		
+		csv_path = tags[0]
+		slope_id = tags[1]
+		
+		# Hide the tkinter window, plot, then re-show and refresh saved values
+		try:
+			root.withdraw()
+			# ensure the window updates before blocking on matplotlib
+			root.update_idletasks()
+		except Exception:
+			pass
+
+		# show the plot (blocking until the matplotlib window is closed)
+		plot_deflection_curve(csv_path, slope_id)
+
+		# After the plot window is closed, re-show the tkinter window
+		try:
+			# refresh saved slopes and update table values
+			new_saved = load_saved_slopes()
+			for td in table_data:
+				iid = str(td['index'])
+				# recompute displayed slope/r2 from saved file
+				new_slope, new_r2 = '', ''
+				if td['slope_id'] in new_saved:
+					new_slope, new_r2 = new_saved[td['slope_id']]
+					try:
+						new_slope = f"{float(new_slope):.6g}"
+						new_r2 = f"{float(new_r2):.6g}"
+					except Exception:
+						pass
+				# build new values list in same column order
+				new_vals = [td[col] for col in columns]
+				# find positions of slope/r2 columns and replace if present
+				if 'slope' in columns:
+					new_vals[columns.index('slope')] = new_slope
+				if 'r2' in columns:
+					new_vals[columns.index('r2')] = new_r2
+				# update tree row
+				try:
+					tree.item(iid, values=new_vals)
+				except Exception:
+					pass
+
+			root.deiconify()
+			root.update_idletasks()
+		except Exception:
+			# if anything fails, at least try to restore the window
+			try:
+				root.deiconify()
+			except Exception:
+				pass
+	
+	load_button = ttk.Button(button_frame, text="Load", command=on_load)
+	load_button.pack(side=tk.LEFT, padx=5)
+	
+	# Allow double-click to load
+	tree.bind('<Double-Button-1>', lambda e: on_load())
+
+	# Allow pressing Enter to load selected row (both Return and keypad Enter)
+	root.bind('<Return>', lambda e: on_load())
+	root.bind('<KP_Enter>', lambda e: on_load())
+	
+	root.mainloop()
+
+# Show the table instead of directly plotting
+show_csv_table(csv_paths, filter_by_sample, filter_by_transfer_location,
+			   filter_by_cavity_position, filter_by_depressurized_date,
+			   filter_by_depressurized_time)
+

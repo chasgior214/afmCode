@@ -40,6 +40,7 @@ print("=================================================")
 
 times = []
 deflections = []
+pixel_coords = []
 
 # Open an interactive navigator so the user can pick images in any order
 selections = collection.navigate_images()
@@ -62,14 +63,20 @@ for idx in sorted(selections.keys()):
         if slots[0] is not None and slots[1] is not None:
             h1 = slots[0][0]
             h2 = slots[1][0]
-            deflections.append(h2 - h1)
+            delta_deflection = h2 - h1
+            print(f"Deflection: {delta_deflection:.3f} nm")
             if time_offset is None:
                 print(f"No time offset for image {image.bname}; skipping time entry")
-            else:
-                time_unpressurized = (taken - depressurized_datetime).total_seconds() + time_offset
-                times.append(time_unpressurized / 60)
-                print(f"Deflection: {deflections[-1]:.3f} nm")
-                print(f"Time: {times[-1]:.3f} minutes")
+                continue
+            time_unpressurized = (taken - depressurized_datetime).total_seconds() + time_offset
+            times.append(time_unpressurized / 60)
+            deflections.append(delta_deflection)
+            p1x = p1y = p2x = p2y = None
+            if len(slots[0]) >= 5 and len(slots[1]) >= 5:
+                p1x, p1y = int(slots[0][3]), int(slots[0][4])
+                p2x, p2y = int(slots[1][3]), int(slots[1][4])
+            pixel_coords.append((p1x, p1y, p2x, p2y))
+            print(f"Time: {times[-1]:.3f} minutes")
         else:
             print(f"Image {image.bname} has incomplete selections; skipping deflection/time entry")
     except Exception as e:
@@ -98,9 +105,11 @@ if save_to_csv:
             file_path = 'RENAME_ME.csv'
         with open(file_path, mode='w', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(['Time (minutes)', 'Deflection (nm)'])
-            for t, d in zip(times, deflections):
-                writer.writerow([t, d])
+            writer.writerow(['Time (minutes)', 'Deflection (nm)',
+                             'Point 1 X Pixel', 'Point 1 Y Pixel',
+                             'Point 2 X Pixel', 'Point 2 Y Pixel'])
+            for t, d, (p1x, p1y, p2x, p2y) in zip(times, deflections, pixel_coords):
+                writer.writerow([t, d, p1x, p1y, p2x, p2y])
 
 # plot deflection vs time
 plt.scatter(times, deflections)

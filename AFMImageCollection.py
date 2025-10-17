@@ -175,14 +175,13 @@ class AFMImageCollection:
         df.to_excel("Time_V_deflection.xlsx", index=False)
         print("time V deflection exported to Time_V_deflection.xlsx")
 
-    def navigate_images(self):
+    def navigate_images(self, initial_selections=None):
         """Open a small navigator window listing all images with their times,
         show which ones have selections (with checkmarks) and allow jumping
         back-and-forth. Stores selections in memory so returning to an image
         will show previous selections inside select_heights.
         """
-        # store selections by index: {'selected_slots': [(...), (...)] , 'time_offset': val}
-        selections = {}
+        selections = initial_selections.copy() if initial_selections else {}
 
         root = tk.Tk()
         root.title('AFM Image Navigator')
@@ -208,7 +207,16 @@ class AFMImageCollection:
         # populate
         for idx, img in enumerate(self.images):
             dt = img.get_datetime().strftime('%Y-%m-%d %H:%M:%S') if img.get_datetime() is not None else ''
-            tree.insert('', 'end', iid=str(idx), values=(idx+1, img.get_filename(), dt, '', ''))
+            existing = selections.get(idx)
+            done_flag = ''
+            deflect = ''
+            if existing:
+                slots = existing.get('selected_slots', [None, None])
+                if any(slots):
+                    done_flag = '✓'
+                if slots[0] is not None and slots[1] is not None:
+                    deflect = f"{slots[1][0] - slots[0][0]:.3f}"
+            tree.insert('', 'end', iid=str(idx), values=(idx+1, img.get_filename(), dt, done_flag, deflect))
 
         def open_image(event=None):
             sel = tree.selection()
@@ -219,14 +227,18 @@ class AFMImageCollection:
 
             # Prepare initial slots if we have prior selections
             init_slots = None
-            if idx in selections and selections[idx].get('selected_slots'):
-                init_slots = selections[idx]['selected_slots']
+            prev_time_offset = None
+            if idx in selections:
+                init_slots = selections[idx].get('selected_slots')
+                prev_time_offset = selections[idx].get('time_offset')
 
             # Call existing select_heights; it now accepts initial selections and returns a dict
             res = vis.select_heights(img, initial_selected_slots=init_slots)
             if res is None:
                 return
-
+            if res.get('time_offset') is None and prev_time_offset is not None:
+                res['time_offset'] = prev_time_offset
+            
             # store result
             selections[idx] = res
 

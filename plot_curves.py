@@ -9,7 +9,7 @@ import path_loader as pl
 folder = pl.deflation_curves_path
 
 # Find all CSV files in the folder for specified sample and depressurization date/time
-csv_files = glob.glob(os.path.join(folder, f"deflation_curve_{pl.sample_number}_depressurized{pl.depressurized_date}_{pl.depressurized_time}*.csv"))
+csv_files = glob.glob(os.path.join(folder, f"deflation_curve_sample{pl.sample_number}_depressurized{pl.depressurized_date}_{pl.depressurized_time}*.csv"))
 
 # Set up the plot
 plt.figure(figsize=(8, 6))
@@ -30,6 +30,6 @@ for idx, csv_file in enumerate(csv_files):
 
 plt.xlabel('Time since depressurization (minutes)')
 plt.ylabel('Deflection (nm)')
-plt.legend()
+# plt.legend()
 plt.tight_layout()
 plt.show()
