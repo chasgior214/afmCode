@@ -11,6 +11,9 @@ folder = pl.deflation_curves_path
 # Find all CSV files in the folder for specified sample and depressurization date/time
 csv_files = glob.glob(os.path.join(folder, f"deflation_curve_sample{pl.sample_number}_depressurized{pl.depressurized_date}_{pl.depressurized_time}*.csv"))
 
+# filter to only files containing 'red', 'blue' in their filenames
+# csv_files = [f for f in csv_files if any(color in os.path.basename(f) for color in ['green', 'black', 'orange'])]
+
 # Set up the plot
 plt.figure(figsize=(8, 6))
 

@@ -405,10 +405,35 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     if phase_map is not None:
         ax3.set_aspect('equal', adjustable='box')
 
-    # Match the cross-section width with the image plots
-    height, width = contrast_map.shape
-    aspect_ratio = height / width
-    ax2.set_box_aspect(aspect_ratio)
+    # Match the cross-section width with the image plots while allowing the
+    # y-axis to occupy the full subplot height.
+    aligning_ax2 = False
+
+    def _align_cross_section_axes(event=None):
+        nonlocal aligning_ax2
+        if aligning_ax2:
+            return
+        aligning_ax2 = True
+        try:
+            bbox_image = ax1.get_position()
+            bbox_cross = ax2.get_position()
+            new_bounds = [bbox_image.x0, bbox_cross.y0, bbox_image.width, bbox_cross.height]
+            current = ax2.get_position()
+            if (
+                abs(current.x0 - new_bounds[0]) > 1e-5
+                or abs(current.y0 - new_bounds[1]) > 1e-5
+                or abs(current.width - new_bounds[2]) > 1e-5
+                or abs(current.height - new_bounds[3]) > 1e-5
+            ):
+                ax2.set_position(new_bounds)
+                if event is not None:
+                    fig.canvas.draw_idle()
+        finally:
+            aligning_ax2 = False
+
+    _align_cross_section_axes()
+    fig.canvas.mpl_connect('resize_event', _align_cross_section_axes)
+    fig.canvas.mpl_connect('draw_event', _align_cross_section_axes)
 
     ax4.axis('off')
     update_stats_display()

@@ -1,8 +1,8 @@
-depressurized_date = '20251016'
-depressurized_time = '15:03:31'
+depressurized_date = '20251017'
+depressurized_time = '15:54:29'
 sample_number = '37'
 transfer_location = '$(6,3)'
-cavity_position = 'green'
+cavity_position = 'orange'
 
 
 
