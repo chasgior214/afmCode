@@ -807,8 +807,17 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         if (scan_size >= 8 and y_dimension >= 5) and hasattr(toolbar, "zoom"):
             toolbar.zoom()
 
-    # Auto-select when x < 8 μm OR y < 5 μm
-    if (scan_size < 8) or (y_dimension < 5):
+    # Determine whether we were given selections to restore before running
+    # the automatic small-scan defaults. If prior selections exist, keep them
+    # instead of replacing them with auto-selected points.
+    has_initial_preload = bool(
+        initial_selected_slots
+        and any(slot is not None for slot in initial_selected_slots)
+    )
+
+    # Auto-select when x < 8 μm OR y < 5 μm unless we are restoring
+    # previously saved selections.
+    if ((scan_size < 8) or (y_dimension < 5)) and not has_initial_preload:
         # Global max in slot 1 (orange), mode in slot 0 (purple)
         set_global_max(slot=1, silent=True)
         set_mode_height(slot=0, silent=True)
@@ -832,6 +841,9 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         except Exception:
             # ignore any malformed initial selection data
             pass
+        else:
+            # Ensure the restored selections are reflected in the UI summary.
+            update_stats_display()
 
     plt.show()
 
