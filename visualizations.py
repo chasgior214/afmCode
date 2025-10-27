@@ -741,6 +741,38 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             toolbar = plt.get_current_fig_manager().toolbar
             if toolbar is not None and hasattr(toolbar, "zoom"):
                 toolbar.zoom()
+        elif event.key == 'up':
+            # Move up by one pixel (decrease index = increase y-value)
+            new_y_idx = max(nearest_y_to_plot - 1, 0)
+            new_y_val = (y_pixel_count - 1 - new_y_idx) * pixel_size
+            _update_cross_section(new_y_val)
+            # If Control is held, auto-select max and mode
+            if event.key == 'ctrl+up':
+                set_max_height()
+                set_mode_height()
+        elif event.key == 'down':
+            # Move down by one pixel (increase index = decrease y-value)
+            new_y_idx = min(nearest_y_to_plot + 1, y_pixel_count - 1)
+            new_y_val = (y_pixel_count - 1 - new_y_idx) * pixel_size
+            _update_cross_section(new_y_val)
+            # If Control is held, auto-select max and mode
+            if event.key == 'ctrl+down':
+                set_max_height()
+                set_mode_height()
+        elif event.key == 'ctrl+up':
+            # Move up by one pixel and auto-select
+            new_y_idx = max(nearest_y_to_plot - 1, 0)
+            new_y_val = (y_pixel_count - 1 - new_y_idx) * pixel_size
+            _update_cross_section(new_y_val)
+            set_max_height()
+            set_mode_height()
+        elif event.key == 'ctrl+down':
+            # Move down by one pixel and auto-select
+            new_y_idx = min(nearest_y_to_plot + 1, y_pixel_count - 1)
+            new_y_val = (y_pixel_count - 1 - new_y_idx) * pixel_size
+            _update_cross_section(new_y_val)
+            set_max_height()
+            set_mode_height()
         elif event.key == 'tab':  # abort and close
             aborted = True
             plt.close(fig)

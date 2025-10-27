@@ -496,16 +496,12 @@ filter_by_depressurized_time = None # set to None to disable filtering, or 'HHMM
 
 if filter_by_sample is not None:
 	csv_paths = [p for p in csv_paths if f"_sample{filter_by_sample}_" in os.path.basename(p)]
-print(len(csv_paths))
 if filter_by_transfer_location is not None:
 	csv_paths = [p for p in csv_paths if f"_loc{filter_by_transfer_location}_" in os.path.basename(p)]
-print(len(csv_paths))
 if filter_by_cavity_position is not None:
 	csv_paths = [p for p in csv_paths if f"_cav{filter_by_cavity_position}" in os.path.basename(p)]
-print(len(csv_paths))
 if filter_by_depressurized_date is not None:
 	csv_paths = [p for p in csv_paths if f"_depressurized{filter_by_depressurized_date}_" in os.path.basename(p)]
-print(len(csv_paths))
 if filter_by_depressurized_time is not None:
 	csv_paths = [p for p in csv_paths if f"_{filter_by_depressurized_time}_" in os.path.basename(p)]
 
