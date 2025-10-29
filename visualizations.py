@@ -580,7 +580,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     ax_button_mode = plt.axes([0.08 + (btn_width + btn_spacing) * 5, btn_y, btn_width, btn_height])
     btn_mode_height = Button(ax_button_mode, 'Mode, 0.5nm Bins (5)')
 
-    def set_max_height(event=None):
+    def set_max_height(event=None, *, slot=None, advance=True, silent=False):
         """Select the maximum value within the visible part of the cross-section."""
         ydata = cumulative_adjusted_height if cumulative_adjusted_height is not None else height_map[nearest_y_to_plot, :]
         sl = _visible_x_slice()
@@ -591,8 +591,16 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             local_idx = int(np.argmax(ydata))
         max_x = x[local_idx]
         max_y = ydata[local_idx]
-        if _record_selection(max_x, max_y, x_idx=local_idx, y_idx=nearest_y_to_plot):
-            print(f"Max height at x = {max_x:.3f} μm: {max_y:.3f} nm (Set by button)")
+        if _record_selection(
+            max_x,
+            max_y,
+            x_idx=local_idx,
+            y_idx=nearest_y_to_plot,
+            slot_override=slot,
+            advance=advance,
+        ):
+            if not silent:
+                print(f"Max height at x = {max_x:.3f} μm: {max_y:.3f} nm (Set by button)")
             update_stats_display()
 
     def set_min_height(event=None):
@@ -763,19 +771,19 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
                 set_max_height()
                 set_mode_height()
         elif event.key == 'ctrl+up':
-            # Move up by one pixel and auto-select
+            # Move up by one pixel and auto-select with a fixed slot order
             new_y_idx = max(nearest_y_to_plot - 1, 0)
             new_y_val = (y_pixel_count - 1 - new_y_idx) * pixel_size
             _update_cross_section(new_y_val)
-            set_max_height()
-            set_mode_height()
+            set_max_height(slot=1, silent=True)
+            set_mode_height(slot=0, silent=True)
         elif event.key == 'ctrl+down':
-            # Move down by one pixel and auto-select
+            # Move down by one pixel and auto-select with a fixed slot order
             new_y_idx = min(nearest_y_to_plot + 1, y_pixel_count - 1)
             new_y_val = (y_pixel_count - 1 - new_y_idx) * pixel_size
             _update_cross_section(new_y_val)
-            set_max_height()
-            set_mode_height()
+            set_max_height(slot=1, silent=True)
+            set_mode_height(slot=0, silent=True)
         elif event.key == 'tab':  # abort and close
             aborted = True
             plt.close(fig)
