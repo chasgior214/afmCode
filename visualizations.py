@@ -54,6 +54,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     selected_vlines = [[], []]  # [[ax1_line, ax2_line, ax3_line?], ...]
     selected_cross_hlines = [None, None]  # [ax2_line, ...]
     selected_image_hlines = [[], []]  # [[ax1_line, ax3_line?], ...]
+    square_marker_artists = []  # Markers highlighting the local max near the extremum
     next_slot = 0  # Which slot to overwrite next
     locked_slot = None  # Slot index that should not be overwritten
 
@@ -219,10 +220,90 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         _apply_line_colors()
         return True
 
+    def _compute_extremum_square_info():
+        """Return info about the 4 μm square around the extremum selection."""
+        if len(selected_slots) < 2:
+            return None
+        extremum_info = selected_slots[1]
+        if extremum_info is None or len(extremum_info) < 5:
+            return None
+        _, _, _, x_idx, y_idx = extremum_info[:5]
+        if x_idx is None or y_idx is None:
+            return None
+
+        # Determine pixel span corresponding to a 4 μm square (±2 μm from center).
+        half_span_um = 2.0
+        if pixel_size == 0:
+            return None
+        half_span_px = max(0, int(round(half_span_um / pixel_size)))
+        x_start = max(0, x_idx - half_span_px)
+        x_end = min(x_pixel_count, x_idx + half_span_px + 1)
+        y_start = max(0, y_idx - half_span_px)
+        y_end = min(y_pixel_count, y_idx + half_span_px + 1)
+
+        if x_end <= x_start or y_end <= y_start:
+            return None
+
+        subregion = height_map[y_start:y_end, x_start:x_end]
+        if subregion.size == 0:
+            return None
+        finite_sub = np.isfinite(subregion)
+        if not finite_sub.any():
+            return None
+
+        # Locate the maximum height within the subregion.
+        sub_max_index = np.nanargmax(subregion)
+        sub_max_height = float(np.nanmax(subregion))
+        local_y, local_x = np.unravel_index(sub_max_index, subregion.shape)
+        max_y_idx = y_start + local_y
+        max_x_idx = x_start + local_x
+
+        # Compute the mode of the cross section at the y value of the max point.
+        row_data = height_map[max_y_idx, :]
+        finite_row_indices = np.where(np.isfinite(row_data))[0]
+        if finite_row_indices.size == 0:
+            return None
+        row_values = row_data[finite_row_indices]
+        row_min = row_values.min()
+        row_max = row_values.max()
+        if not np.isfinite(row_min) or not np.isfinite(row_max):
+            return None
+        bins = np.arange(row_min, row_max + 0.5, 0.5)
+        if bins.size < 2:
+            return None
+        hist, edges = np.histogram(row_values, bins=bins)
+        if hist.size == 0:
+            return None
+        mode_idx = int(np.argmax(hist))
+        mode_center = (edges[mode_idx] + edges[mode_idx + 1]) / 2
+        nearest_idx = finite_row_indices[np.argmin(np.abs(row_values - mode_center))]
+        mode_height = float(row_data[nearest_idx])
+
+        delta_nm = float(sub_max_height - mode_height)
+        x_coord_um = float(x[max_x_idx])
+        y_coord_um = (y_pixel_count - 1 - max_y_idx) * pixel_size
+
+        return {
+            'delta_nm': delta_nm,
+            'x_um': x_coord_um,
+            'y_um': y_coord_um,
+            'x_idx': int(max_x_idx),
+            'y_idx': int(max_y_idx),
+        }
+
     def update_stats_display():
         """Refresh the text panel summarizing selection info."""
+        nonlocal square_marker_artists
         ax4.cla()
         ax4.axis('off')
+
+        # Clear existing extremum markers from the images.
+        for artist in square_marker_artists:
+            try:
+                artist.remove()
+            except ValueError:
+                pass
+        square_marker_artists = []
 
         entries = []
         if time_since_start is not None:
@@ -254,6 +335,30 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             xdiff = selected_slots[1][1] - selected_slots[0][1]
             entries.append((f"Δz: {diff:.3f} nm", 'black'))
             entries.append((f"Δx: {xdiff:.3f} μm", 'black'))
+
+        square_info = _compute_extremum_square_info()
+        if square_info is not None:
+            entries.append((
+                "Max Δz within 4 μm square of selected extremum: "
+                f"{square_info['delta_nm']:.3f} nm at "
+                f"({square_info['x_um']:.3f}, {square_info['y_um']:.3f}) μm "
+                f"[px ({square_info['x_idx']}, {square_info['y_idx']})]",
+                'green'
+            ))
+
+            axes_to_mark = [ax1]
+            if phase_map is not None:
+                axes_to_mark.append(ax3)
+            for target_ax in axes_to_mark:
+                marker, = target_ax.plot(
+                    square_info['x_um'],
+                    square_info['y_um'],
+                    marker='x',
+                    color='green',
+                    markersize=8,
+                    mew=2,
+                )
+                square_marker_artists.append(marker)
 
         ydata = cumulative_adjusted_height if cumulative_adjusted_height is not None else height_map[nearest_y_to_plot, :]
         max_idx = np.argmax(ydata)
