@@ -48,6 +48,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
 
     # Slots for the two selectable height values
     selected_slots = [None, None]  # [(height, x, y), ...]
+    slot_labels = ['Substrate', 'Extremum']
 
     # Handles for vertical and horizontal indicator lines for selected heights
     selected_vlines = [[], []]  # [[ax1_line, ax2_line, ax3_line?], ...]
@@ -241,7 +242,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
                     h, xh, yh = info[:3]
                     x_idx = y_idx = None
                 color = 'purple' if idx == 1 else 'orange'
-                label = f"Point {idx}: {h:.3f} nm at ({xh:.3f}, {yh:.3f}) μm"
+                label = f"{slot_labels[idx - 1]}: {h:.2f} nm at ({xh:.3f}, {yh:.3f}) μm"
                 if x_idx is not None and y_idx is not None:
                     label += f" [px ({x_idx}, {y_idx})]"
                 if locked_slot == idx - 1:
