@@ -492,6 +492,9 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             ax1.set_ylim(ylim)
         ax2.set_xlim(xlim)
         _autoscale_ax2_y_to_visible()
+        # Ensure the cross-section subplot keeps the same width as the image/phase
+        # plot after interactive zooming.
+        _align_cross_section_axes()
         _update_visible_ranges()
         # Defer auto-select until after all limit change callbacks have fired
         # to ensure we use the final zoomed x/y ranges.
