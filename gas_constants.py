@@ -64,7 +64,7 @@ if __name__ == "__main__":
     }
     N2_slopes = {
         'green': 0.026,
-        'red': 0.72,
+        'red': 1.35,
         'blue': 1.51,
         'orange': 0.019,
         'black': 0.017
