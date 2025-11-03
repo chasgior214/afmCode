@@ -7,11 +7,14 @@ cavity_position = 'black'
 
 
 ##############################################################################
+import os
 from datetime import datetime
 depressurized_time = depressurized_time.replace(':', '')  # 'HHMMSS' format
 depressurized_datetime = datetime.strptime(depressurized_date + depressurized_time, '%Y%m%d%H%M%S')
 
 experiment_data_path = 'C:\\Users\\chasg\\OneDrive - The University of Western Ontario\\MESc\\Research\\Experiments\\expt005_250403_gas_inflations'
+
+excel_action_tracker_path = experiment_data_path + '\\action_tracker.xlsx'
 
 afm_images_path = experiment_data_path + '\\raw_data\\'+depressurized_date+'\\FlattenedData'
 
@@ -27,7 +30,6 @@ deflation_curve_slope_path = experiment_data_path + '\\data_processing\\deflatio
 deflation_curve_slope_id = get_deflation_curve_slope_id(sample_number, depressurized_date, depressurized_time, transfer_location, cavity_position)
 
 def get_all_deflation_curve_paths():
-    import os
     paths = []
     for file in os.listdir(deflation_curves_path):
         if file.endswith('.csv') and file.startswith('deflation_curve_'):

@@ -29,7 +29,7 @@ T = 22 + 273.15  # 22 C in Kelvin
 R =  8.31446261815324 # J/(mol·K)
 N_A = 6.02214076e23  # molecules per mole
 
-molar_masses = {gas: mw / 1000 for gas, mw in molecular_weights.items()}  # kg/mol
+molar_masses_kg_per_mol = {gas: mw / 1000 for gas, mw in molecular_weights.items()}  # kg/mol
 
 if __name__ == "__main__":
     H2_slopes = {
@@ -131,7 +131,7 @@ if __name__ == "__main__":
     plt.figure()
     for gas, slopes in [('H2', H2_slopes), ('He', He_slopes), ('CO2', CO2_slopes), ('Ar', Ar_slopes), ('CH4', CH4_slopes), ('N2', N2_slopes)]:
         kd = kinetic_diameters[gas]
-        mm = molar_masses[gas]
+        mm = molar_masses_kg_per_mol[gas]
         for color, slope in slopes.items():
             norm_slope = slope * ((mm * 2 * np.pi * R * T) ** 0.5)
             marker = color_to_marker[color]
