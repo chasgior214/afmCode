@@ -20,10 +20,12 @@ to_plot = {
 #     '16-Oct	15:03:31': 'Ar',
 #     '17-Oct	15:54:29': 'H2',
 # }
-    '23-Oct	13:41:06': 'CH4',
-    '27-Oct	19:57:29': 'H2',
-    '28-Oct	00:36:28': 'He',
-    '28-Oct	16:57:19': 'N2'
+    # '23-Oct	13:41:06': 'CH4',
+    # '27-Oct	19:57:29': 'H2',
+    # '28-Oct	00:36:28': 'He',
+    # '28-Oct	16:57:19': 'N2',
+# }
+    '30-Oct	15:26:29': 'H2',
 }
 
 import matplotlib.pyplot as plt
@@ -65,6 +67,9 @@ for dt_str, gas in to_plot_converted.items():
 # --- load and filter data ---
 slope_data = pd.read_csv(deflation_curve_slope_path)
 sdf = slope_data[slope_data['id'].isin(potential_ids)].copy()
+
+# take absolute value of slope data
+sdf['slope_nm_per_min'] = sdf['slope_nm_per_min'].abs()
 
 if sdf.empty:
     raise ValueError("No matching IDs found in slope_data for the requested timestamps/positions.")
@@ -128,6 +133,7 @@ def fmt_mon_day(dtstr):
 x_labels = [f"{fmt_mon_day(t)} — {gas_per_dt[t]}" for t in unique_times]
 
 plt.xticks(range(len(unique_times)), x_labels, rotation=45, ha="right")
+plt.yscale("log")
 plt.xlabel("Depressurization Date — Gas")
 plt.ylabel("Initial Slope (nm/min)")
 plt.grid(True, axis="y")

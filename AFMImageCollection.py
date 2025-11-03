@@ -189,7 +189,7 @@ class AFMImageCollection:
         frame = ttk.Frame(root, padding=8)
         frame.pack(fill='both', expand=True)
 
-        cols = ('#', 'Filename', 'Saved At', 'Done', 'Deflection (nm)')
+        cols = ('#', 'Filename', 'Saved At', 'Done', 'Deflection (nm)', 'Offset (μm)')
         tree = ttk.Treeview(frame, columns=cols, show='headings', selectmode='browse')
         for c in cols:
             tree.heading(c, text=c)
@@ -198,6 +198,7 @@ class AFMImageCollection:
         tree.column('Saved At', width=140)
         tree.column('Done', width=60, anchor='center')
         tree.column('Deflection (nm)', width=110, anchor='e')
+        tree.column('Offset (μm)', width=130, anchor='e')
 
         scrollbar = ttk.Scrollbar(frame, orient='vertical', command=tree.yview)
         tree.configure(yscroll=scrollbar.set)
@@ -210,13 +211,21 @@ class AFMImageCollection:
             existing = selections.get(idx)
             done_flag = ''
             deflect = ''
+            offset = ''
             if existing:
                 slots = existing.get('selected_slots', [None, None])
                 if any(slots):
                     done_flag = '✓'
                 if slots[0] is not None and slots[1] is not None:
                     deflect = f"{slots[1][0] - slots[0][0]:.3f}"
-            tree.insert('', 'end', iid=str(idx), values=(idx+1, img.get_filename(), dt, done_flag, deflect))
+            try:
+                x_off = img.get_x_offset()
+                y_off = img.get_y_offset()
+            except (TypeError, ValueError):
+                x_off = y_off = None
+            if x_off is not None and y_off is not None:
+                offset = f"{x_off:.3f}, {y_off:.3f}"
+            tree.insert('', 'end', iid=str(idx), values=(idx+1, img.get_filename(), dt, done_flag, deflect, offset))
 
         def open_image(event=None):
             sel = tree.selection()

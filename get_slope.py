@@ -493,6 +493,7 @@ filter_by_transfer_location = '$(6,3)' # set to None to disable filtering
 filter_by_cavity_position = None # set to None to disable filtering
 filter_by_depressurized_date = None # set to None to disable filtering, or 'YYYYMMDD' string
 filter_by_depressurized_time = None # set to None to disable filtering, or 'HHMMSS' string
+filter_at_least_two_points = True  # if True, only show CSVs with at least 2 data points
 
 if filter_by_sample is not None:
 	csv_paths = [p for p in csv_paths if f"_sample{filter_by_sample}_" in os.path.basename(p)]
@@ -504,6 +505,13 @@ if filter_by_depressurized_date is not None:
 	csv_paths = [p for p in csv_paths if f"_depressurized{filter_by_depressurized_date}_" in os.path.basename(p)]
 if filter_by_depressurized_time is not None:
 	csv_paths = [p for p in csv_paths if f"_{filter_by_depressurized_time}_" in os.path.basename(p)]
+if filter_at_least_two_points:
+	filtered_paths = []
+	for p in csv_paths:
+		times, defs = load_csv(p)
+		if len(times) >= 2:
+			filtered_paths.append(p)
+	csv_paths = filtered_paths
 
 def csv_path_to_slope_id(path):
 	# Expect filenames like:

@@ -60,7 +60,10 @@ if __name__ == "__main__":
     }
     CH4_slopes = {
         'red': 0.4,
-        'blue': 0.2
+        'blue': 0.2,
+        'green': 0.036,
+        'black': 0.033,
+        'orange': 0.021
     }
     N2_slopes = {
         'green': 0.026,
