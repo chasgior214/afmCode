@@ -35,7 +35,7 @@ if __name__ == "__main__":
     H2_slopes = {
         'green': 2.1,
         'red': 44.4,
-        'blue': 30.3,
+        'blue': 28,
         'orange': 2.2,
         'black': 2.3
     }
@@ -59,8 +59,8 @@ if __name__ == "__main__":
         'black': 0.080
     }
     CH4_slopes = {
-        'red': 0.4,
-        'blue': 0.2,
+        'red': 1.32,
+        'blue': 3.56,
         'green': 0.036,
         'black': 0.033,
         'orange': 0.021
@@ -72,6 +72,17 @@ if __name__ == "__main__":
         'orange': 0.019,
         'black': 0.017
     }
+    C2H4_slopes = {
+        'red': 3.42,
+        'blue': 7.52,
+        'green': 0.049,
+        'black': 0.043,
+        'orange': 0.036
+    }
+    C3H8_slopes = {
+        'blue': 1.03,
+        'red': 0.047
+    }
     color_to_marker = {
     'black': 'x',
     'green': '+',
@@ -82,7 +93,7 @@ if __name__ == "__main__":
     unfilled_colors = {'orange', 'red'}
     # plot the slopes versus kinetic diameters. Colour the points by the keys of the slope dictionaries. Make the orange and red point markers unfilled.
     import matplotlib.pyplot as plt
-    for gas, slopes in [('H2', H2_slopes), ('He', He_slopes), ('CO2', CO2_slopes), ('Ar', Ar_slopes), ('CH4', CH4_slopes), ('N2', N2_slopes)]:
+    for gas, slopes in [('H2', H2_slopes), ('He', He_slopes), ('CO2', CO2_slopes), ('Ar', Ar_slopes), ('CH4', CH4_slopes), ('N2', N2_slopes), ('C2H4', C2H4_slopes), ('C3H8', C3H8_slopes)]:
         kd = kinetic_diameters[gas]
         for color, slope in slopes.items():
             marker = color_to_marker[color]
@@ -93,7 +104,7 @@ if __name__ == "__main__":
     plt.yscale('log')
 
     # put labels for each gas kinematic diameters on the x axis
-    for gas, slopes in [('H2', H2_slopes), ('He', He_slopes), ('CO2', CO2_slopes), ('Ar', Ar_slopes), ('CH4', CH4_slopes), ('N2', N2_slopes)]:
+    for gas, slopes in [('H2', H2_slopes), ('He', He_slopes), ('CO2', CO2_slopes), ('Ar', Ar_slopes), ('CH4', CH4_slopes), ('N2', N2_slopes), ('C2H4', C2H4_slopes), ('C3H8', C3H8_slopes)]:
         kd = kinetic_diameters[gas]
         plt.axvline(x=kd, color='gray', linestyle='--', linewidth=0.5)
         plt.text(kd, plt.ylim()[0], gas, verticalalignment='bottom', horizontalalignment='right')
@@ -106,7 +117,7 @@ if __name__ == "__main__":
 
     # do the same but plot slopes versus molecular weights
     plt.figure()
-    for gas, slopes in [('H2', H2_slopes), ('He', He_slopes), ('CO2', CO2_slopes), ('Ar', Ar_slopes), ('CH4', CH4_slopes), ('N2', N2_slopes)]:
+    for gas, slopes in [('H2', H2_slopes), ('He', He_slopes), ('CO2', CO2_slopes), ('Ar', Ar_slopes), ('CH4', CH4_slopes), ('N2', N2_slopes), ('C2H4', C2H4_slopes), ('C3H8', C3H8_slopes)]:
         mw = molecular_weights[gas]
         for color, slope in slopes.items():
             marker = color_to_marker[color]
@@ -116,7 +127,7 @@ if __name__ == "__main__":
                 plt.scatter(mw, slope, label=f"{gas} - {color}", color=color, marker=marker, s=100)
     plt.yscale('log')
     # put labels for each gas molecular weights on the x axis
-    for gas, slopes in [('H2', H2_slopes), ('He', He_slopes), ('CO2', CO2_slopes), ('Ar', Ar_slopes), ('CH4', CH4_slopes), ('N2', N2_slopes)]:
+    for gas, slopes in [('H2', H2_slopes), ('He', He_slopes), ('CO2', CO2_slopes), ('Ar', Ar_slopes), ('CH4', CH4_slopes), ('N2', N2_slopes), ('C2H4', C2H4_slopes), ('C3H8', C3H8_slopes)]:
         mw = molecular_weights[gas]
         plt.axvline(x=mw, color='gray', linestyle='--', linewidth=0.5)
         plt.text(mw, plt.ylim()[0], gas, verticalalignment='bottom', horizontalalignment='right')
@@ -129,7 +140,7 @@ if __name__ == "__main__":
 
     # make a plot with diameter on the x axis and slope normalized by multiplying by the square root of (molar mass * 2 * π * R * T) on the y axis
     plt.figure()
-    for gas, slopes in [('H2', H2_slopes), ('He', He_slopes), ('CO2', CO2_slopes), ('Ar', Ar_slopes), ('CH4', CH4_slopes), ('N2', N2_slopes)]:
+    for gas, slopes in [('H2', H2_slopes), ('He', He_slopes), ('CO2', CO2_slopes), ('Ar', Ar_slopes), ('CH4', CH4_slopes), ('N2', N2_slopes), ('C2H4', C2H4_slopes), ('C3H8', C3H8_slopes)]:
         kd = kinetic_diameters[gas]
         mm = molar_masses_kg_per_mol[gas]
         for color, slope in slopes.items():
@@ -141,7 +152,7 @@ if __name__ == "__main__":
                 plt.scatter(kd, norm_slope, label=f"{gas} - {color}", color=color, marker=marker, s=100)
     plt.yscale('log')
     # put labels for each gas kinematic diameters on the x axis
-    for gas, slopes in [('H2', H2_slopes), ('He', He_slopes), ('CO2', CO2_slopes), ('Ar', Ar_slopes), ('CH4', CH4_slopes), ('N2', N2_slopes)]:
+    for gas, slopes in [('H2', H2_slopes), ('He', He_slopes), ('CO2', CO2_slopes), ('Ar', Ar_slopes), ('CH4', CH4_slopes), ('N2', N2_slopes), ('C2H4', C2H4_slopes), ('C3H8', C3H8_slopes)]:
         kd = kinetic_diameters[gas]
         plt.axvline(x=kd, color='gray', linestyle='--', linewidth=0.5)
         plt.text(kd, plt.ylim()[0], gas, verticalalignment='bottom', horizontalalignment='right')

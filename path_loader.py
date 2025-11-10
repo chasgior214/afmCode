@@ -1,8 +1,8 @@
-depressurized_date = '20251030'
-depressurized_time = '15:26:29'
+depressurized_date = '20251106'
+depressurized_time = '17:00:36'
 sample_number = '37'
 transfer_location = '$(6,3)'
-cavity_position = 'black'
+cavity_position = 'orange'
 
 
 
@@ -27,7 +27,6 @@ def get_deflation_curve_slope_id(sample_number, depressurized_date, depressurize
     return f'slope_sample{sample_number}_depressurized{depressurized_date}_{depressurized_time}_loc{transfer_location}_cav{cavity_position}'
 
 deflation_curve_slope_path = experiment_data_path + '\\data_processing\\deflation_curve_slopes.csv'
-deflation_curve_slope_id = get_deflation_curve_slope_id(sample_number, depressurized_date, depressurized_time, transfer_location, cavity_position)
 
 def get_all_deflation_curve_paths():
     paths = []
