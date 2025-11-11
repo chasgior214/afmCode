@@ -235,8 +235,13 @@ plt.show()
 
 # do the same but plot slopes versus molecular weights
 plt.figure()
+delta_for_close_mws = 0.4
 for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('CO2', overall_slopes['CO2']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4']), ('N2', overall_slopes['N2']), ('C2H4', overall_slopes['C2H4']), ('C3H8', overall_slopes['C3H8'])]:
     mw = gc.molecular_weights[gas]
+    if gas in ['N2', 'CO2']:
+        mw -= delta_for_close_mws
+    if gas in ['C2H4', 'C3H8']:
+        mw += delta_for_close_mws
     for color, slope in slopes.items():
         marker = color_to_marker[color]
         if color in unfilled_colors:
@@ -244,11 +249,17 @@ for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), 
         else:
             plt.scatter(mw, slope, label=f"{gas} - {color}", color=color, marker=marker, s=100)
 plt.yscale('log')
+
 # put labels for each gas molecular weights on the x axis
-for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('CO2', overall_slopes['CO2']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4']), ('N2', overall_slopes['N2']), ('C2H4', overall_slopes['C2H4']), ('C3H8', overall_slopes['C3H8'])]:
+for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4'])]:
     mw = gc.molecular_weights[gas]
     plt.axvline(x=mw, color='gray', linestyle='--', linewidth=0.5)
     plt.text(mw, plt.ylim()[0], gas, verticalalignment='bottom', horizontalalignment='right')
+# add a combined label for N2/C2H4, and another for C3H8/CO2
+plt.axvline(x=(gc.molecular_weights['N2'] + gc.molecular_weights['C2H4'])/2, color='gray', linestyle='--', linewidth=0.5)
+plt.text((gc.molecular_weights['N2'] + gc.molecular_weights['C2H4'])/2, plt.ylim()[0], 'N2/C2H4', verticalalignment='bottom', horizontalalignment='right')
+plt.axvline(x=(gc.molecular_weights['C3H8'] + gc.molecular_weights['CO2'])/2, color='gray', linestyle='--', linewidth=0.5)
+plt.text((gc.molecular_weights['C3H8'] + gc.molecular_weights['CO2'])/2, plt.ylim()[0], 'CO2/C3H8', verticalalignment='bottom', horizontalalignment='right')
 plt.xlabel('Molecular Weight (amu)')
 plt.xlim(left=0)
 plt.ylabel('Deflation Curve Slope (nm/min)')
