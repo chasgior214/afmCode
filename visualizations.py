@@ -706,6 +706,61 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         fig.canvas.draw_idle()
         syncing_zoom = False
 
+    def _zoom_to_square(center_x, center_y, size_um=4.0):
+        """Programmatically zoom image axes to a square region in microns."""
+        if not image_axes:
+            return False
+        if size_um <= 0:
+            return False
+
+        half = size_um / 2.0
+
+        def _calc_limits(center, total_span):
+            start = center - half
+            end = center + half
+            if start < 0:
+                end += -start
+                start = 0
+            if end > total_span:
+                start -= (end - total_span)
+                end = total_span
+            start = max(0.0, start)
+            end = min(total_span, end)
+            desired = size_um
+            current = end - start
+            if total_span >= desired and current < desired:
+                deficit = desired - current
+                start = max(0.0, start - deficit / 2)
+                end = min(total_span, end + deficit / 2)
+                # Final clamp in case shifting hit a boundary.
+                if end - start < desired:
+                    if start <= 0:
+                        end = min(total_span, start + desired)
+                    elif end >= total_span:
+                        start = max(0.0, end - desired)
+            return start, end
+
+        xmin, xmax = _calc_limits(center_x, scan_size)
+        ymin, ymax = _calc_limits(center_y, y_dimension)
+        if xmin >= xmax or ymin >= ymax:
+            return False
+
+        ref_ax = image_axes[0]
+        ref_ax.set_xlim(xmin, xmax)
+        ref_ax.set_ylim(ymin, ymax)
+        _sync_zoom(ref_ax)
+        return True
+
+    def _zoom_to_full_extent():
+        """Reset all synchronized axes to show the full scan area."""
+        if not image_axes:
+            return False
+        ref_ax = image_axes[0]
+        ref_ax.set_xlim(0, scan_size)
+        ref_ax.set_ylim(0, y_dimension)
+        _sync_zoom(ref_ax)
+        return True
+
     # Update function for the sliders
     def update_slider(val):
         im_height.set_clim(vmin=slider_height_vmin.val, vmax=slider_height_vmax.val)
@@ -929,6 +984,8 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             set_mode_height()
         elif event.key == 'w':
             toggle_lock()
+        elif event.key == 'r':
+            _zoom_to_full_extent()
         elif event.key == 'z':
             toolbar = plt.get_current_fig_manager().toolbar
             if toolbar is not None and hasattr(toolbar, "zoom"):
@@ -1021,11 +1078,12 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             orig_home = toolbar.home
 
             def _home(*args, **kwargs):
-                orig_home(*args, **kwargs)
-                ref_ax = ax_height if image_axes else ax1
-                ax2.set_xlim(ref_ax.get_xlim())
-                _autoscale_ax2_y_to_visible()
-                fig.canvas.draw_idle()
+                if not _zoom_to_full_extent():
+                    orig_home(*args, **kwargs)
+                    ref_ax = ax_height if image_axes else ax1
+                    ax2.set_xlim(ref_ax.get_xlim())
+                    _autoscale_ax2_y_to_visible()
+                    fig.canvas.draw_idle()
 
             toolbar.home = _home
         # Only auto-enter zoom mode for sufficiently large scans in both axes
@@ -1069,6 +1127,18 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         else:
             # Ensure the restored selections are reflected in the UI summary.
             update_stats_display()
+            # When both substrate and extremum points already exist, zoom in on
+            # a 4 μm square centered on the extremum to make it easy to resume
+            # work without re-navigating.
+            if (
+                selected_slots[0] is not None
+                and selected_slots[1] is not None
+                and len(selected_slots[1]) >= 3
+            ):
+                x_center = selected_slots[1][1]
+                y_center = selected_slots[1][2]
+                if x_center is not None and y_center is not None:
+                    _zoom_to_square(float(x_center), float(y_center))
 
     plt.show()
 
