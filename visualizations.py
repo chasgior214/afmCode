@@ -53,7 +53,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     # Handles for vertical and horizontal indicator lines for selected heights
     selected_vlines = [[], []]  # [[ax1_line, ax2_line, ax3_line?], ...]
     selected_cross_hlines = [None, None]  # [ax2_line, ...]
-    selected_image_hlines = [[], []]  # [[ax1_line, ax3_line?], ...]
+    selected_image_hlines = [[], []]  # [[image axis lines...], ...]
     square_marker_artists = []  # Markers highlighting the local max near the extremum
     next_slot = 0  # Which slot to overwrite next
     locked_slot = None  # Slot index that should not be overwritten
@@ -62,6 +62,8 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
 
     time_since_start = None  # To store the time since the start of the scan
     aborted = False  # Set True when user presses Tab to cancel/exit
+
+    image_axes = []  # Filled after axes are created; used for syncing/indicators
 
     def _apply_line_colors():
         """Update indicator line colors based on selection order."""
@@ -113,8 +115,9 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
 
     def _visible_matrix_slices():
         """Return slices for the currently visible region of the image axes."""
-        xlim = sorted(ax1.get_xlim())
-        ylim = sorted(ax1.get_ylim())
+        ref_ax = ax_height if image_axes else ax1
+        xlim = sorted(ref_ax.get_xlim())
+        ylim = sorted(ref_ax.get_ylim())
         xs = slice(np.searchsorted(x, xlim[0], side="left"),
                    np.searchsorted(x, xlim[1], side="right"))
         y_start = _y_to_index(ylim[1])  # lower index
@@ -147,6 +150,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             time_since_start = (1 - ratio) * imaging_duration
 
         cumulative_adjusted_height = height_map[nearest_y_to_plot, :].copy()
+        hline_height.set_ydata([line_height, line_height])
         hline_contrast.set_ydata([line_height, line_height])
         if hline_phase is not None:
             hline_phase.set_ydata([line_height, line_height])
@@ -196,17 +200,15 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         selected_image_hlines[slot] = []
 
         # Draw new indicator lines
-        vls = [ax1.axvline(x_val, linestyle=':', color=colors[slot]),
-               ax2.axvline(x_val, linestyle=':', color=colors[slot])]
-        if phase_map is not None:
-            vls.append(ax3.axvline(x_val, linestyle=':', color=colors[slot]))
+        vls = []
+        for img_ax in image_axes:
+            vls.append(img_ax.axvline(x_val, linestyle=':', color=colors[slot]))
+        vls.append(ax2.axvline(x_val, linestyle=':', color=colors[slot]))
         selected_vlines[slot] = vls
         selected_cross_hlines[slot] = ax2.axhline(h_val, linestyle=':', color=colors[slot])
 
         y_val = line_height
-        img_lines = [ax1.axhline(y_val, linestyle=':', color='r')]
-        if phase_map is not None:
-            img_lines.append(ax3.axhline(y_val, linestyle=':', color='r'))
+        img_lines = [img_ax.axhline(y_val, linestyle=':', color='r') for img_ax in image_axes]
         selected_image_hlines[slot] = img_lines
 
         selected_slots[slot] = (float(h_val), x_val, y_val, x_idx, y_idx)
@@ -346,10 +348,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
                 'green'
             ))
 
-            axes_to_mark = [ax1]
-            if phase_map is not None:
-                axes_to_mark.append(ax3)
-            for target_ax in axes_to_mark:
+            for target_ax in image_axes:
                 marker, = target_ax.plot(
                     square_info['x_um'],
                     square_info['y_um'],
@@ -378,7 +377,8 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     def _on_press(event):
         nonlocal line_height, nearest_y_to_plot, selected_points, cumulative_adjusted_height
         nonlocal time_since_start, next_slot
-        nonlocal im, im_phase, hline_contrast, hline_phase, cross_line
+        nonlocal im_height, im_contrast, im_phase
+        nonlocal hline_height, hline_contrast, hline_phase, cross_line
         nonlocal selected_vlines, selected_cross_hlines, selected_image_hlines, selected_slots
         nonlocal last_input, dragging
 
@@ -388,11 +388,11 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         toolbar = plt.get_current_fig_manager().toolbar
         if toolbar is not None and toolbar.mode != '':
             # If not a right-click on image axes, ignore
-            if not (event.button == 3 and event.inaxes in (ax1, ax3)):
+            if not (event.button == 3 and event.inaxes in image_axes):
                 return
 
-        # right-click on contrast / phase image to set y, slot 1, and mode in slot 0
-        if event.button == 3 and event.inaxes in (ax1, ax3):
+        # right-click on image to set y, slot 1, and mode in slot 0
+        if event.button == 3 and event.inaxes in image_axes:
             if event.xdata is None or event.ydata is None:
                 return
             # 1) Set the cross-section to this y
@@ -411,7 +411,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             fig.canvas.draw_idle()
             return
 
-        if event.inaxes in (ax1, ax3) and event.button == 1:  # Left-click drag to change y
+        if event.inaxes in image_axes and event.button == 1:  # Left-click drag to change y
             dragging = True
             _update_cross_section(event.ydata)
             return
@@ -460,7 +460,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
 
     def _on_move(event):
         nonlocal dragging
-        if dragging and event.inaxes in (ax1, ax3) and event.ydata is not None:
+        if dragging and event.inaxes in image_axes and event.ydata is not None:
             _update_cross_section(event.ydata)
 
     def _on_release(event):
@@ -468,9 +468,13 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         if event.button == 1:
             dragging = False
 
-    # Create the figure and axes in a 2x2 grid
-    fig, ((ax1, ax3), (ax2, ax4)) = plt.subplots(2, 2, figsize=(12, 10))
-    plt.subplots_adjust(bottom=0.25)  # Adjust layout to make space for sliders
+    # Create the figure and axes in a 2x3 grid
+    fig, axes = plt.subplots(2, 3, figsize=(18, 10))
+    (ax_height, ax1, ax3), (ax2, ax_placeholder, ax4) = axes
+    plt.subplots_adjust(bottom=0.32)  # Adjust layout to make space for sliders
+
+    ax_placeholder.axis('off')
+    ax_placeholder.text(0.5, 0.5, 'Placeholder', ha='center', va='center', fontsize=14)
 
     # Maximize the window if possible
     manager = plt.get_current_fig_manager()
@@ -483,17 +487,25 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             pass
 
     # Initial plots
-    im = ax1.imshow(contrast_map, cmap='grey', extent=extent)
+    image_axes[:] = [ax_height, ax1]
+
+    im_height = ax_height.imshow(height_map, cmap='turbo', extent=extent)
+    hline_height = ax_height.axhline(y=line_height, color='r', linestyle='--')
+    ax_height.set_title(f"{title_prefix} Map")
+    ax_height.set_ylabel("y (μm)")
+
+    im_contrast = ax1.imshow(contrast_map, cmap='turbo', extent=extent)
     hline_contrast = ax1.axhline(y=line_height, color='r', linestyle='--')
     ax1.set_title("Contrast Map")
     ax1.set_ylabel("y (μm)")
 
     if phase_map is not None:
-        im_phase = ax3.imshow(phase_map, cmap='grey', extent=extent,
+        im_phase = ax3.imshow(phase_map, cmap='turbo', extent=extent,
                               vmin=np.min(phase_map), vmax=np.max(phase_map))
         hline_phase = ax3.axhline(y=line_height, color='r', linestyle='--')
         ax3.set_title("Phase Retrace")
         ax3.set_ylabel("y (μm)")
+        image_axes.append(ax3)
     else:
         im_phase = None
         hline_phase = None
@@ -507,9 +519,8 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     ax2.set_ylabel("Height (nm)")
 
     # Ensure 1 μm in x corresponds to 1 μm in y regardless of zoom
-    ax1.set_aspect('equal', adjustable='box')
-    if phase_map is not None:
-        ax3.set_aspect('equal', adjustable='box')
+    for axis in image_axes:
+        axis.set_aspect('equal', adjustable='box')
 
     # Match the cross-section width with the image plots while allowing the
     # y-axis to occupy the full subplot height.
@@ -521,7 +532,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             return
         aligning_ax2 = True
         try:
-            bbox_image = ax1.get_position()
+            bbox_image = ax_height.get_position()
             bbox_cross = ax2.get_position()
             new_bounds = [bbox_image.x0, bbox_cross.y0, bbox_image.width, bbox_cross.height]
             current = ax2.get_position()
@@ -544,30 +555,87 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     ax4.axis('off')
     update_stats_display()
 
-    # Create sliders for vmin and vmax of contrast map
-    ax_vmin = plt.axes([0.1, 0.15, 0.35, 0.03], facecolor='lightgrey')
-    ax_vmax = plt.axes([0.1, 0.1, 0.35, 0.03], facecolor='lightgrey')
-    slider_vmin = Slider(ax_vmin, 'vmin (x10^9)', np.min(contrast_map) * 1e9, np.max(contrast_map) * 1e9, valinit=0)
-    slider_vmax = Slider(ax_vmax, 'vmax (x10^9)', np.min(contrast_map) * 1e9, np.max(contrast_map) * 1e9, valinit=1e9)
+    # Create sliders for the three map panels
+    slider_width = 0.23
+    slider_height = 0.03
+    slider_lefts = [0.05, 0.37, 0.69]
+    slider_top = 0.23
+    slider_bottom = 0.18
+
+    ax_height_vmin = plt.axes([slider_lefts[0], slider_top, slider_width, slider_height], facecolor='lightgrey')
+    ax_height_vmax = plt.axes([slider_lefts[0], slider_bottom, slider_width, slider_height], facecolor='lightgrey')
+    slider_height_vmin = Slider(
+        ax_height_vmin,
+        'height vmin',
+        float(np.min(height_map)),
+        float(np.max(height_map)),
+        valinit=float(np.min(height_map)),
+    )
+    slider_height_vmax = Slider(
+        ax_height_vmax,
+        'height vmax',
+        float(np.min(height_map)),
+        float(np.max(height_map)),
+        valinit=float(np.max(height_map)),
+    )
+
+    ax_contrast_vmin = plt.axes([slider_lefts[1], slider_top, slider_width, slider_height], facecolor='lightgrey')
+    ax_contrast_vmax = plt.axes([slider_lefts[1], slider_bottom, slider_width, slider_height], facecolor='lightgrey')
+    slider_contrast_vmin = Slider(
+        ax_contrast_vmin,
+        'vmin (x10^9)',
+        np.min(contrast_map) * 1e9,
+        np.max(contrast_map) * 1e9,
+        valinit=0,
+    )
+    slider_contrast_vmax = Slider(
+        ax_contrast_vmax,
+        'vmax (x10^9)',
+        np.min(contrast_map) * 1e9,
+        np.max(contrast_map) * 1e9,
+        valinit=1e9,
+    )
 
     if phase_map is not None:
-        ax_phase_vmin = plt.axes([0.55, 0.15, 0.35, 0.03], facecolor='lightgrey')
-        ax_phase_vmax = plt.axes([0.55, 0.1, 0.35, 0.03], facecolor='lightgrey')
-        slider_phase_vmin = Slider(ax_phase_vmin, 'phase vmin', np.min(phase_map), np.max(phase_map), valinit=np.min(phase_map))
-        slider_phase_vmax = Slider(ax_phase_vmax, 'phase vmax', np.min(phase_map), np.max(phase_map), valinit=np.max(phase_map))
+        ax_phase_vmin = plt.axes([slider_lefts[2], slider_top, slider_width, slider_height], facecolor='lightgrey')
+        ax_phase_vmax = plt.axes([slider_lefts[2], slider_bottom, slider_width, slider_height], facecolor='lightgrey')
+        slider_phase_vmin = Slider(
+            ax_phase_vmin,
+            'phase vmin',
+            float(np.min(phase_map)),
+            float(np.max(phase_map)),
+            valinit=float(np.min(phase_map)),
+        )
+        slider_phase_vmax = Slider(
+            ax_phase_vmax,
+            'phase vmax',
+            float(np.min(phase_map)),
+            float(np.max(phase_map)),
+            valinit=float(np.max(phase_map)),
+        )
 
     def _update_visible_ranges():
         """Reset slider ranges to the data limits of the visible region."""
         ys, xs = _visible_matrix_slices()
+        sub_height = height_map[ys, xs]
+        hmin = float(np.min(sub_height))
+        hmax = float(np.max(sub_height))
+        for sl in (slider_height_vmin, slider_height_vmax):
+            sl.valmin = hmin
+            sl.valmax = hmax
+            sl.ax.set_xlim(sl.valmin, sl.valmax)
+        slider_height_vmin.set_val(hmin)
+        slider_height_vmax.set_val(hmax)
+
         sub_contrast = contrast_map[ys, xs]
         cmin = float(np.min(sub_contrast))
         cmax = float(np.max(sub_contrast))
-        for sl in (slider_vmin, slider_vmax):
+        for sl in (slider_contrast_vmin, slider_contrast_vmax):
             sl.valmin = cmin * 1e9
             sl.valmax = cmax * 1e9
             sl.ax.set_xlim(sl.valmin, sl.valmax)
-        slider_vmin.set_val(slider_vmin.valmin)
-        slider_vmax.set_val(slider_vmax.valmax)
+        slider_contrast_vmin.set_val(slider_contrast_vmin.valmin)
+        slider_contrast_vmax.set_val(slider_contrast_vmax.valmax)
         if phase_map is not None:
             sub_phase = phase_map[ys, xs]
             pmin = float(np.min(sub_phase))
@@ -585,17 +653,18 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
 
     def _sync_zoom(ax):
         nonlocal syncing_zoom, pending_zoom_autoset
+        if ax not in image_axes:
+            return
         if syncing_zoom:
             return
         syncing_zoom = True
         xlim = ax.get_xlim()
         ylim = ax.get_ylim()
-        if ax is ax1 and phase_map is not None:
-            ax3.set_xlim(xlim)
-            ax3.set_ylim(ylim)
-        elif ax is ax3:
-            ax1.set_xlim(xlim)
-            ax1.set_ylim(ylim)
+        for other_ax in image_axes:
+            if other_ax is ax:
+                continue
+            other_ax.set_xlim(xlim)
+            other_ax.set_ylim(ylim)
         ax2.set_xlim(xlim)
         _autoscale_ax2_y_to_visible()
         # Ensure the cross-section subplot keeps the same width as the image/phase
@@ -634,25 +703,26 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
 
     # Update function for the sliders
     def update_slider(val):
-        im.set_clim(vmin=slider_vmin.val / 1e9, vmax=slider_vmax.val / 1e9)
+        im_height.set_clim(vmin=slider_height_vmin.val, vmax=slider_height_vmax.val)
+        im_contrast.set_clim(vmin=slider_contrast_vmin.val / 1e9, vmax=slider_contrast_vmax.val / 1e9)
         if phase_map is not None and im_phase is not None:
             im_phase.set_clim(vmin=slider_phase_vmin.val, vmax=slider_phase_vmax.val)
         fig.canvas.draw_idle()
 
     # Connect the sliders to the update function
-    slider_vmin.on_changed(update_slider)
-    slider_vmax.on_changed(update_slider)
+    slider_height_vmin.on_changed(update_slider)
+    slider_height_vmax.on_changed(update_slider)
+    slider_contrast_vmin.on_changed(update_slider)
+    slider_contrast_vmax.on_changed(update_slider)
     if phase_map is not None:
         slider_phase_vmin.on_changed(update_slider)
         slider_phase_vmax.on_changed(update_slider)
 
     _update_visible_ranges()
 
-    ax1.callbacks.connect('xlim_changed', lambda evt: _sync_zoom(ax1))
-    ax1.callbacks.connect('ylim_changed', lambda evt: _sync_zoom(ax1))
-    if phase_map is not None:
-        ax3.callbacks.connect('xlim_changed', lambda evt: _sync_zoom(ax3))
-        ax3.callbacks.connect('ylim_changed', lambda evt: _sync_zoom(ax3))
+    for axis in image_axes:
+        axis.callbacks.connect('xlim_changed', lambda evt, ax=axis: _sync_zoom(ax))
+        axis.callbacks.connect('ylim_changed', lambda evt, ax=axis: _sync_zoom(ax))
     # Also adapt y-axis when user zooms/pans directly on the cross-section
     ax2.callbacks.connect('xlim_changed', lambda evt: _autoscale_ax2_y_to_visible())
 
@@ -904,7 +974,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     def _zoom_press(event):
         nonlocal zoom_press_xy
         tb = plt.get_current_fig_manager().toolbar
-        if tb is not None and tb.mode == 'zoom rect' and event.button == 1 and event.inaxes in (ax1, ax3):
+        if tb is not None and tb.mode == 'zoom rect' and event.button == 1 and event.inaxes in image_axes:
             zoom_press_xy = (event.x, event.y)
         else:
             zoom_press_xy = None
@@ -917,7 +987,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             and tb.mode == 'zoom rect'
             and zoom_press_xy is not None
             and event.button == 1
-            and event.inaxes in (ax1, ax3)
+            and event.inaxes in image_axes
         ):
             pending_zoom_autoset = True
             dx = event.x - zoom_press_xy[0]
@@ -947,7 +1017,8 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
 
             def _home(*args, **kwargs):
                 orig_home(*args, **kwargs)
-                ax2.set_xlim(ax1.get_xlim())
+                ref_ax = ax_height if image_axes else ax1
+                ax2.set_xlim(ref_ax.get_xlim())
                 _autoscale_ax2_y_to_visible()
                 fig.canvas.draw_idle()
 
