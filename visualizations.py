@@ -43,6 +43,11 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     y_pixels = np.arange(0, y_pixel_count)
     nearest_y_to_plot = y_pixel_count - 1 - min(y_pixels, key=lambda y_pixel: abs(y_pixel * pixel_size - line_height))
 
+    def _index_to_y_center(idx):
+        """Convert a row index into the y-value at the center of that pixel."""
+        idx = int(np.clip(idx, 0, y_pixel_count - 1))
+        return (y_pixel_count - (idx + 0.5)) * pixel_size
+
     selected_points = []  # To store the two right-clicked points
     cumulative_adjusted_height = None  # To store the cumulative adjusted height retrace
 
@@ -283,7 +288,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
 
         delta_nm = float(sub_max_height - mode_height)
         x_coord_um = float(x[max_x_idx])
-        y_coord_um = (y_pixel_count - 1 - max_y_idx) * pixel_size
+        y_coord_um = _index_to_y_center(max_y_idx)
 
         return {
             'delta_nm': delta_nm,
@@ -805,7 +810,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         ix = xs.start + ix_local
         x_val = x[ix]
         height_val = height_map[iy, ix]
-        y_val = (y_pixel_count - 1 - iy) * pixel_size
+        y_val = _index_to_y_center(iy)
         _update_cross_section(y_val)
         success = _record_selection(
             x_val,
@@ -832,7 +837,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         ix = xs.start + ix_local
         x_val = x[ix]
         height_val = height_map[iy, ix]
-        y_val = (y_pixel_count - 1 - iy) * pixel_size
+        y_val = _index_to_y_center(iy)
         _update_cross_section(y_val)
         success = _record_selection(
             x_val,
@@ -931,7 +936,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         elif event.key == 'up':
             # Move up by one pixel (decrease index = increase y-value)
             new_y_idx = max(nearest_y_to_plot - 1, 0)
-            new_y_val = (y_pixel_count - 1 - new_y_idx) * pixel_size
+            new_y_val = _index_to_y_center(new_y_idx)
             _update_cross_section(new_y_val)
             # If Control is held, auto-select max and mode
             if event.key == 'ctrl+up':
@@ -940,7 +945,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         elif event.key == 'down':
             # Move down by one pixel (increase index = decrease y-value)
             new_y_idx = min(nearest_y_to_plot + 1, y_pixel_count - 1)
-            new_y_val = (y_pixel_count - 1 - new_y_idx) * pixel_size
+            new_y_val = _index_to_y_center(new_y_idx)
             _update_cross_section(new_y_val)
             # If Control is held, auto-select max and mode
             if event.key == 'ctrl+down':
@@ -949,14 +954,14 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         elif event.key == 'ctrl+up':
             # Move up by one pixel and auto-select with a fixed slot order
             new_y_idx = max(nearest_y_to_plot - 1, 0)
-            new_y_val = (y_pixel_count - 1 - new_y_idx) * pixel_size
+            new_y_val = _index_to_y_center(new_y_idx)
             _update_cross_section(new_y_val)
             set_max_height(slot=1, silent=True)
             set_mode_height(slot=0, silent=True)
         elif event.key == 'ctrl+down':
             # Move down by one pixel and auto-select with a fixed slot order
             new_y_idx = min(nearest_y_to_plot + 1, y_pixel_count - 1)
-            new_y_val = (y_pixel_count - 1 - new_y_idx) * pixel_size
+            new_y_val = _index_to_y_center(new_y_idx)
             _update_cross_section(new_y_val)
             set_max_height(slot=1, silent=True)
             set_mode_height(slot=0, silent=True)
