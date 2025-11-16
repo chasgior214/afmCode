@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Slider
+from matplotlib.widgets import Slider, Button
+from matplotlib import patches
 
 def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     # Extract data from the image
@@ -60,6 +61,8 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     selected_cross_hlines = [None, None]  # [ax2_line, ...]
     selected_image_hlines = [[], []]  # [[image axis lines...], ...]
     square_marker_artists = []  # Markers highlighting the local max near the extremum
+    paraboloid_marker_artists = []  # White + markers for paraboloid vertices
+    paraboloid_box_artists = []  # Dotted boxes showing fit regions
     next_slot = 0  # Which slot to overwrite next
     locked_slot = None  # Slot index that should not be overwritten
 
@@ -69,6 +72,195 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     aborted = False  # Set True when user presses Tab to cancel/exit
 
     image_axes = []  # Filled after axes are created; used for syncing/indicators
+    paraboloid_window_um = 1.0
+    paraboloid_fit_info = None
+    paraboloid_slider = None
+    paraboloid_vertex_text = None
+    paraboloid_r2_text = None
+    paraboloid_button = None
+
+    def _clear_paraboloid_artists():
+        nonlocal paraboloid_marker_artists, paraboloid_box_artists
+        for artist in paraboloid_marker_artists + paraboloid_box_artists:
+            try:
+                artist.remove()
+            except ValueError:
+                pass
+        paraboloid_marker_artists = []
+        paraboloid_box_artists = []
+
+    def _update_paraboloid_panel(info):
+        if paraboloid_vertex_text is None or paraboloid_r2_text is None:
+            return
+        if info is None:
+            paraboloid_vertex_text.set_text("Paraboloid fit vertex: --, --, --")
+            paraboloid_r2_text.set_text("Paraboloid fit R^2: --")
+        else:
+            vx = info['vertex_x_um']
+            vy = info['vertex_y_um']
+            vz = info['vertex_z_nm']
+            paraboloid_vertex_text.set_text(
+                f"Paraboloid fit vertex: {vx:.3f} μm, {vy:.3f} μm, {vz:.3f} nm"
+            )
+            paraboloid_r2_text.set_text(f"Paraboloid fit R^2: {info['r2']:.4f}")
+
+    def _fit_paraboloid(center_x_idx, center_y_idx, side_length_um):
+        if center_x_idx is None or center_y_idx is None:
+            return None
+        if side_length_um is None or side_length_um <= 0:
+            return None
+        half_um = side_length_um / 2.0
+        if pixel_size <= 0:
+            return None
+        half_px = max(1, int(round(half_um / pixel_size)))
+        x_start = max(0, center_x_idx - half_px)
+        x_end = min(x_pixel_count, center_x_idx + half_px + 1)
+        y_start = max(0, center_y_idx - half_px)
+        y_end = min(y_pixel_count, center_y_idx + half_px + 1)
+        if x_end <= x_start or y_end <= y_start:
+            return None
+
+        sub_heights = height_map[y_start:y_end, x_start:x_end]
+        finite_mask = np.isfinite(sub_heights)
+        if not finite_mask.any():
+            return None
+
+        xs = x[x_start:x_end]
+        ys_idx = np.arange(y_start, y_end)
+        ys = np.array([_index_to_y_center(idx) for idx in ys_idx])
+        X_grid, Y_grid = np.meshgrid(xs, ys)
+        Z = sub_heights
+        X_flat = X_grid.flatten()
+        Y_flat = Y_grid.flatten()
+        Z_flat = Z.flatten()
+        finite = np.isfinite(Z_flat)
+        if not finite.any():
+            return None
+        X_flat = X_flat[finite]
+        Y_flat = Y_flat[finite]
+        Z_flat = Z_flat[finite]
+
+        G = np.column_stack(
+            [
+                X_flat ** 2,
+                Y_flat ** 2,
+                X_flat * Y_flat,
+                X_flat,
+                Y_flat,
+                np.ones_like(X_flat),
+            ]
+        )
+        try:
+            coeffs, _, _, _ = np.linalg.lstsq(G, Z_flat, rcond=None)
+        except np.linalg.LinAlgError:
+            return None
+        a, b, c, d, e, f_const = coeffs
+        hessian = np.array([[2 * a, c], [c, 2 * b]])
+        rhs = np.array([-d, -e])
+        if np.linalg.det(hessian) == 0:
+            return None
+        try:
+            vx, vy = np.linalg.solve(hessian, rhs)
+        except np.linalg.LinAlgError:
+            return None
+        vz = (
+            a * vx ** 2
+            + b * vy ** 2
+            + c * vx * vy
+            + d * vx
+            + e * vy
+            + f_const
+        )
+
+        pred = G @ coeffs
+        z_mean = np.mean(Z_flat)
+        ss_tot = np.sum((Z_flat - z_mean) ** 2)
+        ss_res = np.sum((Z_flat - pred) ** 2)
+        r2 = np.nan if ss_tot == 0 else 1 - (ss_res / ss_tot)
+
+        x_min = x[x_start] - pixel_size / 2 if x_start > 0 else 0.0
+        x_max = (
+            x[x_end - 1] + pixel_size / 2
+            if x_end < x_pixel_count
+            else scan_size
+        )
+        y_centers = np.array([_index_to_y_center(idx) for idx in range(y_start, y_end)])
+        if y_centers.size == 0:
+            return None
+        y_min = min(y_centers) - pixel_size / 2
+        y_max = max(y_centers) + pixel_size / 2
+        y_min = max(0.0, y_min)
+        y_max = min(y_dimension, y_max)
+
+        return {
+            'vertex_x_um': float(vx),
+            'vertex_y_um': float(vy),
+            'vertex_z_nm': float(vz),
+            'r2': float(r2),
+            'bbox': (x_min, x_max, y_min, y_max),
+        }
+
+    def _update_paraboloid_artists(info):
+        _clear_paraboloid_artists()
+        if info is None:
+            return
+        for target_ax in image_axes:
+            marker, = target_ax.plot(
+                info['vertex_x_um'],
+                info['vertex_y_um'],
+                marker='+',
+                color='white',
+                markersize=8,
+                mew=2,
+            )
+            paraboloid_marker_artists.append(marker)
+            x_min, x_max, y_min, y_max = info['bbox']
+            rect = patches.Rectangle(
+                (x_min, y_min),
+                x_max - x_min,
+                y_max - y_min,
+                linewidth=1.2,
+                edgecolor='white',
+                linestyle='--',
+                fill=False,
+            )
+            target_ax.add_patch(rect)
+            paraboloid_box_artists.append(rect)
+
+    def _update_paraboloid_fit():
+        nonlocal paraboloid_fit_info, selected_slots
+        slot_info = selected_slots[1]
+        if slot_info is None:
+            paraboloid_fit_info = None
+            _update_paraboloid_panel(None)
+            _update_paraboloid_artists(None)
+            fig.canvas.draw_idle()
+            return
+        if len(slot_info) >= 5:
+            x_idx, y_idx = slot_info[3], slot_info[4]
+        else:
+            x_idx = y_idx = None
+        _, x_val, y_val = slot_info[:3]
+        if x_idx is None and x_val is not None:
+            x_idx = int(np.argmin(np.abs(x - x_val)))
+        if y_idx is None and y_val is not None:
+            try:
+                y_idx = _y_to_index(y_val)
+            except Exception:
+                y_idx = None
+        if x_idx is None or y_idx is None:
+            paraboloid_fit_info = None
+            _update_paraboloid_panel(None)
+            _update_paraboloid_artists(None)
+            fig.canvas.draw_idle()
+            return
+        slot_tuple = (slot_info[0], x_val, y_val, x_idx, y_idx)
+        selected_slots[1] = slot_tuple
+        result = _fit_paraboloid(x_idx, y_idx, paraboloid_window_um)
+        paraboloid_fit_info = result
+        _update_paraboloid_panel(result)
+        _update_paraboloid_artists(result)
+        fig.canvas.draw_idle()
 
     def _apply_line_colors():
         """Update indicator line colors based on selection order."""
@@ -217,6 +409,9 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         selected_image_hlines[slot] = img_lines
 
         selected_slots[slot] = (float(h_val), x_val, y_val, x_idx, y_idx)
+
+        if slot == 1:
+            _update_paraboloid_fit()
 
         if advance:
             if locked_slot is None:
@@ -479,7 +674,28 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     plt.subplots_adjust(bottom=0.32)  # Adjust layout to make space for sliders
 
     ax_placeholder.axis('off')
-    ax_placeholder.text(0.5, 0.5, 'Placeholder', ha='center', va='center', fontsize=14)
+    paraboloid_vertex_text = ax_placeholder.text(
+        0.05, 0.9, "Paraboloid fit vertex: --, --, --", transform=ax_placeholder.transAxes
+    )
+    paraboloid_r2_text = ax_placeholder.text(
+        0.05, 0.75, "Paraboloid fit R^2: --", transform=ax_placeholder.transAxes
+    )
+    slider_min = max(pixel_size, 0.1)
+    slider_max_candidate = min(scan_size, y_dimension)
+    if slider_max_candidate <= 0:
+        slider_max_candidate = slider_min
+    slider_max = max(slider_min, slider_max_candidate)
+    paraboloid_window_um = min(max(paraboloid_window_um, slider_min), slider_max)
+    slider_ax = ax_placeholder.inset_axes([0.15, 0.45, 0.7, 0.12])
+    paraboloid_slider = Slider(
+        slider_ax,
+        'Fit size (μm)',
+        valmin=slider_min,
+        valmax=slider_max,
+        valinit=paraboloid_window_um,
+    )
+    button_ax = ax_placeholder.inset_axes([0.3, 0.15, 0.4, 0.18])
+    paraboloid_button = Button(button_ax, 'Paraboloid Vertex (6)')
 
     # Maximize the window if possible
     manager = plt.get_current_fig_manager()
@@ -791,7 +1007,6 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     fig.canvas.mpl_connect('motion_notify_event', _on_move)
     fig.canvas.mpl_connect('button_release_event', _on_release)
 
-    from matplotlib.widgets import Button
     # Make buttons smaller and fit on the same line
     btn_width = 0.12
     btn_height = 0.045
@@ -963,12 +1178,55 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         last_input = 'w'
         update_stats_display()
 
+    def set_paraboloid_vertex(event=None, *, slot=None, advance=True, silent=False):
+        if paraboloid_fit_info is None:
+            return False
+        vx = paraboloid_fit_info['vertex_x_um']
+        vy = paraboloid_fit_info['vertex_y_um']
+        vz = paraboloid_fit_info['vertex_z_nm']
+        x_idx = int(np.argmin(np.abs(x - vx)))
+        y_idx = _y_to_index(vy)
+        _update_cross_section(vy)
+        target_slot = 1 if slot is None else slot
+        success = _record_selection(
+            vx,
+            vz,
+            x_idx=x_idx,
+            y_idx=y_idx,
+            slot_override=target_slot,
+            advance=advance,
+        )
+        if success and target_slot == 1:
+            set_mode_height(slot=0, advance=False, silent=True)
+            if not silent:
+                print(
+                    f"Paraboloid vertex height {vz:.3f} nm at ({vx:.3f}, {vy:.3f}) μm "
+                    "(Extremum) | Substrate set to 0.5 nm mode"
+                )
+            update_stats_display()
+        elif success and not silent:
+            print(
+                f"Paraboloid vertex height {vz:.3f} nm at ({vx:.3f}, {vy:.3f}) μm (Set by button)"
+            )
+            update_stats_display()
+        elif success:
+            update_stats_display()
+        return success
+
     btn_set_max.on_clicked(set_max_height)
     btn_set_min.on_clicked(set_min_height)
     btn_global_max.on_clicked(set_global_max)
     btn_global_min.on_clicked(set_global_min)
     btn_mode_height.on_clicked(set_mode_height)
     btn_lock.on_clicked(toggle_lock)
+    paraboloid_button.on_clicked(set_paraboloid_vertex)
+
+    def _on_paraboloid_slider(val):
+        nonlocal paraboloid_window_um
+        paraboloid_window_um = float(val)
+        _update_paraboloid_fit()
+
+    paraboloid_slider.on_changed(_on_paraboloid_slider)
 
     def _hotkey(event):
         nonlocal last_input, aborted
@@ -982,6 +1240,8 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             set_global_min()
         elif event.key == '5':
             set_mode_height()
+        elif event.key == '6':
+            set_paraboloid_vertex()
         elif event.key == 'w':
             toggle_lock()
         elif event.key == 'r':
