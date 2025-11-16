@@ -13,6 +13,8 @@ The experiments whose data are processed with this repo's code are done as follo
 * For depressurizations: the time the sample was depressurized
 * For AFM images, the filename(s) of images taken, and at which location on the sample they were taken
 * The different sheets titles in the Excel are the names of different samples
+
+For deflations sessions done over multiple days, while the Excel file says the date of each imaging session, the ibw files are stored in the folder on the first day of imaging
 """
 
 def load_sample_action_tracker(sample_sheet_name: str) -> pd.DataFrame:

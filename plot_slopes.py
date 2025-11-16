@@ -98,8 +98,6 @@ def plot_recent_deflation_curve_slopes():
     }
 
     # convert date/time to YYYYMMDD_HHMMSS format, including replacing the 3 character month with 2 digit month
-    from datetime import datetime
-
     def convert_to_YYYYMMDD_HHMMSS(date_str, time_str):
         # Parse the date and time
         dt = datetime.strptime(f"{date_str} {time_str}", "%d-%b %H:%M:%S")
@@ -148,8 +146,6 @@ def plot_recent_deflation_curve_slopes():
     # keep only rows we can place on the x-axis
     sdf = sdf.dropna(subset=["dt"])
 
-    from datetime import datetime
-
     # --- group by unique depressurization times (categorical x-axis) ---
     sdf = sdf.sort_values("dt")  # ensure chronological order
     unique_times = sdf["dtstr"].unique()
@@ -193,6 +189,37 @@ def plot_recent_deflation_curve_slopes():
 
     x_labels = [f"{fmt_mon_day(t)} — {gas_per_dt[t]}" for t in unique_times]
 
+    # if the gas/colour combination exists in the overall_slopes dictionary, plot a dotted horizontal line at that slope value that extends twice the width of the markers
+    # compute marker width in data coordinates so horizontal lines are twice that width
+    fig = plt.gcf()
+    ax = plt.gca()
+    marker_s = 100  # same as used for scatter
+    marker_diameter_pts = np.sqrt(marker_s)
+    marker_diameter_px = marker_diameter_pts * fig.dpi / 72.0
+    desired_line_px = 2 * marker_diameter_px  # twice the marker width in pixels
+
+    # convert pixel length to data coordinates (horizontal)
+    disp0 = ax.transData.transform((0, 0))
+    disp1 = disp0 + np.array([desired_line_px, 0])
+    data0 = ax.transData.inverted().transform(disp0)
+    data1 = ax.transData.inverted().transform(disp1)
+    desired_line_dx = data1[0] - data0[0]
+
+    # if the gas/colour combination isn't a first time, plot a horizontal line at the slope value in overall_slopes
+    for t in unique_times:
+        gas = gas_per_dt[t]
+        xcenter = x_pos_map[t]
+        for color in ['red', 'blue', 'green', 'orange', 'black']:
+            if color in overall_slopes.get(gas, {}):
+                slope_value = overall_slopes[gas][color]
+                xmin = xcenter - desired_line_dx / 2.0
+                xmax = xcenter + desired_line_dx / 2.0
+                ax.hlines(y=slope_value, xmin=xmin, xmax=xmax, colors=color, linestyles='dotted', alpha=0.5)
+    
+    # in the legend, show a dotted line with the label "Consensus Slope" for the horizontal lines
+    plt.plot([], [], color='black', linestyle='dotted', label='Consensus Slope')
+    plt.legend()
+
     plt.xticks(range(len(unique_times)), x_labels, rotation=45, ha="right")
     plt.yscale("log")
     plt.xlabel("Depressurization Date — Gas")
@@ -200,6 +227,8 @@ def plot_recent_deflation_curve_slopes():
     plt.grid(True, axis="y")
     plt.tight_layout()
     plt.show()
+
+plot_recent_deflation_curve_slopes()
 
 color_to_marker = {
     'black': 'x',
@@ -211,7 +240,6 @@ color_to_marker = {
 unfilled_colors = {'orange', 'red'}
 
 # plot the slopes versus kinetic diameters. Colour the points by the keys of the slope dictionaries. Make the orange and red point markers unfilled.
-import matplotlib.pyplot as plt
 for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('CO2', overall_slopes['CO2']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4']), ('N2', overall_slopes['N2']), ('C2H4', overall_slopes['C2H4']), ('C3H8', overall_slopes['C3H8'])]:
     kd = gc.kinetic_diameters[gas]
     for color, slope in slopes.items():
