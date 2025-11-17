@@ -13,6 +13,53 @@ end_hour = None # None to not give end limit
 end_day = None # None to be same day as depressurization date
 ################################################################################
 
+"""TODO
+
+merge each pair of max/min sliders in the select_heights window into one slider that shows both values on the same slider, with two handles. Left click to move min handle to cursor, right click to move max handle to cursor, left drag to drag left cursor, right drag to drag right cursor. The left of the new slider should show the min value in the image, the right should show the max value in the image, below each handle should show the value of the handle
+    - plus make the colour of the slider the gradient shown in the image between min and max
+
+make right click zoom and left click selections? Then can do away with button to enter/exit zoom mode and auto entering zoom mode on startup. Right drag could be box zoom and right click to zoom to 4x4 um square centred on cursor
+
+cross section shows dotted lines of the line above and below the selected line?
+
+have lock on substrate automatically on by default and I only choose the extremum point, then it takes the mode
+
+another line, extremum location relative to neutral piezo in um (take position relative to where the middle of the scan would be, and add offset)
+
+could I do the fourier transform thing that the drift thing uses to align all my images? Could feed it all the images from a depressurization and it could match the wells together, then I could pinpoint centeres and do completely automated data extraction, could be amazing with sample53
+
+if there's already two points selected, automatically zoom to 4x4 um square centered on extremum point when re-opening
+
+Make it take the average of the 3 lines centered on the selected line (at the x position selected)? Or the min/mean pixel touching it? Check with Boutilier first. Or use a denoising model to smooth it
+
+Add filters to the list of images, could show only ones within a certain range of offsets to pick specific wells
+
+Make it able to plot the deflection vs time points from multiple depressurizations on the same plot to compare them, potentially to use points from multiple depressurizations to get a better slope estimate
+
+Have it make a map, then I select the regions that a well is in over the whole imaging session given drift, and it automatically shows me the same well over and over instead of navigating through images to find them (and could also have it automatically output a curve of using the highest point for that well, which I could compare to mine, and maybe if I get a denoising model to work well enough it could do basically everything automatically. Could also have it make timelapses of a 3d image of a single well changing over time given it would know how to center it)
+
+Now that I'm saving pixel coordinates, try to have it read those back in and use them to get the deflection from the z-sensor data to compare to the height data. Can also make comparisons to curves made from max height within a few microns of the selected point (or the min of the 8 pixels surrounding it) vs the mode for the y value cross section that the max sits on. Could also have it make a map, I can pick a location, and it can give the curve from that location in all images containing it
+
+Right click in zoom mode auto-selects global min in that area and then mode?
+    - or just a button to press which switches max-finding behaviours to min-finding behaviour?
+
+- Plot of deflections so far visible? In other window on second screen?
+- Use mouse wheel for something
+    - Zoom in/out? Centred on x,y of most recently selected point or centre of FOV or cursor? Maybe both, one active normally, another with shift + scroll, another with ctrl + scroll?
+    - use horizontal scroll for something?
+
+- Use left/right arrow keys for something
+    - next/previous image in the collection or something else
+
+- Display any other metadata I might want (drive amplitude/frequency, etc)
+    - Maybe in another panel
+    - Note that if I change some settings partway through an image, it tracks that in the metadata. Example, initial drive amplitude line looks like "DriveAmplitude: 0.089596", but later on if it was changed it would have a line that looks like "DriveAmplitude: 0.09@Line: 162"
+    - Initial drive amplitude in for now, but make sure to have it take the one for the line later
+    - Maybe imaging parameters on the right of the panel, separate from other data
+
+- add a button "View 3D Heightmap", which renders a 3d heightmap in a new window. The heightmap should maintain the data's aspect ratio. Use the Viridis colour scale. Can select points on the 3d heightmap which get added as selected points in the main window.
+- have it read from action_tracker.xlsx to get depressurization time and select the images to use
+"""
 
 def _get_height_map_for_selection(image):
     mode = image.get_imaging_mode()
@@ -343,7 +390,6 @@ if save_to_csv:
     if len(deflections) == 0:
         print("No deflection or time data to save; skipping CSV export")
     else:
-        filename = pl.deflation_curve_filename
         dir_path = pl.deflation_curves_path
         file_path = pl.deflation_curve_path
         if not os.path.exists(dir_path):

@@ -56,7 +56,10 @@ overall_slopes = {
     },
     'C3H8': {
         'blue': 1.03,
-        'red': 0.047
+        'red': 0.047,
+        'green': 0.0061,
+        'black': 0.0039,
+        'orange': 0.0036
     }
 }
 
