@@ -74,6 +74,10 @@ else:
 # Load saved slopes once so they can be reused for each curve
 saved_slopes = _load_saved_slopes()
 
+# collect all scatter points so axes can be set from points only (ignore slope lines)
+_all_x_vals = []
+_all_y_vals = []
+
 # Plot each CSV as a scatter plot
 for idx, csv_file in enumerate(csv_files):
     df = pd.read_csv(csv_file)
@@ -89,8 +93,28 @@ for idx, csv_file in enumerate(csv_files):
             line_x = [x_min, x_max]
             line_y = [slope * x_min + intercept, slope * x_max + intercept]
             plt.plot(line_x, line_y, linestyle=':', color=colors[idx % len(colors)], linewidth=1.5)
+    # accumulate point coordinates for later axis-lim calculation
+    if 'Time (minutes)' in df and 'Deflection (nm)' in df and not df.empty:
+        _all_x_vals.extend(df['Time (minutes)'].tolist())
+        _all_y_vals.extend(df['Deflection (nm)'].tolist())
 
-plt.xlim(left=0)
+# Determine axis limits from points only (so slope lines don't affect autoscaling)
+if _all_x_vals and _all_y_vals:
+    x_min = min(_all_x_vals)
+    x_max = max(_all_x_vals)
+    y_min = min(_all_y_vals)
+    y_max = max(_all_y_vals)
+
+    # small padding (5%) or a sensible default when range is zero
+    x_pad = (x_max - x_min) * 0.05 if x_max > x_min else 1.0
+    y_pad = (y_max - y_min) * 0.05 if y_max > y_min else 1.0
+
+    plt.xlim(x_min - x_pad, x_max + x_pad)
+    plt.ylim(y_min - y_pad, y_max + y_pad)
+else:
+    # no data points found; keep previous behavior
+    plt.xlim(left=0)
+
 plt.xlabel('Time since depressurization (minutes)')
 plt.ylabel('Deflection (nm)')
 # plt.legend()

@@ -140,14 +140,19 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         Y_flat = Y_flat[finite]
         Z_flat = Z_flat[finite]
 
+        xc = np.mean(X_flat)
+        yc = np.mean(Y_flat)
+        Xc = X_flat - xc
+        Yc = Y_flat - yc
+
         G = np.column_stack(
             [
-                X_flat ** 2,
-                Y_flat ** 2,
-                X_flat * Y_flat,
-                X_flat,
-                Y_flat,
-                np.ones_like(X_flat),
+                Xc ** 2,
+                Yc ** 2,
+                Xc * Yc,
+                Xc,
+                Yc,
+                np.ones_like(Xc),
             ]
         )
         try:
@@ -160,15 +165,17 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         if np.linalg.det(hessian) == 0:
             return None
         try:
-            vx, vy = np.linalg.solve(hessian, rhs)
+            vx_c, vy_c = np.linalg.solve(hessian, rhs)
         except np.linalg.LinAlgError:
             return None
+        vx = vx_c + xc
+        vy = vy_c + yc
         vz = (
-            a * vx ** 2
-            + b * vy ** 2
-            + c * vx * vy
-            + d * vx
-            + e * vy
+            a * vx_c ** 2
+            + b * vy_c ** 2
+            + c * vx_c * vy_c
+            + d * vx_c
+            + e * vy_c
             + f_const
         )
 

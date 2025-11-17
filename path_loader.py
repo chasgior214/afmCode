@@ -2,7 +2,7 @@ depressurized_date = '20251109'
 depressurized_time = '18:58:36'
 sample_number = '37'
 transfer_location = '$(6,3)'
-cavity_position = 'blue'
+cavity_position = 'red'
 
 
 
