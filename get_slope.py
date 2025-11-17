@@ -47,13 +47,21 @@ def get_saved_slope_text(deflation_curve_slope_id):
 		with open(deflation_curve_slope_path, 'r', newline='') as fh:
 			reader = csv.reader(fh)
 			header = next(reader, None)
+			col_map = {}
+			if header:
+				col_map = {name: idx for idx, name in enumerate(header)}
+			slope_idx = col_map.get('slope_nm_per_min', 1)
+			r2_idx = col_map.get('r_squared', 2)
+			intercept_idx = col_map.get('intercept_nm', 4)
+			timestamp_idx = col_map.get('timestamp', 3)
 			for row in reader:
 				if not row or len(row) < 4:
 					continue
 				if str(row[0]) == target:
-					slope_val = row[1]
-					r2_val = row[2]
-					saved_val = row[3]
+					slope_val = row[slope_idx] if slope_idx < len(row) else ''
+					r2_val = row[r2_idx] if r2_idx < len(row) else ''
+					intercept_val = row[intercept_idx] if intercept_idx < len(row) else ''
+					saved_val = row[timestamp_idx] if timestamp_idx < len(row) else ''
 					# try numeric formatting
 					try:
 						slope_val = f"{float(slope_val):.6g}"
@@ -63,7 +71,11 @@ def get_saved_slope_text(deflation_curve_slope_id):
 						r2_val = f"{float(r2_val):.6g}"
 					except Exception:
 						pass
-					matches.append((slope_val, r2_val, saved_val))
+					try:
+						intercept_val = f"{float(intercept_val):.6g}"
+					except Exception:
+						pass
+					matches.append((slope_val, r2_val, intercept_val, saved_val))
 	except Exception:
 		return "No saved slope"
 
@@ -72,8 +84,9 @@ def get_saved_slope_text(deflation_curve_slope_id):
 
 	# If multiple matches, show them separated by a blank line
 	blocks = []
-	for slope_val, r2_val, saved_val in matches:
-		blocks.append(f"slope (nm/min)={slope_val}\nR^2={r2_val}\nsaved={saved_val}")
+	for slope_val, r2_val, intercept_val, saved_val in matches:
+		intercept_line = f"\nintercept (nm)={intercept_val}" if intercept_val not in (None, '') else ''
+		blocks.append(f"slope (nm/min)={slope_val}\nR^2={r2_val}{intercept_line}\nsaved={saved_val}")
 	return "\n\n".join(blocks)
 
 # plotting function with interactive selection and slope saving
@@ -327,6 +340,7 @@ def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 			f"t={t:.6g} min\n"
 			f"def={d:.6g} nm\n"
 			f"cumulative_slope={s:.6g} nm/min\n"
+			f"intercept={b:.6g} nm\n"
 			f"R²={r2:.6g}\n"
 			f"pairwise_prev_slope={s_prev:.6g} nm/min\n"
 			f"local3_slope={s_local3:.6g} nm/min"
@@ -350,7 +364,7 @@ def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 		prev_artists.append(ann)
 
 		# Print to console
-		print(f"Selected index {idx}: time={t:.6g}, deflection={d:.6g}, cumulative_slope={s:.6g}, pairwise_prev={s_prev:.6g}, local3={s_local3:.6g}, R^2={r2:.6g}")
+		print(f"Selected index {idx}: time={t:.6g}, deflection={d:.6g}, cumulative_slope={s:.6g}, intercept={b:.6g}, pairwise_prev={s_prev:.6g}, local3={s_local3:.6g}, R^2={r2:.6g}")
 
 		# redraw
 		try:
@@ -364,9 +378,10 @@ def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 			idx = selected_idx[0]
 			if idx < 0 or idx >= len(times):
 				return
-			
+
 			s = float(slopes[idx]) if not np.isnan(slopes[idx]) else float('nan')
 			r2 = float(r2s[idx]) if not np.isnan(r2s[idx]) else float('nan')
+			b = float(intercepts[idx]) if not np.isnan(intercepts[idx]) else float('nan')
 			
 			# Get current timestamp
 			timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -384,10 +399,10 @@ def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 				with open(deflation_curve_slope_path, 'a', newline='') as fh:
 					writer = csv.writer(fh)
 					if not file_exists:
-						writer.writerow(['id', 'slope_nm_per_min', 'r_squared', 'timestamp'])
-					writer.writerow([deflation_curve_slope_id, s, r2, timestamp])
-				print(f"Saved: id={deflation_curve_slope_id}, slope={s:.6g}, R²={r2:.6g}, time={timestamp}")
-				
+						writer.writerow(['id', 'slope_nm_per_min', 'r_squared', 'timestamp', 'y_intercept_nm'])
+					writer.writerow([deflation_curve_slope_id, s, r2, timestamp, b])
+				print(f"Saved: id={deflation_curve_slope_id}, slope={s:.6g}, intercept={b:.6g}, R²={r2:.6g}, time={timestamp}")
+			
 				# Update the annotation to show the newly saved value
 				if prev_artists:
 					# Remove old annotation and recreate with updated "Last Saved" info
@@ -435,6 +450,7 @@ def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 						f"t={t:.6g} min\n"
 						f"def={d:.6g} nm\n"
 						f"cumulative_slope={s:.6g} nm/min\n"
+						f"intercept={b:.6g} nm\n"
 						f"R²={r2:.6g}\n"
 						f"pairwise_prev_slope={s_prev:.6g} nm/min\n"
 						f"local3_slope={s_local3:.6g} nm/min"
