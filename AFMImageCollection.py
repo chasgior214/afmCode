@@ -4,7 +4,7 @@ import os
 import numpy as np
 import pandas as pd
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 import visualizations as vis
 from datetime import datetime
 
@@ -240,7 +240,17 @@ class AFMImageCollection:
             if idx in selections:
                 init_slots = selections[idx].get('selected_slots')
                 prev_time_offset = selections[idx].get('time_offset')
-
+                warning_msgs = selections[idx].get('warning_messages')
+                if warning_msgs:
+                    try:
+                        messagebox.showwarning(
+                            'Selection Warning',
+                            '\n\n'.join(warning_msgs)
+                        )
+                    except Exception as exc:
+                        print(f"Warning for image index {idx}: {warning_msgs} ({exc})")
+                    selections[idx].pop('warning_messages', None)
+            
             # Call existing select_heights; it now accepts initial selections and returns a dict
             res = vis.select_heights(img, initial_selected_slots=init_slots)
             if res is None:

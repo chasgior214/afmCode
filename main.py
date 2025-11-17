@@ -99,6 +99,29 @@ def _build_initial_selections(collection, csv_path, depressurized_dt):
         except ValueError:
             return None
 
+    def _parse_float(val):
+        if val is None:
+            return None
+        val = str(val).strip()
+        if not val or val.lower() == 'none':
+            return None
+        try:
+            return float(val)
+        except ValueError:
+            return None
+
+    def _index_to_y_center(idx, y_pixels, pixel_size):
+        if idx is None:
+            return None
+        idx = int(np.clip(idx, 0, y_pixels - 1))
+        return (y_pixels - (idx + 0.5)) * pixel_size
+
+    def _y_um_to_index(y_um, y_pixels, pixel_size):
+        if y_um is None or pixel_size <= 0:
+            return None
+        idx_float = y_pixels - (y_um / pixel_size) - 0.5
+        return int(np.clip(int(round(idx_float)), 0, y_pixels - 1))
+
     initial = {}
     matched_count = 0
     for row in rows:
@@ -144,7 +167,27 @@ def _build_initial_selections(collection, csv_path, depressurized_dt):
         p2y = _parse_index(row.get('Point 2 Y Pixel'))
 
         selected_slots = [None, None]
+        slot_sources = [None, None]
         for slot_idx, (px, py) in enumerate(((p1x, p1y), (p2x, p2y))):
+            xyz_x = _parse_float(row.get(f'Point {slot_idx + 1} X (um)'))
+            xyz_y = _parse_float(row.get(f'Point {slot_idx + 1} Y (um)'))
+            xyz_z = _parse_float(row.get(f'Point {slot_idx + 1} Z (nm)'))
+            if all(val is not None and np.isfinite(val) for val in (xyz_x, xyz_y, xyz_z)):
+                try:
+                    x_idx = int(np.argmin(np.abs(window['x_coords'] - xyz_x)))
+                except ValueError:
+                    x_idx = None
+                y_idx = _y_um_to_index(xyz_y, window['y_pixels'], window['pixel_size'])
+                selected_slots[slot_idx] = (
+                    float(xyz_z),
+                    float(xyz_x),
+                    float(xyz_y),
+                    x_idx,
+                    y_idx,
+                )
+                slot_sources[slot_idx] = 'xyz'
+                continue
+
             if px is None or py is None:
                 continue
             if not (0 <= px < window['x_pixels'] and 0 <= py < window['y_pixels']):
@@ -153,11 +196,31 @@ def _build_initial_selections(collection, csv_path, depressurized_dt):
             if h_val is None or not np.isfinite(h_val):
                 continue
             x_val = float(window['x_coords'][px])
-            y_val = float((window['y_pixels'] - 1 - py) * window['pixel_size'])
+            y_val = _index_to_y_center(py, window['y_pixels'], window['pixel_size'])
             selected_slots[slot_idx] = (float(h_val), x_val, y_val, int(px), int(py))
+            slot_sources[slot_idx] = 'pixel'
 
         if all(slot is None for slot in selected_slots):
             continue
+
+        warnings = []
+        stored_deflection = _parse_float(row.get('Deflection (nm)'))
+        if (
+            stored_deflection is not None
+            and selected_slots[0] is not None
+            and selected_slots[1] is not None
+        ):
+            if 'pixel' in slot_sources:
+                loaded_deflection = selected_slots[1][0] - selected_slots[0][0]
+                if not np.isfinite(loaded_deflection) or not np.isfinite(stored_deflection):
+                    pass
+                else:
+                    if abs(loaded_deflection - stored_deflection) > 1e-3:
+                        warnings.append(
+                            "Preloaded pixel coordinates reproduce a deflection of "
+                            f"{loaded_deflection:.3f} nm instead of the saved "
+                            f"{stored_deflection:.3f} nm."
+                        )
 
         time_offset = time_seconds - window['end_offset']
         duration = window['duration']
@@ -169,10 +232,13 @@ def _build_initial_selections(collection, csv_path, depressurized_dt):
             if time_offset < lower - 1e-3 or time_offset > upper + 1e-3:
                 time_offset = max(lower, min(upper, time_offset))
 
-        initial[idx] = {
+        entry = {
             'selected_slots': selected_slots,
             'time_offset': time_offset,
         }
+        if warnings:
+            entry['warning_messages'] = warnings
+        initial[idx] = entry
         matched_count += 1
 
     if matched_count:
@@ -208,6 +274,7 @@ print("=================================================")
 times = []
 deflections = []
 pixel_coords = []
+physical_coords = []
 
 initial_selections = _build_initial_selections(collection, pl.deflation_curve_path, depressurized_datetime)
 
@@ -241,10 +308,25 @@ for idx in sorted(selections.keys()):
             times.append(time_unpressurized / 60)
             deflections.append(delta_deflection)
             p1x = p1y = p2x = p2y = None
-            if len(slots[0]) >= 5 and len(slots[1]) >= 5:
+            if slots[0] is not None and len(slots[0]) >= 5 and slots[0][3] is not None and slots[0][4] is not None:
                 p1x, p1y = int(slots[0][3]), int(slots[0][4])
+            if slots[1] is not None and len(slots[1]) >= 5 and slots[1][3] is not None and slots[1][4] is not None:
                 p2x, p2y = int(slots[1][3]), int(slots[1][4])
             pixel_coords.append((p1x, p1y, p2x, p2y))
+
+            p1x_um = p1y_um = p1z_nm = None
+            p2x_um = p2y_um = p2z_nm = None
+            if slots[0] is not None:
+                p1z_nm = float(slots[0][0])
+                if len(slots[0]) >= 3:
+                    p1x_um = float(slots[0][1]) if slots[0][1] is not None else None
+                    p1y_um = float(slots[0][2]) if slots[0][2] is not None else None
+            if slots[1] is not None:
+                p2z_nm = float(slots[1][0])
+                if len(slots[1]) >= 3:
+                    p2x_um = float(slots[1][1]) if slots[1][1] is not None else None
+                    p2y_um = float(slots[1][2]) if slots[1][2] is not None else None
+            physical_coords.append((p1x_um, p1y_um, p1z_nm, p2x_um, p2y_um, p2z_nm))
             print(f"Time: {times[-1]:.3f} minutes")
         else:
             print(f"Image {image.bname} has incomplete selections; skipping deflection/time entry")
@@ -270,11 +352,36 @@ if save_to_csv:
             print(f"Overwriting existing file {file_path}")
         with open(file_path, mode='w', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(['Time (minutes)', 'Deflection (nm)',
-                             'Point 1 X Pixel', 'Point 1 Y Pixel',
-                             'Point 2 X Pixel', 'Point 2 Y Pixel'])
-            for t, d, (p1x, p1y, p2x, p2y) in zip(times, deflections, pixel_coords):
-                writer.writerow([t, d, p1x, p1y, p2x, p2y])
+            writer.writerow([
+                'Time (minutes)',
+                'Deflection (nm)',
+                'Point 1 X Pixel',
+                'Point 1 Y Pixel',
+                'Point 1 X (um)',
+                'Point 1 Y (um)',
+                'Point 1 Z (nm)',
+                'Point 2 X Pixel',
+                'Point 2 Y Pixel',
+                'Point 2 X (um)',
+                'Point 2 Y (um)',
+                'Point 2 Z (nm)'
+            ])
+            for (t, d, (p1x, p1y, p2x, p2y),
+                 (p1x_um, p1y_um, p1z_nm, p2x_um, p2y_um, p2z_nm)) in zip(times, deflections, pixel_coords, physical_coords):
+                writer.writerow([
+                    t,
+                    d,
+                    p1x,
+                    p1y,
+                    p1x_um,
+                    p1y_um,
+                    p1z_nm,
+                    p2x,
+                    p2y,
+                    p2x_um,
+                    p2y_um,
+                    p2z_nm,
+                ])
 
 # plot deflection vs time
 plt.scatter(times, deflections)
