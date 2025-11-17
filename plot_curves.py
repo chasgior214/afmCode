@@ -7,6 +7,11 @@ import matplotlib.pyplot as plt
 
 import path_loader as pl
 
+# List of substrings to filter filenames. Empty list = no filtering.
+filter_substrings = [
+    'blue'
+]
+
 
 def _load_saved_slopes():
     """Return a mapping of deflation curve slope IDs to slope/intercept values."""
@@ -54,19 +59,57 @@ def _get_slope_id_from_filename(csv_path):
 # Folder containing the CSV files
 folder = pl.deflation_curves_path
 
-# Find all CSV files in the folder for specified sample and depressurization date/time
-csv_files = glob.glob(os.path.join(folder, f"deflation_curve_sample{pl.sample_number}_depressurized{pl.depressurized_date}_{pl.depressurized_time}*.csv"))
 
-# filter to only files containing certain colours in their filenames
-# csv_files = [f for f in csv_files if any(color in os.path.basename(f) for color in ['blue', 'red'])]
+def _get_depressurization_targets():
+    """Return a list of (date, time) pairs to be plotted."""
+    user_specified = getattr(pl, 'plot_depressurizations', None)
+    targets = []
+
+    if user_specified:
+        for entry in user_specified:
+            date = time = None
+            if isinstance(entry, dict):
+                date = entry.get('depressurized_date') or entry.get('date')
+                time = entry.get('depressurized_time') or entry.get('time')
+            elif isinstance(entry, (list, tuple)) and len(entry) >= 2:
+                date, time = entry[0], entry[1]
+            elif isinstance(entry, str):
+                # Support strings formatted as 'YYYYMMDD_HHMMSS'
+                parts = entry.split('_', 1)
+                if len(parts) == 2:
+                    date, time = parts
+            if date and time:
+                clean_time = str(time).replace(':', '')
+                targets.append((str(date), clean_time))
+    if not targets:
+        targets.append((pl.depressurized_date, pl.depressurized_time))
+    return targets
+
+
+depressurization_targets = _get_depressurization_targets()
+
+# Find all CSV files in the folder for specified sample and depressurization date/time
+csv_entries = []
+for target_idx, (date, time) in enumerate(depressurization_targets):
+    pattern = f"deflation_curve_sample{pl.sample_number}_depressurized{date}_{time}*.csv"
+    for csv_file in glob.glob(os.path.join(folder, pattern)):
+        basename = os.path.basename(csv_file)
+        if filter_substrings:
+            # case-insensitive substring match: include file if any substring matches
+            lname = basename.lower()
+            if not any(sub.lower() in lname for sub in filter_substrings):
+                continue
+        csv_entries.append({'path': csv_file, 'target_idx': target_idx})
 
 # Set up the plot
 plt.figure(figsize=(8, 6))
 
 # If the files all contain either 'red', 'blue', 'green', 'orange', or 'black' in their filenames, use those colors for those files
 file_colors = {'red': 'red', 'blue': 'blue', 'green': 'green', 'orange': 'orange', 'black': 'black'}
-if all(any(color in os.path.basename(f) for color in file_colors) for f in csv_files):
-    colors = [next(color for color in file_colors if color in os.path.basename(f)) for f in csv_files]
+csv_paths = [entry['path'] for entry in csv_entries]
+
+if csv_paths and all(any(color in os.path.basename(f) for color in file_colors) for f in csv_paths):
+    colors = [next(color for color in file_colors if color in os.path.basename(f)) for f in csv_paths]
 else:
     # Otherwise, use a default color cycle
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
@@ -79,10 +122,14 @@ _all_x_vals = []
 _all_y_vals = []
 
 # Plot each CSV as a scatter plot
-for idx, csv_file in enumerate(csv_files):
+markers = ['*', 'x', '+', 'o', 's', '^', '>', 'd']
+
+for idx, entry in enumerate(csv_entries):
+    csv_file = entry['path']
     df = pd.read_csv(csv_file)
+    marker = markers[entry['target_idx'] % len(markers)]
     plt.scatter(df['Time (minutes)'], df['Deflection (nm)'],
-                label=os.path.basename(csv_file), color=colors[idx % len(colors)], s=60, marker='x')
+                label=os.path.basename(csv_file), color=colors[idx % len(colors)], s=60, marker=marker)
 
     slope_id = _get_slope_id_from_filename(csv_file)
     if slope_id and slope_id in saved_slopes:
@@ -117,6 +164,6 @@ else:
 
 plt.xlabel('Time since depressurization (minutes)')
 plt.ylabel('Deflection (nm)')
-# plt.legend()
+plt.legend()
 plt.tight_layout()
 plt.show()

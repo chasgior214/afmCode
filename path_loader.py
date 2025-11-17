@@ -4,6 +4,11 @@ sample_number = '37'
 transfer_location = '$(6,3)'
 cavity_position = 'orange'
 
+# Additional depressurization date/time combinations can be added to this list to plot multiple datasets at once (see plot_curves.py)
+plot_depressurizations = [
+    ('20251109', '18:58:36'),
+    ('20251106', '17:00:36')
+    ]
 
 
 ##############################################################################
@@ -11,6 +16,8 @@ import os
 from datetime import datetime
 depressurized_time = depressurized_time.replace(':', '')  # 'HHMMSS' format
 depressurized_datetime = datetime.strptime(depressurized_date + depressurized_time, '%Y%m%d%H%M%S')
+
+plot_depressurizations = [(date, time.replace(':', '')) for date, time in plot_depressurizations]
 
 experiment_data_path = 'C:\\Users\\chasg\\OneDrive - The University of Western Ontario\\MESc\\Research\\Experiments\\expt005_250403_gas_inflations'
 
