@@ -52,7 +52,7 @@ def get_saved_slope_text(deflation_curve_slope_id):
 				col_map = {name: idx for idx, name in enumerate(header)}
 			slope_idx = col_map.get('slope_nm_per_min', 1)
 			r2_idx = col_map.get('r_squared', 2)
-			intercept_idx = col_map.get('intercept_nm', 4)
+			intercept_idx = col_map.get('y_intercept_nm', 4)
 			timestamp_idx = col_map.get('timestamp', 3)
 			for row in reader:
 				if not row or len(row) < 4:
