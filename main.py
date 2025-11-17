@@ -15,9 +15,6 @@ end_day = None # None to be same day as depressurization date
 
 """TODO
 
-merge each pair of max/min sliders in the select_heights window into one slider that shows both values on the same slider, with two handles. Left click to move min handle to cursor, right click to move max handle to cursor, left drag to drag left cursor, right drag to drag right cursor. The left of the new slider should show the min value in the image, the right should show the max value in the image, below each handle should show the value of the handle
-    - plus make the colour of the slider the gradient shown in the image between min and max
-
 make right click zoom and left click selections? Then can do away with button to enter/exit zoom mode and auto entering zoom mode on startup. Right drag could be box zoom and right click to zoom to 4x4 um square centred on cursor
 
 cross section shows dotted lines of the line above and below the selected line?

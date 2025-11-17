@@ -3,6 +3,226 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button
 from matplotlib import patches
 
+
+class DualHandleSlider:
+    """Custom slider with two handles controlled by left/right mouse buttons."""
+
+    def __init__(
+        self,
+        ax,
+        label,
+        valmin,
+        valmax,
+        valinit,
+        cmap,
+        *,
+        value_format="{:.3f}",
+        bounds_format=None,
+    ):
+        self.ax = ax
+        self.label = label
+        self.cmap = cmap
+        self.value_format = value_format
+        self.bounds_format = bounds_format or value_format
+        self.ax.set_facecolor('none')
+        self.ax.set_xticks([])
+        self.ax.set_yticks([])
+        self.ax.set_ylim(-0.65, 1.1)
+        for spine in self.ax.spines.values():
+            spine.set_visible(False)
+        self._gradient_points = 256
+        self._gradient_data = np.linspace(0, 1, self._gradient_points).reshape(1, -1)
+        self._observers = []
+        self._active_handle = None
+        self._active_button = None
+        valmin = float(valmin)
+        valmax = float(valmax)
+        if not np.isfinite(valmin):
+            valmin = 0.0
+        if not np.isfinite(valmax):
+            valmax = valmin + 1.0
+        if valmin == valmax:
+            valmax = valmin + 1e-9
+        self.lower_bound = min(valmin, valmax)
+        self.upper_bound = max(valmin, valmax)
+        init_low, init_high = valinit
+        init_low = float(init_low)
+        init_high = float(init_high)
+        if init_low > init_high:
+            init_low, init_high = init_high, init_low
+        self.val = (
+            float(np.clip(init_low, self.lower_bound, self.upper_bound)),
+            float(np.clip(init_high, self.lower_bound, self.upper_bound)),
+        )
+        self.ax.set_xlim(self.lower_bound, self.upper_bound)
+        self.label_artist = self.ax.text(
+            0.5,
+            1.02,
+            self.label,
+            transform=self.ax.transAxes,
+            ha='center',
+            va='bottom',
+            fontsize=9,
+        )
+        self.gradient_im = self.ax.imshow(
+            self._gradient_data,
+            extent=(self.val[0], self.val[1], 0, 1),
+            aspect='auto',
+            cmap=self.cmap,
+            vmin=0.0,
+            vmax=1.0,
+            zorder=1,
+            interpolation='nearest',
+        )
+        self.left_rect = patches.Rectangle(
+            (self.lower_bound, 0),
+            max(0.0, self.val[0] - self.lower_bound),
+            1,
+            color='black',
+            zorder=2,
+        )
+        self.ax.add_patch(self.left_rect)
+        self.right_rect = patches.Rectangle(
+            (self.val[1], 0),
+            max(0.0, self.upper_bound - self.val[1]),
+            1,
+            color='white',
+            zorder=2,
+        )
+        self.ax.add_patch(self.right_rect)
+        handle_color = 'white'
+        self.handle_lines = [
+            self.ax.axvline(self.val[0], color=handle_color, linewidth=2, zorder=3),
+            self.ax.axvline(self.val[1], color=handle_color, linewidth=2, zorder=3),
+        ]
+        self.value_texts = [
+            self.ax.text(
+                self.val[0],
+                -0.12,
+                self.value_format.format(self.val[0]),
+                ha='center',
+                va='top',
+                color='white',
+                fontsize=9,
+                zorder=4,
+                bbox=dict(facecolor='black', alpha=0.6, pad=1, edgecolor='none'),
+            ),
+            self.ax.text(
+                self.val[1],
+                -0.12,
+                self.value_format.format(self.val[1]),
+                ha='center',
+                va='top',
+                color='black',
+                fontsize=9,
+                zorder=4,
+                bbox=dict(facecolor='white', alpha=0.8, pad=1, edgecolor='none'),
+            ),
+        ]
+        canvas = self.ax.figure.canvas
+        self._cids = [
+            canvas.mpl_connect('button_press_event', self._on_press),
+            canvas.mpl_connect('button_release_event', self._on_release),
+            canvas.mpl_connect('motion_notify_event', self._on_move),
+        ]
+        self._update_visuals(redraw=False)
+
+    def _update_visuals(self, redraw=True):
+        self.gradient_im.set_extent((self.val[0], self.val[1], 0, 1))
+        self.left_rect.set_x(self.lower_bound)
+        self.left_rect.set_width(max(0.0, self.val[0] - self.lower_bound))
+        self.right_rect.set_x(self.val[1])
+        self.right_rect.set_width(max(0.0, self.upper_bound - self.val[1]))
+        for line, value in zip(self.handle_lines, self.val):
+            line.set_xdata([value, value])
+        for text, value in zip(self.value_texts, self.val):
+            text.set_position((value, -0.12))
+            text.set_text(self.value_format.format(value))
+        if redraw:
+            self.ax.figure.canvas.draw_idle()
+
+    def _snap_to_bounds(self, pos):
+        span = self.upper_bound - self.lower_bound
+        if span <= 0:
+            return pos
+        threshold = span * 0.01
+        if pos - self.lower_bound <= threshold:
+            return self.lower_bound
+        if self.upper_bound - pos <= threshold:
+            return self.upper_bound
+        return pos
+
+    def _set_value_from_position(self, handle_idx, pos):
+        if pos is None:
+            return
+        pos = float(np.clip(self._snap_to_bounds(pos), self.lower_bound, self.upper_bound))
+        if handle_idx == 0:
+            self.set_val((pos, self.val[1]))
+        else:
+            self.set_val((self.val[0], pos))
+
+    def _on_press(self, event):
+        if event.inaxes != self.ax:
+            return
+        if event.button not in (1, 3):
+            return
+        self._active_handle = 0 if event.button == 1 else 1
+        self._active_button = event.button
+        self._set_value_from_position(self._active_handle, event.xdata)
+
+    def _on_move(self, event):
+        if self._active_handle is None:
+            return
+        if event.xdata is None:
+            return
+        self._set_value_from_position(self._active_handle, event.xdata)
+
+    def _on_release(self, event):
+        if event.button == self._active_button:
+            self._active_handle = None
+            self._active_button = None
+
+    def set_bounds(self, valmin, valmax, *, update_values=True):
+        valmin = float(valmin)
+        valmax = float(valmax)
+        if not np.isfinite(valmin):
+            valmin = 0.0
+        if not np.isfinite(valmax):
+            valmax = valmin + 1.0
+        if valmin == valmax:
+            valmax = valmin + 1e-9
+        self.lower_bound = min(valmin, valmax)
+        self.upper_bound = max(valmin, valmax)
+        self.ax.set_xlim(self.lower_bound, self.upper_bound)
+        if update_values:
+            clamped = (
+                float(np.clip(self.val[0], self.lower_bound, self.upper_bound)),
+                float(np.clip(self.val[1], self.lower_bound, self.upper_bound)),
+            )
+            if clamped[0] > clamped[1]:
+                clamped = (clamped[0], clamped[0])
+            self.val = clamped
+        self._update_visuals()
+
+    def set_val(self, values, *, notify=True):
+        new_min, new_max = values
+        new_min = float(np.clip(new_min, self.lower_bound, self.upper_bound))
+        new_max = float(np.clip(new_max, self.lower_bound, self.upper_bound))
+        if new_min > new_max:
+            new_max = new_min
+        changed = not np.isclose([new_min, new_max], list(self.val)).all()
+        self.val = (new_min, new_max)
+        self._update_visuals()
+        if notify and changed:
+            self._notify_observers()
+
+    def on_changed(self, func):
+        self._observers.append(func)
+
+    def _notify_observers(self):
+        for callback in self._observers:
+            callback(self.val)
+
 def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     # Extract data from the image
     image_bname = str(image.bname)
@@ -717,19 +937,33 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     # Initial plots
     image_axes[:] = [ax_height, ax1]
 
-    im_height = ax_height.imshow(height_map, cmap='turbo', extent=extent)
+    def _build_cmap():
+        cmap = plt.cm.get_cmap('turbo').copy()
+        cmap.set_under('black')
+        cmap.set_over('white')
+        return cmap
+
+    cmap_height = _build_cmap()
+    im_height = ax_height.imshow(height_map, cmap=cmap_height, extent=extent)
     hline_height = ax_height.axhline(y=line_height, color='r', linestyle='--')
     ax_height.set_title(f"{title_prefix} Map")
     ax_height.set_ylabel("y (μm)")
 
-    im_contrast = ax1.imshow(contrast_map, cmap='turbo', extent=extent)
+    cmap_contrast = _build_cmap()
+    im_contrast = ax1.imshow(contrast_map, cmap=cmap_contrast, extent=extent)
     hline_contrast = ax1.axhline(y=line_height, color='r', linestyle='--')
     ax1.set_title("Contrast Map")
     ax1.set_ylabel("y (μm)")
 
     if phase_map is not None:
-        im_phase = ax3.imshow(phase_map, cmap='turbo', extent=extent,
-                              vmin=np.min(phase_map), vmax=np.max(phase_map))
+        cmap_phase = _build_cmap()
+        im_phase = ax3.imshow(
+            phase_map,
+            cmap=cmap_phase,
+            extent=extent,
+            vmin=np.min(phase_map),
+            vmax=np.max(phase_map),
+        )
         hline_phase = ax3.axhline(y=line_height, color='r', linestyle='--')
         ax3.set_title("Phase Retrace")
         ax3.set_ylabel("y (μm)")
@@ -784,62 +1018,56 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     update_stats_display()
 
     # Create sliders for the three map panels
-    slider_width = 0.23
-    slider_height = 0.03
-    slider_lefts = [0.05, 0.37, 0.69]
-    slider_top = 0.23
-    slider_bottom = 0.18
+    slider_height = 0.1
+    slider_bottom = 0.16
+    slider_cmap = plt.cm.get_cmap('turbo')
 
-    ax_height_vmin = plt.axes([slider_lefts[0], slider_top, slider_width, slider_height], facecolor='lightgrey')
-    ax_height_vmax = plt.axes([slider_lefts[0], slider_bottom, slider_width, slider_height], facecolor='lightgrey')
-    slider_height_vmin = Slider(
-        ax_height_vmin,
-        'height vmin',
-        float(np.min(height_map)),
-        float(np.max(height_map)),
-        valinit=float(np.min(height_map)),
-    )
-    slider_height_vmax = Slider(
-        ax_height_vmax,
-        'height vmax',
-        float(np.min(height_map)),
-        float(np.max(height_map)),
-        valinit=float(np.max(height_map)),
+    def _make_slider_axis(target_axis):
+        bbox = target_axis.get_position()
+        return plt.axes([bbox.x0, slider_bottom, bbox.width, slider_height], facecolor='none')
+
+    ax_height_slider = _make_slider_axis(ax_height)
+    height_min = float(np.min(height_map))
+    height_max = float(np.max(height_map))
+    height_slider = DualHandleSlider(
+        ax_height_slider,
+        'Height (nm)',
+        height_min,
+        height_max,
+        (height_min, height_max),
+        slider_cmap,
+        value_format="{:.3f}",
     )
 
-    ax_contrast_vmin = plt.axes([slider_lefts[1], slider_top, slider_width, slider_height], facecolor='lightgrey')
-    ax_contrast_vmax = plt.axes([slider_lefts[1], slider_bottom, slider_width, slider_height], facecolor='lightgrey')
-    slider_contrast_vmin = Slider(
-        ax_contrast_vmin,
-        'vmin (x10^9)',
-        np.min(contrast_map) * 1e9,
-        np.max(contrast_map) * 1e9,
-        valinit=0,
-    )
-    slider_contrast_vmax = Slider(
-        ax_contrast_vmax,
-        'vmax (x10^9)',
-        np.min(contrast_map) * 1e9,
-        np.max(contrast_map) * 1e9,
-        valinit=1e9,
+    ax_contrast_slider = _make_slider_axis(ax1)
+    contrast_min = float(np.min(contrast_map) * 1e9)
+    contrast_max = float(np.max(contrast_map) * 1e9)
+    contrast_slider = DualHandleSlider(
+        ax_contrast_slider,
+        'Contrast (x10^9)',
+        contrast_min,
+        contrast_max,
+        (
+            np.clip(0.0, contrast_min, contrast_max),
+            np.clip(1e9, contrast_min, contrast_max),
+        ),
+        slider_cmap,
+        value_format="{:.2f}",
     )
 
+    phase_slider = None
     if phase_map is not None:
-        ax_phase_vmin = plt.axes([slider_lefts[2], slider_top, slider_width, slider_height], facecolor='lightgrey')
-        ax_phase_vmax = plt.axes([slider_lefts[2], slider_bottom, slider_width, slider_height], facecolor='lightgrey')
-        slider_phase_vmin = Slider(
-            ax_phase_vmin,
-            'phase vmin',
-            float(np.min(phase_map)),
-            float(np.max(phase_map)),
-            valinit=float(np.min(phase_map)),
-        )
-        slider_phase_vmax = Slider(
-            ax_phase_vmax,
-            'phase vmax',
-            float(np.min(phase_map)),
-            float(np.max(phase_map)),
-            valinit=float(np.max(phase_map)),
+        ax_phase_slider = _make_slider_axis(ax3)
+        phase_min = float(np.min(phase_map))
+        phase_max = float(np.max(phase_map))
+        phase_slider = DualHandleSlider(
+            ax_phase_slider,
+            'Phase',
+            phase_min,
+            phase_max,
+            (phase_min, phase_max),
+            slider_cmap,
+            value_format="{:.2f}",
         )
 
     def _update_visible_ranges():
@@ -848,32 +1076,20 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         sub_height = height_map[ys, xs]
         hmin = float(np.min(sub_height))
         hmax = float(np.max(sub_height))
-        for sl in (slider_height_vmin, slider_height_vmax):
-            sl.valmin = hmin
-            sl.valmax = hmax
-            sl.ax.set_xlim(sl.valmin, sl.valmax)
-        slider_height_vmin.set_val(hmin)
-        slider_height_vmax.set_val(hmax)
+        height_slider.set_bounds(hmin, hmax, update_values=False)
+        height_slider.set_val((hmin, hmax))
 
         sub_contrast = contrast_map[ys, xs]
-        cmin = float(np.min(sub_contrast))
-        cmax = float(np.max(sub_contrast))
-        for sl in (slider_contrast_vmin, slider_contrast_vmax):
-            sl.valmin = cmin * 1e9
-            sl.valmax = cmax * 1e9
-            sl.ax.set_xlim(sl.valmin, sl.valmax)
-        slider_contrast_vmin.set_val(slider_contrast_vmin.valmin)
-        slider_contrast_vmax.set_val(slider_contrast_vmax.valmax)
-        if phase_map is not None:
+        cmin = float(np.min(sub_contrast)) * 1e9
+        cmax = float(np.max(sub_contrast)) * 1e9
+        contrast_slider.set_bounds(cmin, cmax, update_values=False)
+        contrast_slider.set_val((cmin, cmax))
+        if phase_map is not None and phase_slider is not None:
             sub_phase = phase_map[ys, xs]
             pmin = float(np.min(sub_phase))
             pmax = float(np.max(sub_phase))
-            for sl in (slider_phase_vmin, slider_phase_vmax):
-                sl.valmin = pmin
-                sl.valmax = pmax
-                sl.ax.set_xlim(sl.valmin, sl.valmax)
-            slider_phase_vmin.set_val(pmin)
-            slider_phase_vmax.set_val(pmax)
+            phase_slider.set_bounds(pmin, pmax, update_values=False)
+            phase_slider.set_val((pmin, pmax))
 
     syncing_zoom = False
     pending_zoom_autoset = False
@@ -985,21 +1201,21 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         return True
 
     # Update function for the sliders
-    def update_slider(val):
-        im_height.set_clim(vmin=slider_height_vmin.val, vmax=slider_height_vmax.val)
-        im_contrast.set_clim(vmin=slider_contrast_vmin.val / 1e9, vmax=slider_contrast_vmax.val / 1e9)
-        if phase_map is not None and im_phase is not None:
-            im_phase.set_clim(vmin=slider_phase_vmin.val, vmax=slider_phase_vmax.val)
+    def update_slider(_=None):
+        hmin, hmax = height_slider.val
+        im_height.set_clim(vmin=hmin, vmax=hmax)
+        cmin, cmax = contrast_slider.val
+        im_contrast.set_clim(vmin=cmin / 1e9, vmax=cmax / 1e9)
+        if phase_map is not None and im_phase is not None and phase_slider is not None:
+            pmin, pmax = phase_slider.val
+            im_phase.set_clim(vmin=pmin, vmax=pmax)
         fig.canvas.draw_idle()
 
     # Connect the sliders to the update function
-    slider_height_vmin.on_changed(update_slider)
-    slider_height_vmax.on_changed(update_slider)
-    slider_contrast_vmin.on_changed(update_slider)
-    slider_contrast_vmax.on_changed(update_slider)
-    if phase_map is not None:
-        slider_phase_vmin.on_changed(update_slider)
-        slider_phase_vmax.on_changed(update_slider)
+    height_slider.on_changed(update_slider)
+    contrast_slider.on_changed(update_slider)
+    if phase_slider is not None:
+        phase_slider.on_changed(update_slider)
 
     _update_visible_ranges()
 
