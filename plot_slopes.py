@@ -63,6 +63,50 @@ overall_slopes = {
     }
 }
 
+erfan_slopes = {
+    'H2': {
+        'pore': 2.26997052
+    },
+    'CO2': {
+        'pore': 4.055630802
+    },
+    'Ar': {
+        'control': 0.03456315,
+        'pore': 0.417617786
+    },
+    'CH4': {
+        'control': 0.00796286,
+        'pore': 0.223965961
+    },
+    'N2': {
+        'control': 0.016271812,
+        'pore': 0.076263535
+    },
+    'O2': {
+        'control': 0.073328934,
+        'pore': 0.432760753
+    },
+    'C2H4': {
+        'pore': 0.414002359
+    },
+    'C2H6': {
+        'pore': 0.883235912
+    },
+    'C3H8': {
+        'control': 0.20603419,
+        'pore': 2.196253982
+    }
+}
+
+color_to_marker = {
+    'black': 'x',
+    'green': '+',
+    'orange': 'o',
+    'blue': '*',
+    'red': '^'
+}
+unfilled_colors = {'orange', 'red'}
+
 def plot_recent_deflation_curve_slopes():
     # --- define which depressurizations to plot ---
 
@@ -159,16 +203,7 @@ def plot_recent_deflation_curve_slopes():
 
     plt.figure(figsize=(10, 6))
 
-    # plot all points, same depressurization -> same x position (no annotations)
-    color_to_marker = {
-        'black': 'x',
-        'green': '+',
-        'orange': 'o',
-        'blue': '*',
-        'red': '^'
-    }
-    unfilled_colors = {'orange', 'red'}
-
+    # plot all points, same depressurization -> same x position
     for _, row in sdf.iterrows():
         x = x_pos_map[row["dtstr"]]
         col = row["color"]
@@ -234,94 +269,166 @@ def plot_recent_deflation_curve_slopes():
     plt.tight_layout()
     plt.show()
 
-plot_recent_deflation_curve_slopes()
+def plot_slope_vs_diameter():
+    # plot the slopes versus kinetic diameters. Colour the points by the keys of the slope dictionaries. Make the orange and red point markers unfilled.
+    for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('CO2', overall_slopes['CO2']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4']), ('N2', overall_slopes['N2']), ('C2H4', overall_slopes['C2H4']), ('C3H8', overall_slopes['C3H8'])]:
+        kd = gc.kinetic_diameters[gas]
+        for color, slope in slopes.items():
+            marker = color_to_marker[color]
+            if color in unfilled_colors:
+                plt.scatter(kd, slope, edgecolors=color, facecolors='none', marker=marker, s=100)
+            else:
+                plt.scatter(kd, slope, color=color, marker=marker, s=100)
+    plt.yscale('log')
 
-color_to_marker = {
-    'black': 'x',
-    'green': '+',
-    'orange': 'o',
-    'blue': '*',
-    'red': '^'
-}
-unfilled_colors = {'orange', 'red'}
+    # put labels for each gas kinematic diameters on the x axis
+    for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('CO2', overall_slopes['CO2']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4']), ('N2', overall_slopes['N2']), ('C2H4', overall_slopes['C2H4']), ('C3H8', overall_slopes['C3H8'])]:
+        kd = gc.kinetic_diameters[gas]
+        plt.axvline(x=kd, color='gray', linestyle='--', linewidth=0.5)
+        plt.text(kd, plt.ylim()[0], gas, verticalalignment='bottom', horizontalalignment='right')
+    
+    # plot Erfan's slopes as dotted horizontal lines about as long as the markers already plotted. The controls in grey, the pores in cyan
+    for gas, slopes in erfan_slopes.items():
+        kd = gc.kinetic_diameters[gas]
+        for condition, slope in slopes.items():
+            if condition == 'control':
+                line_color = 'gray'
+            else:
+                line_color = 'cyan'
+            plt.hlines(y=slope, xmin=kd - 0.02, xmax=kd + 0.02, colors=line_color, linestyles='dotted', linewidth=2.5)
+    # add a legend of a dotted cyan and grey line for Erfan's pore and control lines
+    plt.plot([], [], color='cyan', linestyle='dotted', linewidth=2.5, label="Erfan Pore Slope")
+    plt.plot([], [], color='gray', linestyle='dotted', linewidth=2.5, label="Erfan Control Slope")
+    plt.legend(loc='upper right')
 
-# plot the slopes versus kinetic diameters. Colour the points by the keys of the slope dictionaries. Make the orange and red point markers unfilled.
-for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('CO2', overall_slopes['CO2']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4']), ('N2', overall_slopes['N2']), ('C2H4', overall_slopes['C2H4']), ('C3H8', overall_slopes['C3H8'])]:
-    kd = gc.kinetic_diameters[gas]
-    for color, slope in slopes.items():
-        marker = color_to_marker[color]
-        if color in unfilled_colors:
-            plt.scatter(kd, slope, label=f"{gas} - {color}", edgecolors=color, facecolors='none', marker=marker, s=100)
-        else:
-            plt.scatter(kd, slope, label=f"{gas} - {color}", color=color, marker=marker, s=100)
-plt.yscale('log')
-
-# put labels for each gas kinematic diameters on the x axis
-for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('CO2', overall_slopes['CO2']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4']), ('N2', overall_slopes['N2']), ('C2H4', overall_slopes['C2H4']), ('C3H8', overall_slopes['C3H8'])]:
-    kd = gc.kinetic_diameters[gas]
+    # add x-axis label for O2 and C2H6 as well
+    kd = gc.kinetic_diameters['O2']
     plt.axvline(x=kd, color='gray', linestyle='--', linewidth=0.5)
-    plt.text(kd, plt.ylim()[0], gas, verticalalignment='bottom', horizontalalignment='right')
-plt.xlabel('Kinetic Diameter (Å)')
-plt.ylabel('Deflation Curve Slope (nm/min)')
-plt.title('Deflation Curve Slopes vs Gas Kinetic Diameter')
-plt.grid(True)
-plt.show()
+    plt.text(kd, plt.ylim()[0], 'O2', verticalalignment='bottom', horizontalalignment='right')
+    kd = gc.kinetic_diameters['C2H6']
+    plt.axvline(x=kd, color='gray', linestyle='--', linewidth=0.5)
+    plt.text(kd, plt.ylim()[0], 'C2H6', verticalalignment='bottom', horizontalalignment='right')
 
-# do the same but plot slopes versus molecular weights
-plt.figure()
-delta_for_close_mws = 0.4
-for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('CO2', overall_slopes['CO2']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4']), ('N2', overall_slopes['N2']), ('C2H4', overall_slopes['C2H4']), ('C3H8', overall_slopes['C3H8'])]:
-    mw = gc.molecular_weights[gas]
-    if gas in ['N2', 'CO2']:
-        mw -= delta_for_close_mws
-    if gas in ['C2H4', 'C3H8']:
-        mw += delta_for_close_mws
-    for color, slope in slopes.items():
-        marker = color_to_marker[color]
-        if color in unfilled_colors:
-            plt.scatter(mw, slope, label=f"{gas} - {color}", edgecolors=color, facecolors='none', marker=marker, s=100)
-        else:
-            plt.scatter(mw, slope, label=f"{gas} - {color}", color=color, marker=marker, s=100)
-plt.yscale('log')
+    plt.xlabel('Kinetic Diameter (Å)')
+    plt.ylabel('Deflation Curve Slope (nm/min)')
+    plt.title('Deflation Curve Slopes vs Gas Kinetic Diameter')
+    plt.grid(True)
+    plt.show()
 
-# put labels for each gas molecular weights on the x axis
-for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4'])]:
-    mw = gc.molecular_weights[gas]
+def plot_slope_vs_molecular_weight():
+    # do the same but plot slopes versus molecular weights
+    plt.figure()
+    delta_for_close_mws = 0.4
+    for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('CO2', overall_slopes['CO2']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4']), ('N2', overall_slopes['N2']), ('C2H4', overall_slopes['C2H4']), ('C3H8', overall_slopes['C3H8'])]:
+        mw = gc.molecular_weights[gas]
+        if gas in ['N2', 'CO2']:
+            mw -= delta_for_close_mws
+        if gas in ['C2H4', 'C3H8']:
+            mw += delta_for_close_mws
+        for color, slope in slopes.items():
+            marker = color_to_marker[color]
+            if color in unfilled_colors:
+                plt.scatter(mw, slope, edgecolors=color, facecolors='none', marker=marker, s=100)
+            else:
+                plt.scatter(mw, slope, color=color, marker=marker, s=100)
+    plt.yscale('log')
+
+    # put labels for each gas molecular weights on the x axis
+    for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4'])]:
+        mw = gc.molecular_weights[gas]
+        plt.axvline(x=mw, color='gray', linestyle='--', linewidth=0.5)
+        plt.text(mw, plt.ylim()[0], gas, verticalalignment='bottom', horizontalalignment='right')
+    # add a combined label for N2/C2H4, and another for C3H8/CO2
+    plt.axvline(x=(gc.molecular_weights['N2'] + gc.molecular_weights['C2H4'])/2, color='gray', linestyle='--', linewidth=0.5)
+    plt.text((gc.molecular_weights['N2'] + gc.molecular_weights['C2H4'])/2, plt.ylim()[0], 'N2/C2H4', verticalalignment='bottom', horizontalalignment='right')
+    plt.axvline(x=(gc.molecular_weights['C3H8'] + gc.molecular_weights['CO2'])/2, color='gray', linestyle='--', linewidth=0.5)
+    plt.text((gc.molecular_weights['C3H8'] + gc.molecular_weights['CO2'])/2, plt.ylim()[0], 'CO2/C3H8', verticalalignment='bottom', horizontalalignment='right')
+
+    # plot Erfan's slopes as dotted horizontal lines about as long as the markers already plotted. The controls in grey, the pores in cyan
+    for gas, slopes in erfan_slopes.items():
+        mw = gc.molecular_weights[gas]
+        if gas in ['N2', 'CO2']:
+            mw -= delta_for_close_mws
+        if gas in ['C2H4', 'C3H8']:
+            mw += delta_for_close_mws
+        for condition, slope in slopes.items():
+            if condition == 'control':
+                line_color = 'gray'
+            else:
+                line_color = 'cyan'
+            plt.hlines(y=slope, xmin=mw - 0.4, xmax=mw + 0.4, colors=line_color, linestyles='dotted', linewidth=2.5)
+    # add a legend of a dotted cyan and grey line for Erfan's pore and control lines
+    plt.plot([], [], color='cyan', linestyle='dotted', linewidth=2.5, label="Erfan Pore Slope")
+    plt.plot([], [], color='gray', linestyle='dotted', linewidth=2.5, label="Erfan Control Slope")
+    plt.legend(loc='upper right')
+
+    # add x-axis label for O2 and C2H6 as well
+    mw = gc.molecular_weights['O2']
     plt.axvline(x=mw, color='gray', linestyle='--', linewidth=0.5)
-    plt.text(mw, plt.ylim()[0], gas, verticalalignment='bottom', horizontalalignment='right')
-# add a combined label for N2/C2H4, and another for C3H8/CO2
-plt.axvline(x=(gc.molecular_weights['N2'] + gc.molecular_weights['C2H4'])/2, color='gray', linestyle='--', linewidth=0.5)
-plt.text((gc.molecular_weights['N2'] + gc.molecular_weights['C2H4'])/2, plt.ylim()[0], 'N2/C2H4', verticalalignment='bottom', horizontalalignment='right')
-plt.axvline(x=(gc.molecular_weights['C3H8'] + gc.molecular_weights['CO2'])/2, color='gray', linestyle='--', linewidth=0.5)
-plt.text((gc.molecular_weights['C3H8'] + gc.molecular_weights['CO2'])/2, plt.ylim()[0], 'CO2/C3H8', verticalalignment='bottom', horizontalalignment='right')
-plt.xlabel('Molecular Weight (amu)')
-plt.xlim(left=0)
-plt.ylabel('Deflation Curve Slope (nm/min)')
-plt.title('Deflation Curve Slopes vs Gas Molecular Weight')
-plt.grid(True)
-plt.show()
+    plt.text(mw, plt.ylim()[0], 'O2', verticalalignment='bottom', horizontalalignment='right')
+    mw = gc.molecular_weights['C2H6']
+    plt.axvline(x=mw, color='gray', linestyle='--', linewidth=0.5)
+    plt.text(mw, plt.ylim()[0], 'C2H6', verticalalignment='bottom', horizontalalignment='right')
 
-# make a plot with diameter on the x axis and slope normalized by multiplying by the square root of (molar mass * 2 * π * R * T) on the y axis
-plt.figure()
-for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('CO2', overall_slopes['CO2']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4']), ('N2', overall_slopes['N2']), ('C2H4', overall_slopes['C2H4']), ('C3H8', overall_slopes['C3H8'])]:
-    kd = gc.kinetic_diameters[gas]
-    mm = gc.molar_masses_kg_per_mol[gas]
-    for color, slope in slopes.items():
-        norm_slope = slope * ((mm * 2 * np.pi * gc.R * gc.T) ** 0.5)
-        marker = color_to_marker[color]
-        if color in unfilled_colors:
-            plt.scatter(kd, norm_slope, label=f"{gas} - {color}", edgecolors=color, facecolors='none', marker=marker, s=100)
-        else:
-            plt.scatter(kd, norm_slope, label=f"{gas} - {color}", color=color, marker=marker, s=100)
-plt.yscale('log')
+    plt.xlabel('Molecular Weight (amu)')
+    plt.xlim(left=0)
+    plt.ylabel('Deflation Curve Slope (nm/min)')
+    plt.title('Deflation Curve Slopes vs Gas Molecular Weight')
+    plt.grid(True)
+    plt.show()
 
-# put labels for each gas kinematic diameters on the x axis
-for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('CO2', overall_slopes['CO2']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4']), ('N2', overall_slopes['N2']), ('C2H4', overall_slopes['C2H4']), ('C3H8', overall_slopes['C3H8'])]:
-    kd = gc.kinetic_diameters[gas]
+def plot_normalized_slope_vs_diameter():
+    # make a plot with diameter on the x axis and slope normalized by multiplying by the square root of (molar mass * 2 * π * R * T) on the y axis
+    plt.figure()
+    for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('CO2', overall_slopes['CO2']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4']), ('N2', overall_slopes['N2']), ('C2H4', overall_slopes['C2H4']), ('C3H8', overall_slopes['C3H8'])]:
+        kd = gc.kinetic_diameters[gas]
+        mm = gc.molar_masses_kg_per_mol[gas]
+        for color, slope in slopes.items():
+            norm_slope = slope * ((mm * 2 * np.pi * gc.R * gc.T) ** 0.5)
+            marker = color_to_marker[color]
+            if color in unfilled_colors:
+                plt.scatter(kd, norm_slope, edgecolors=color, facecolors='none', marker=marker, s=100)
+            else:
+                plt.scatter(kd, norm_slope, color=color, marker=marker, s=100)
+    plt.yscale('log')
+
+    # put labels for each gas kinematic diameters on the x axis
+    for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('CO2', overall_slopes['CO2']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4']), ('N2', overall_slopes['N2']), ('C2H4', overall_slopes['C2H4']), ('C3H8', overall_slopes['C3H8'])]:
+        kd = gc.kinetic_diameters[gas]
+        plt.axvline(x=kd, color='gray', linestyle='--', linewidth=0.5)
+        plt.text(kd, plt.ylim()[0], gas, verticalalignment='bottom', horizontalalignment='right')
+
+    # plot Erfan's slopes as dotted horizontal lines about as long as the markers already plotted. The controls in grey, the pores in cyan
+    for gas, slopes in erfan_slopes.items():
+        kd = gc.kinetic_diameters[gas]
+        mm = gc.molar_masses_kg_per_mol[gas]
+        for condition, slope in slopes.items():
+            norm_slope = slope * ((mm * 2 * np.pi * gc.R * gc.T) ** 0.5)
+            if condition == 'control':
+                line_color = 'gray'
+            else:
+                line_color = 'cyan'
+            plt.hlines(y=norm_slope, xmin=kd - 0.02, xmax=kd + 0.02, colors=line_color, linestyles='dotted', linewidth=2.5)
+    # add a legend of a dotted cyan and grey line for Erfan's pore and control lines
+    plt.plot([], [], color='cyan', linestyle='dotted', linewidth=2.5, label="Erfan Pore Slope")
+    plt.plot([], [], color='gray', linestyle='dotted', linewidth=2.5, label="Erfan Control Slope")
+    plt.legend(loc='upper right')
+
+    # add x-axis label for O2 and C2H6 as well
+    kd = gc.kinetic_diameters['O2']
     plt.axvline(x=kd, color='gray', linestyle='--', linewidth=0.5)
-    plt.text(kd, plt.ylim()[0], gas, verticalalignment='bottom', horizontalalignment='right')
-plt.xlabel('Kinetic Diameter (Å)')
-plt.ylabel('Normalized Deflation Curve Slope (nm/min * sqrt(kg * J)/mol)')
-plt.title('Normalized Deflation Curve Slopes vs Gas Kinetic Diameter')
-plt.grid(True)
-plt.show()
+    plt.text(kd, plt.ylim()[0], 'O2', verticalalignment='bottom', horizontalalignment='right')
+    kd = gc.kinetic_diameters['C2H6']
+    plt.axvline(x=kd, color='gray', linestyle='--', linewidth=0.5)
+    plt.text(kd, plt.ylim()[0], 'C2H6', verticalalignment='bottom', horizontalalignment='right')
+
+    plt.xlabel('Kinetic Diameter (Å)')
+    plt.ylabel('Normalized Deflation Curve Slope (nm/min * sqrt(kg * J)/mol)')
+    plt.title('Normalized Deflation Curve Slopes vs Gas Kinetic Diameter')
+    plt.grid(True)
+    plt.show()
+
+# plot_recent_deflation_curve_slopes()
+plot_slope_vs_diameter()
+plot_slope_vs_molecular_weight()
+plot_normalized_slope_vs_diameter()
