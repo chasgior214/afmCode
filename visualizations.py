@@ -282,7 +282,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     selected_image_hlines = [[], []]  # [[image axis lines...], ...]
     square_marker_artists = []  # Markers highlighting the local max near the extremum
     paraboloid_marker_artists = []  # White + markers for paraboloid vertices
-    paraboloid_box_artists = []  # Dotted boxes showing fit regions
+    paraboloid_circle_artists = []  # Dotted circles showing fit regions
     next_slot = 0  # Which slot to overwrite next
     locked_slot = None  # Slot index that should not be overwritten
 
@@ -292,7 +292,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     aborted = False  # Set True when user presses Tab to cancel/exit
 
     image_axes = []  # Filled after axes are created; used for syncing/indicators
-    paraboloid_window_um = 1.0
+    paraboloid_window_um = 1.0  # Default diameter in microns for circular fit region
     paraboloid_fit_info = None
     paraboloid_slider = None
     paraboloid_vertex_text = None
@@ -300,14 +300,14 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     paraboloid_button = None
 
     def _clear_paraboloid_artists():
-        nonlocal paraboloid_marker_artists, paraboloid_box_artists
-        for artist in paraboloid_marker_artists + paraboloid_box_artists:
+        nonlocal paraboloid_marker_artists, paraboloid_circle_artists
+        for artist in paraboloid_marker_artists + paraboloid_circle_artists:
             try:
                 artist.remove()
             except ValueError:
                 pass
         paraboloid_marker_artists = []
-        paraboloid_box_artists = []
+        paraboloid_circle_artists = []
 
     def _update_paraboloid_panel(info):
         if paraboloid_vertex_text is None or paraboloid_r2_text is None:
@@ -324,12 +324,12 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             )
             paraboloid_r2_text.set_text(f"Paraboloid fit R^2: {info['r2']:.4f}")
 
-    def _fit_paraboloid(center_x_idx, center_y_idx, side_length_um):
+    def _fit_paraboloid(center_x_idx, center_y_idx, diameter_um):
         if center_x_idx is None or center_y_idx is None:
             return None
-        if side_length_um is None or side_length_um <= 0:
+        if diameter_um is None or diameter_um <= 0:
             return None
-        half_um = side_length_um / 2.0
+        half_um = diameter_um / 2.0
         if pixel_size <= 0:
             return None
         half_px = max(1, int(round(half_um / pixel_size)))
@@ -341,17 +341,22 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             return None
 
         sub_heights = height_map[y_start:y_end, x_start:x_end]
-        finite_mask = np.isfinite(sub_heights)
-        if not finite_mask.any():
-            return None
 
         xs = x[x_start:x_end]
         ys_idx = np.arange(y_start, y_end)
         ys = np.array([_index_to_y_center(idx) for idx in ys_idx])
         X_grid, Y_grid = np.meshgrid(xs, ys)
-        Z = sub_heights
-        X_flat = X_grid.flatten()
-        Y_flat = Y_grid.flatten()
+        center_x_um = x[center_x_idx]
+        center_y_um = _index_to_y_center(center_y_idx)
+        distance_sq = (X_grid - center_x_um) ** 2 + (Y_grid - center_y_um) ** 2
+        circle_mask = distance_sq <= (half_um ** 2)
+        if not circle_mask.any():
+            return None
+        Z = sub_heights[circle_mask]
+        if not np.isfinite(Z).any():
+            return None
+        X_flat = X_grid[circle_mask]
+        Y_flat = Y_grid[circle_mask]
         Z_flat = Z.flatten()
         finite = np.isfinite(Z_flat)
         if not finite.any():
@@ -405,26 +410,14 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         ss_res = np.sum((Z_flat - pred) ** 2)
         r2 = np.nan if ss_tot == 0 else 1 - (ss_res / ss_tot)
 
-        x_min = x[x_start] - pixel_size / 2 if x_start > 0 else 0.0
-        x_max = (
-            x[x_end - 1] + pixel_size / 2
-            if x_end < x_pixel_count
-            else scan_size
-        )
-        y_centers = np.array([_index_to_y_center(idx) for idx in range(y_start, y_end)])
-        if y_centers.size == 0:
-            return None
-        y_min = min(y_centers) - pixel_size / 2
-        y_max = max(y_centers) + pixel_size / 2
-        y_min = max(0.0, y_min)
-        y_max = min(y_dimension, y_max)
-
         return {
             'vertex_x_um': float(vx),
             'vertex_y_um': float(vy),
             'vertex_z_nm': float(vz),
             'r2': float(r2),
-            'bbox': (x_min, x_max, y_min, y_max),
+            'center_x_um': float(center_x_um),
+            'center_y_um': float(center_y_um),
+            'radius_um': float(half_um),
         }
 
     def _update_paraboloid_artists(info):
@@ -441,18 +434,16 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
                 mew=2,
             )
             paraboloid_marker_artists.append(marker)
-            x_min, x_max, y_min, y_max = info['bbox']
-            rect = patches.Rectangle(
-                (x_min, y_min),
-                x_max - x_min,
-                y_max - y_min,
+            circle = patches.Circle(
+                (info['center_x_um'], info['center_y_um']),
+                info['radius_um'],
                 linewidth=1.2,
                 edgecolor='white',
                 linestyle='--',
                 fill=False,
             )
-            target_ax.add_patch(rect)
-            paraboloid_box_artists.append(rect)
+            target_ax.add_patch(circle)
+            paraboloid_circle_artists.append(circle)
 
     def _update_paraboloid_fit():
         nonlocal paraboloid_fit_info, selected_slots
@@ -916,7 +907,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     slider_ax = ax_placeholder.inset_axes([0.15, 0.45, 0.7, 0.12])
     paraboloid_slider = Slider(
         slider_ax,
-        'Fit size (μm)',
+        'Fit diameter (μm)',
         valmin=slider_min,
         valmax=slider_max,
         valinit=paraboloid_window_um,
