@@ -360,7 +360,6 @@ def plot_slope_vs_molecular_weight():
     # add a legend of a dotted cyan and grey line for Erfan's pore and control lines
     plt.plot([], [], color='cyan', linestyle='dotted', linewidth=2.5, label="Erfan Pore Slope")
     plt.plot([], [], color='gray', linestyle='dotted', linewidth=2.5, label="Erfan Control Slope")
-    plt.legend(loc='upper right')
 
     # add x-axis label for O2 and C2H6 as well
     mw = gc.molecular_weights['O2']
@@ -370,6 +369,21 @@ def plot_slope_vs_molecular_weight():
     plt.axvline(x=mw, color='gray', linestyle='--', linewidth=0.5)
     plt.text(mw, plt.ylim()[0], 'C2H6', verticalalignment='bottom', horizontalalignment='right')
 
+    # plot lines proportional to 1/sqrt(molecular weight) which intersect the blue, red, and green H2 points
+    h2_mw = gc.molecular_weights['H2']
+    h2_slope_blue = overall_slopes['H2']['blue']
+    h2_slope_red = overall_slopes['H2']['red']
+    h2_slope_green = overall_slopes['H2']['green']
+    mw_range = np.linspace(0.5, 50, 100)
+    plt.plot(mw_range, h2_slope_blue * (h2_mw / mw_range) ** 0.5, color='blue', linestyle='--')
+    plt.plot(mw_range, h2_slope_red * (h2_mw / mw_range) ** 0.5, color='red', linestyle='--')
+    plt.plot(mw_range, h2_slope_green * (h2_mw / mw_range) ** 0.5, color='green', linestyle='--')
+    # add lines to legend
+    plt.plot([], [], color='blue', linestyle='--', label='1/sqrt(MW) through Blue H2')
+    plt.plot([], [], color='red', linestyle='--', label='1/sqrt(MW) through Red H2')
+    plt.plot([], [], color='green', linestyle='--', label='1/sqrt(MW) through Green H2')
+
+    plt.legend(loc='upper right')
     plt.xlabel('Molecular Weight (amu)')
     plt.xlim(left=0)
     plt.ylabel('Deflation Curve Slope (nm/min)')
