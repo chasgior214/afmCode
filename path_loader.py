@@ -1,13 +1,23 @@
-depressurized_date = '20251109'
-depressurized_time = '18:58:36'
+depressurized_date = '20251117'
+depressurized_time = '15:24:00'
 sample_number = '37'
 transfer_location = '$(6,3)'
 cavity_position = 'orange'
 
 # Additional depressurization date/time combinations can be added to this list to plot multiple datasets at once (see plot_curves.py)
 plot_depressurizations = [
-    ('20251109', '18:58:36'),
-    ('20251106', '17:00:36')
+    # (depressurized_date, depressurized_time),
+    ('20250729', '17:18:16'),
+    ('20250918', '15:03:22'),
+    ('20250919', '15:45:32'),
+    ('20250929', '14:52:14'),
+    ('20251006', '14:09:05'),
+    ('20251007', '16:05:25'),
+    # ('20251014', '13:15:45'),
+    ('20251017', '15:54:29'),
+    ('20251031', '13:47:46'),
+    # ('20251105', '19:36:49'),
+    # ('20251117', '15:24:00'),
     ]
 
 

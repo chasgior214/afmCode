@@ -9,7 +9,7 @@ import path_loader as pl
 
 # List of substrings to filter filenames. Empty list = no filtering.
 filter_substrings = [
-    # 'blue'
+    'red'
 ]
 
 
@@ -122,7 +122,7 @@ _all_x_vals = []
 _all_y_vals = []
 
 # Plot each CSV as a scatter plot
-markers = ['*', 'x', '+', 'o', 's', '^', '>', 'd']
+markers = ['x', '*', '+', 'o', 's', '^', '>', 'd']
 
 for idx, entry in enumerate(csv_entries):
     csv_file = entry['path']

@@ -506,10 +506,11 @@ csv_paths = pl.get_all_deflation_curve_paths()
 
 filter_by_sample = '37' # set to None to disable filtering
 filter_by_transfer_location = '$(6,3)' # set to None to disable filtering
-filter_by_cavity_position = None # set to None to disable filtering
+filter_by_cavity_position = 'blue' # set to None to disable filtering
 filter_by_depressurized_date = None # set to None to disable filtering, or 'YYYYMMDD' string
 filter_by_depressurized_time = None # set to None to disable filtering, or 'HHMMSS' string
 filter_at_least_two_points = True  # if True, only show CSVs with at least 2 data points
+filter_at_least_two_positive_points = True  # if True, only show CSVs with at least 2 positive deflection points
 
 if filter_by_sample is not None:
 	csv_paths = [p for p in csv_paths if f"_sample{filter_by_sample}_" in os.path.basename(p)]
@@ -526,6 +527,14 @@ if filter_at_least_two_points:
 	for p in csv_paths:
 		times, defs = load_csv(p)
 		if len(times) >= 2:
+			filtered_paths.append(p)
+	csv_paths = filtered_paths
+
+if filter_at_least_two_positive_points:
+	filtered_paths = []
+	for p in csv_paths:
+		times, defs = load_csv(p)
+		if sum(d > 0 for d in defs) >= 2:
 			filtered_paths.append(p)
 	csv_paths = filtered_paths
 

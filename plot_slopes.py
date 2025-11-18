@@ -10,7 +10,7 @@ overall_slopes = {
     'H2': {
         'green': 2.1,
         'red': 44.4,
-        'blue': 28,
+        'blue': 35,
         'orange': 2.2,
         'black': 2.3
     },
@@ -56,7 +56,7 @@ overall_slopes = {
     },
     'C3H8': {
         'blue': 1.03,
-        'red': 0.047,
+        'red': 0.0465,
         'green': 0.0061,
         'black': 0.0039,
         'orange': 0.0036
@@ -93,11 +93,14 @@ def plot_recent_deflation_curve_slopes():
         # '28-Oct	00:36:28': 'He',
         # '28-Oct	16:57:19': 'N2',
     # }
-        '30-Oct	15:26:29': 'H2',
-        '31-Oct	13:47:46': 'H2',
-        '02-Nov	21:31:34': 'C2H4',
-        '05-Nov	19:36:49': 'H2',
-        '06-Nov	17:00:36': 'C3H8',
+        # '30-Oct	15:26:29': 'H2',
+        # '31-Oct	13:47:46': 'H2',
+        # '02-Nov	21:31:34': 'C2H4',
+        # '05-Nov	19:36:49': 'H2',
+        # '06-Nov	17:00:36': 'C3H8',
+    # }
+        '09-Nov	18:58:36': 'C3H8',
+        '17-Nov	15:24:00': 'H2',
     }
 
     # convert date/time to YYYYMMDD_HHMMSS format, including replacing the 3 character month with 2 digit month
@@ -199,7 +202,7 @@ def plot_recent_deflation_curve_slopes():
     marker_s = 100  # same as used for scatter
     marker_diameter_pts = np.sqrt(marker_s)
     marker_diameter_px = marker_diameter_pts * fig.dpi / 72.0
-    desired_line_px = 2 * marker_diameter_px  # twice the marker width in pixels
+    desired_line_px = 12 * marker_diameter_px
 
     # convert pixel length to data coordinates (horizontal)
     disp0 = ax.transData.transform((0, 0))
@@ -217,10 +220,10 @@ def plot_recent_deflation_curve_slopes():
                 slope_value = overall_slopes[gas][color]
                 xmin = xcenter - desired_line_dx / 2.0
                 xmax = xcenter + desired_line_dx / 2.0
-                ax.hlines(y=slope_value, xmin=xmin, xmax=xmax, colors=color, linestyles='dotted', alpha=0.5)
+                ax.hlines(y=slope_value, xmin=xmin, xmax=xmax, colors=color, linestyles='dotted', linewidth=2.0, alpha=0.7)
     
     # in the legend, show a dotted line with the label "Consensus Slope" for the horizontal lines
-    plt.plot([], [], color='black', linestyle='dotted', label='Consensus Slope')
+    plt.plot([], [], color='black', linestyle='dotted', linewidth=2.0, label='Consensus Slope')
     plt.legend()
 
     plt.xticks(range(len(unique_times)), x_labels, rotation=45, ha="right")
