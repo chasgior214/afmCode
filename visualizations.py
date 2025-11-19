@@ -1217,6 +1217,106 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             update_stats_display()
         return success
 
+    def _refine_extremum_with_paraboloid():
+        """
+        Iteratively fit a paraboloid to the data around the current extremum.
+        Updates the extremum to the fitted vertex and repeats until convergence
+        or a maximum number of iterations is reached.
+        """
+        # We need an initial extremum to start with
+        if selected_slots[1] is None:
+            return
+
+        # Track history of (vertex_x, vertex_y, vertex_z, r2)
+        history = []
+        
+        # Initial center comes from the current selection
+        current_info = selected_slots[1]
+        if len(current_info) >= 5:
+            current_x, current_y = current_info[1], current_info[2]
+        else:
+            current_x, current_y = current_info[1], current_info[2]
+
+        # Iteration loop
+        max_iterations = 10
+        converged = False
+
+        for _ in range(max_iterations):
+            # Find indices for the current center coordinates
+            c_x_idx = int(np.argmin(np.abs(x - current_x)))
+            try:
+                c_y_idx = _y_to_index(current_y)
+            except Exception:
+                break
+
+            # Fit paraboloid
+            fit_result = fit_paraboloid(
+                height_map, c_x_idx, c_y_idx, paraboloid_window_um, pixel_size, scan_size
+            )
+
+            if fit_result is None:
+                break
+
+            vx = fit_result['vertex_x_um']
+            vy = fit_result['vertex_y_um']
+            vz = fit_result['vertex_z_nm']
+            r2 = fit_result['r2']
+
+            history.append({
+                'vx': vx, 'vy': vy, 'vz': vz, 'r2': r2,
+                'fit_result': fit_result
+            })
+
+            # Check for convergence (identical to old one)
+            # Using a small epsilon for float comparison
+            if np.isclose(vx, current_x, atol=1e-5) and np.isclose(vy, current_y, atol=1e-5):
+                converged = True
+                break
+
+            # Update current center for next iteration
+            current_x = vx
+            current_y = vy
+
+        if not history:
+            return
+
+        # Decide which result to keep
+        best_result = None
+        if converged:
+            best_result = history[-1]
+        else:
+            # If not converged, pick the one with highest R^2 from the recorded vertices
+            best_result = max(history, key=lambda item: item['r2'])
+
+        # Update the extremum selection to the best result
+        final_vx = best_result['vx']
+        final_vy = best_result['vy']
+        final_vz = best_result['vz']
+        
+        # Update cross-section to the new vertex y
+        _update_cross_section(final_vy)
+        
+        # Record the new extremum
+        # We need to find the closest indices for the record
+        final_x_idx = int(np.argmin(np.abs(x - final_vx)))
+        final_y_idx = _y_to_index(final_vy)
+        
+        _record_selection(
+            final_vx,
+            final_vz,
+            x_idx=final_x_idx,
+            y_idx=final_y_idx,
+            slot_override=1,
+            advance=False
+        )
+        
+        # Update the paraboloid display with the best fit info
+        nonlocal paraboloid_fit_info
+        paraboloid_fit_info = best_result['fit_result']
+        _update_paraboloid_panel(paraboloid_fit_info)
+        _update_paraboloid_artists(paraboloid_fit_info)
+
+
     def _auto_select_zoom_points():
         """Populate default selections after a zoom interaction."""
         if locked_slot == 1:
@@ -1231,8 +1331,13 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
 
         if not success_extremum:
             return
+            
+        # Refine the extremum using iterative paraboloid fitting
+        _refine_extremum_with_paraboloid()
+
         if locked_slot == 0:
             return
+        # Update substrate to be the mode on the y-line of the (possibly moved) extremum
         set_mode_height(slot=0, silent=True)
 
     def toggle_lock(event=None):
@@ -1438,6 +1543,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     if ((scan_size < 8) or (y_dimension < 5)) and not has_initial_preload:
         # Global max in slot 1 (orange), mode in slot 0 (purple)
         set_global_max(slot=1, silent=True)
+        _refine_extremum_with_paraboloid()
         set_mode_height(slot=0, silent=True)
         update_stats_display()
 
