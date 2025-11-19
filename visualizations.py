@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button
 from matplotlib import patches
+from surface_analysis import fit_paraboloid, compute_extremum_square_info
 
 
 class DualHandleSlider:
@@ -250,7 +251,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     # Calculate pixel size
     x_pixel_count = height_map.shape[1]
     y_pixel_count = height_map.shape[0]
-    pixel_size = scan_size / x_pixel_count  # microns per pixel
+    pixel_size = image.get_pixel_size()  # microns per pixel
 
     imaging_duration = y_pixel_count / scan_rate
 
@@ -325,102 +326,6 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             )
             paraboloid_r2_text.set_text(f"Paraboloid fit R^2: {info['r2']:.4f}")
 
-    def _fit_paraboloid(center_x_idx, center_y_idx, diameter_um):
-        if center_x_idx is None or center_y_idx is None:
-            return None
-        if diameter_um is None or diameter_um <= 0:
-            return None
-        half_um = diameter_um / 2.0
-        if pixel_size <= 0:
-            return None
-        half_px = max(1, int(round(half_um / pixel_size)))
-        x_start = max(0, center_x_idx - half_px)
-        x_end = min(x_pixel_count, center_x_idx + half_px + 1)
-        y_start = max(0, center_y_idx - half_px)
-        y_end = min(y_pixel_count, center_y_idx + half_px + 1)
-        if x_end <= x_start or y_end <= y_start:
-            return None
-
-        sub_heights = height_map[y_start:y_end, x_start:x_end]
-
-        xs = x[x_start:x_end]
-        ys_idx = np.arange(y_start, y_end)
-        ys = np.array([_index_to_y_center(idx) for idx in ys_idx])
-        X_grid, Y_grid = np.meshgrid(xs, ys)
-        center_x_um = x[center_x_idx]
-        center_y_um = _index_to_y_center(center_y_idx)
-        distance_sq = (X_grid - center_x_um) ** 2 + (Y_grid - center_y_um) ** 2
-        circle_mask = distance_sq <= (half_um ** 2)
-        if not circle_mask.any():
-            return None
-        Z = sub_heights[circle_mask]
-        if not np.isfinite(Z).any():
-            return None
-        X_flat = X_grid[circle_mask]
-        Y_flat = Y_grid[circle_mask]
-        Z_flat = Z.flatten()
-        finite = np.isfinite(Z_flat)
-        if not finite.any():
-            return None
-        X_flat = X_flat[finite]
-        Y_flat = Y_flat[finite]
-        Z_flat = Z_flat[finite]
-
-        xc = np.mean(X_flat)
-        yc = np.mean(Y_flat)
-        Xc = X_flat - xc
-        Yc = Y_flat - yc
-
-        G = np.column_stack(
-            [
-                Xc ** 2,
-                Yc ** 2,
-                Xc * Yc,
-                Xc,
-                Yc,
-                np.ones_like(Xc),
-            ]
-        )
-        try:
-            coeffs, _, _, _ = np.linalg.lstsq(G, Z_flat, rcond=None)
-        except np.linalg.LinAlgError:
-            return None
-        a, b, c, d, e, f_const = coeffs
-        hessian = np.array([[2 * a, c], [c, 2 * b]])
-        rhs = np.array([-d, -e])
-        if np.linalg.det(hessian) == 0:
-            return None
-        try:
-            vx_c, vy_c = np.linalg.solve(hessian, rhs)
-        except np.linalg.LinAlgError:
-            return None
-        vx = vx_c + xc
-        vy = vy_c + yc
-        vz = (
-            a * vx_c ** 2
-            + b * vy_c ** 2
-            + c * vx_c * vy_c
-            + d * vx_c
-            + e * vy_c
-            + f_const
-        )
-
-        pred = G @ coeffs
-        z_mean = np.mean(Z_flat)
-        ss_tot = np.sum((Z_flat - z_mean) ** 2)
-        ss_res = np.sum((Z_flat - pred) ** 2)
-        r2 = np.nan if ss_tot == 0 else 1 - (ss_res / ss_tot)
-
-        return {
-            'vertex_x_um': float(vx),
-            'vertex_y_um': float(vy),
-            'vertex_z_nm': float(vz),
-            'r2': float(r2),
-            'center_x_um': float(center_x_um),
-            'center_y_um': float(center_y_um),
-            'radius_um': float(half_um),
-        }
-
     def _update_paraboloid_artists(info):
         _clear_paraboloid_artists()
         if info is None:
@@ -475,7 +380,9 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             return
         slot_tuple = (slot_info[0], x_val, y_val, x_idx, y_idx)
         selected_slots[1] = slot_tuple
-        result = _fit_paraboloid(x_idx, y_idx, paraboloid_window_um)
+        result = fit_paraboloid(
+            height_map, x_idx, y_idx, paraboloid_window_um, pixel_size, scan_size
+        )
         paraboloid_fit_info = result
         _update_paraboloid_panel(result)
         _update_paraboloid_artists(result)
@@ -652,65 +559,9 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         if x_idx is None or y_idx is None:
             return None
 
-        # Determine pixel span corresponding to a 4 μm square (±2 μm from center).
-        half_span_um = 2.0
-        if pixel_size == 0:
-            return None
-        half_span_px = max(0, int(round(half_span_um / pixel_size)))
-        x_start = max(0, x_idx - half_span_px)
-        x_end = min(x_pixel_count, x_idx + half_span_px + 1)
-        y_start = max(0, y_idx - half_span_px)
-        y_end = min(y_pixel_count, y_idx + half_span_px + 1)
-
-        if x_end <= x_start or y_end <= y_start:
-            return None
-
-        subregion = height_map[y_start:y_end, x_start:x_end]
-        if subregion.size == 0:
-            return None
-        finite_sub = np.isfinite(subregion)
-        if not finite_sub.any():
-            return None
-
-        # Locate the maximum height within the subregion.
-        sub_max_index = np.nanargmax(subregion)
-        sub_max_height = float(np.nanmax(subregion))
-        local_y, local_x = np.unravel_index(sub_max_index, subregion.shape)
-        max_y_idx = y_start + local_y
-        max_x_idx = x_start + local_x
-
-        # Compute the mode of the cross section at the y value of the max point.
-        row_data = height_map[max_y_idx, :]
-        finite_row_indices = np.where(np.isfinite(row_data))[0]
-        if finite_row_indices.size == 0:
-            return None
-        row_values = row_data[finite_row_indices]
-        row_min = row_values.min()
-        row_max = row_values.max()
-        if not np.isfinite(row_min) or not np.isfinite(row_max):
-            return None
-        bins = np.arange(row_min, row_max + 0.5, 0.5)
-        if bins.size < 2:
-            return None
-        hist, edges = np.histogram(row_values, bins=bins)
-        if hist.size == 0:
-            return None
-        mode_idx = int(np.argmax(hist))
-        mode_center = (edges[mode_idx] + edges[mode_idx + 1]) / 2
-        nearest_idx = finite_row_indices[np.argmin(np.abs(row_values - mode_center))]
-        mode_height = float(row_data[nearest_idx])
-
-        delta_nm = float(sub_max_height - mode_height)
-        x_coord_um = float(x[max_x_idx])
-        y_coord_um = _index_to_y_center(max_y_idx)
-
-        return {
-            'delta_nm': delta_nm,
-            'x_um': x_coord_um,
-            'y_um': y_coord_um,
-            'x_idx': int(max_x_idx),
-            'y_idx': int(max_y_idx),
-        }
+        return compute_extremum_square_info(
+            height_map, x_idx, y_idx, pixel_size, scan_size
+        )
 
     def update_stats_display():
         """Refresh the text panel summarizing selection info."""

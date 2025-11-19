@@ -8,12 +8,14 @@ import os
 import path_loader as pl
 
 ################################################################################
-save_to_csv = 1  # set true to save to CSV
+save_to_csv = 0  # set true to save to CSV
 end_hour = None # None to not give end limit
 end_day = None # None to be same day as depressurization date
 ################################################################################
 
 """TODO
+
+make a 3D map of the image data with the paraboloid superimposed
 
 make right click zoom and left click selections? Then can do away with button to enter/exit zoom mode and auto entering zoom mode on startup. Right drag could be box zoom and right click to zoom to 4x4 um square centred on cursor
 
@@ -22,8 +24,6 @@ cross section shows dotted lines of the line above and below the selected line?
 another line, extremum location relative to neutral piezo in um (take position relative to where the middle of the scan would be, and add offset)
 
 could I do the fourier transform thing that the drift thing uses to align all my images? Could feed it all the images from a depressurization and it could match the wells together, then I could pinpoint centeres and do completely automated data extraction, could be amazing with sample53
-
-if there's already two points selected, automatically zoom to 4x4 um square centered on extremum point when re-opening
 
 Try using a denoising model to smooth images before paraboloid fitting?
 
@@ -38,10 +38,10 @@ Now that I'm saving pixel coordinates, try to have it read those back in and use
 Clean up buttons?
 
 - Plot of deflections so far visible? In other window on second screen?
+
 - Use mouse wheel for something
     - Zoom in/out? Centred on x,y of most recently selected point or centre of FOV or cursor? Maybe both, one active normally, another with shift + scroll, another with ctrl + scroll?
     - use horizontal scroll for something?
-
 - Use left/right arrow keys for something
     - next/previous image in the collection or something else
 
@@ -52,7 +52,6 @@ Clean up buttons?
     - Maybe imaging parameters on the right of the panel, separate from other data
 
 - add a button "View 3D Heightmap", which renders a 3d heightmap in a new window. The heightmap should maintain the data's aspect ratio. Use the Viridis colour scale. Can select points on the 3d heightmap which get added as selected points in the main window.
-- have it read from action_tracker.xlsx to get depressurization time and select the images to use
 """
 
 def _get_height_map_for_selection(image):

@@ -124,6 +124,27 @@ class AFMImage:
     def get_filename(self):
         return self._extract_parameter('FileName')
 
+    def get_pixel_size(self):
+        """
+        Calculate the pixel size in microns.
+        Validates that the pixels are square by comparing FastScanSize/ScanPoints and SlowScanSize/ScanLines.
+        Raises ValueError if pixels are not square.
+        """
+        fast_size = float(self._extract_parameter('FastScanSize'))
+        slow_size = float(self._extract_parameter('SlowScanSize'))
+        points = int(self._extract_parameter('ScanPoints'))
+        lines = int(self._extract_parameter('ScanLines'))
+
+        pixel_size_x = fast_size / points
+        pixel_size_y = slow_size / lines
+
+        # Check if pixel dimensions match within a small tolerance (relative tolerance of 1%)
+        if not np.isclose(pixel_size_x, pixel_size_y, rtol=0.01):
+            raise ValueError(f"Non-square pixels: X size ({pixel_size_x:.3e}) != Y size ({pixel_size_y:.3e})")
+
+        # fast_size is in meters, convert to microns
+        return pixel_size_x * 1e6
+
     def _extract_parameter(self, key, alternative_keys=None):
         if self.note:
             for line in self.note.split('\r'):

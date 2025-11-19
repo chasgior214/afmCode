@@ -18,6 +18,7 @@ For deflation sessions done over multiple days, while the Excel file says the da
 """
 
 """ Once programmatic access makes these kinds of things easier:
+- have it read from action_tracker to get depressurization time and select the images to use
 - Try to compare y-intercepts among deflations to get max heights as fn of pressure and see if it’s pretty consistent (within and among gasses)
 
 """
