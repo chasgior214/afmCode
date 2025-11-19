@@ -287,6 +287,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     locked_slot = None  # Slot index that should not be overwritten
 
     last_input = None  # Track the last user action for double-press logic
+    last_zoom_button = None # Track which mouse button was used for the last zoom action
 
     time_since_start = None  # To store the time since the start of the scan
     aborted = False  # Set True when user presses Tab to cancel/exit
@@ -802,12 +803,10 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
 
         last_input = 'mouse'
 
-        # Allow right-click selection even while zoom/pan tools active
+        # If any toolbar mode is active (e.g. zoom), let the tool handle it.
         toolbar = plt.get_current_fig_manager().toolbar
         if toolbar is not None and toolbar.mode != '':
-            # If not a right-click on image axes, ignore
-            if not (event.button == 3 and event.inaxes in image_axes):
-                return
+            return
 
         # right-click on image to set y, slot 1, and mode in slot 0
         if event.button == 3 and event.inaxes in image_axes:
@@ -828,6 +827,8 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             update_stats_display()
             fig.canvas.draw_idle()
             return
+
+
 
         if event.inaxes in image_axes and event.button == 1:  # Left-click drag to change y
             dragging = True
@@ -1369,8 +1370,15 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         """Populate default selections after a zoom interaction."""
         if locked_slot == 1:
             return
-        success_max = set_global_max(slot=1, silent=True)
-        if not success_max:
+        
+        # If the last zoom was a right-click (button 3), find the min.
+        # Otherwise (left-click or default), find the max.
+        if last_zoom_button == 3:
+            success_extremum = set_global_min(slot=1, silent=True)
+        else:
+            success_extremum = set_global_max(slot=1, silent=True)
+
+        if not success_extremum:
             return
         if locked_slot == 0:
             return
@@ -1510,21 +1518,23 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     def _zoom_press(event):
         nonlocal zoom_press_xy
         tb = plt.get_current_fig_manager().toolbar
-        if tb is not None and tb.mode == 'zoom rect' and event.button == 1 and event.inaxes in image_axes:
+        # Allow button 1 (left) or 3 (right) for zoom rectangle
+        if tb is not None and tb.mode == 'zoom rect' and event.button in (1, 3) and event.inaxes in image_axes:
             zoom_press_xy = (event.x, event.y)
         else:
             zoom_press_xy = None
 
     def _zoom_release(event):
-        nonlocal zoom_press_xy, pending_zoom_autoset
+        nonlocal zoom_press_xy, pending_zoom_autoset, last_zoom_button
         tb = plt.get_current_fig_manager().toolbar
         if (
             tb is not None
             and tb.mode == 'zoom rect'
             and zoom_press_xy is not None
-            and event.button == 1
+            and event.button in (1, 3)
             and event.inaxes in image_axes
         ):
+            last_zoom_button = event.button
             pending_zoom_autoset = True
             dx = event.x - zoom_press_xy[0]
             dy = event.y - zoom_press_xy[1]

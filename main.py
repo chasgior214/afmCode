@@ -19,15 +19,13 @@ make right click zoom and left click selections? Then can do away with button to
 
 cross section shows dotted lines of the line above and below the selected line?
 
-have lock on substrate automatically on by default and I only choose the extremum point, then it takes the mode
-
 another line, extremum location relative to neutral piezo in um (take position relative to where the middle of the scan would be, and add offset)
 
 could I do the fourier transform thing that the drift thing uses to align all my images? Could feed it all the images from a depressurization and it could match the wells together, then I could pinpoint centeres and do completely automated data extraction, could be amazing with sample53
 
 if there's already two points selected, automatically zoom to 4x4 um square centered on extremum point when re-opening
 
-Make it take the average of the 3 lines centered on the selected line (at the x position selected)? Or the min/mean pixel touching it? Check with Boutilier first. Or use a denoising model to smooth it
+Try using a denoising model to smooth images before paraboloid fitting?
 
 Add filters to the list of images, could show only ones within a certain range of offsets to pick specific wells
 
@@ -37,8 +35,7 @@ Have it make a map, then I select the regions that a well is in over the whole i
 
 Now that I'm saving pixel coordinates, try to have it read those back in and use them to get the deflection from the z-sensor data to compare to the height data. Can also make comparisons to curves made from max height within a few microns of the selected point (or the min of the 8 pixels surrounding it) vs the mode for the y value cross section that the max sits on. Could also have it make a map, I can pick a location, and it can give the curve from that location in all images containing it
 
-Right click in zoom mode auto-selects global min in that area and then mode?
-    - or just a button to press which switches max-finding behaviours to min-finding behaviour?
+Clean up buttons?
 
 - Plot of deflections so far visible? In other window on second screen?
 - Use mouse wheel for something

@@ -12,9 +12,14 @@ The experiments whose data are processed with this repo's code are done as follo
 * For pressurizations (and re-pressurizations to counter leaks: the gas species pressurized in, the time the sample was pressurized (/re-pressurized), and the pressure
 * For depressurizations: the time the sample was depressurized
 * For AFM images, the filename(s) of images taken, and at which location on the sample they were taken
-* The different sheets titles in the Excel are the names of different samples
+* The different sheet titles in the Excel are the names of different samples
 
-For deflations sessions done over multiple days, while the Excel file says the date of each imaging session, the ibw files are stored in the folder on the first day of imaging
+For deflation sessions done over multiple days, while the Excel file says the date of each imaging session, the ibw files are stored in the folder on the first day of imaging
+"""
+
+""" Once programmatic access makes these kinds of things easier:
+- Try to compare y-intercepts among deflations to get max heights as fn of pressure and see if it’s pretty consistent (within and among gasses)
+
 """
 
 def load_sample_action_tracker(sample_sheet_name: str) -> pd.DataFrame:
@@ -34,8 +39,8 @@ def list_depressurization_action_numbers(df: pd.DataFrame) -> list[int]:
     """List the action numbers where the gas is 'air' and the previous action is not also 'air'"""
     depressurization_actions = []
     for idx, row in df.iterrows():
-        if row['Gas'] == 'air':
-            if idx == 0 or df.at[idx - 1, 'Gas'] != 'air':
+        if row['Gas'] == 'air' and idx > 0:
+            if df.at[idx - 1, 'Gas'] != 'air':
                 depressurization_actions.append(row['Action Number'])
     return depressurization_actions
 

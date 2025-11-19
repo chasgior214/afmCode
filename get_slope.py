@@ -506,7 +506,7 @@ csv_paths = pl.get_all_deflation_curve_paths()
 
 filter_by_sample = '37' # set to None to disable filtering
 filter_by_transfer_location = '$(6,3)' # set to None to disable filtering
-filter_by_cavity_position = 'blue' # set to None to disable filtering
+filter_by_cavity_position = None # set to None to disable filtering
 filter_by_depressurized_date = None # set to None to disable filtering, or 'YYYYMMDD' string
 filter_by_depressurized_time = None # set to None to disable filtering, or 'HHMMSS' string
 filter_at_least_two_points = True  # if True, only show CSVs with at least 2 data points
