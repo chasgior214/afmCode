@@ -356,7 +356,8 @@ def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 		'start_x': None,
 		'start_y': None,
 		'rect': None,
-		'is_dragging': False
+		'is_dragging': False,
+		'target_axis': None
 	}
 
 	def update_plots():
@@ -504,6 +505,7 @@ def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 			interaction_state['start_x'] = event.xdata
 			interaction_state['start_y'] = event.ydata
 			interaction_state['is_dragging'] = False
+			interaction_state['target_axis'] = event.inaxes
 			return
 
 		# Left-click and other buttons: selection/highlight behavior, find nearest index by time
@@ -542,6 +544,10 @@ def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 		if (dx**2 + dy**2) > 0: # minimal threshold
 			interaction_state['is_dragging'] = True
 			
+			# Only draw selection rectangle on the top plot
+			if interaction_state.get('target_axis') != axes[0]:
+				return
+
 			# Draw selection rectangle
 			if interaction_state['rect'] is None:
 				import matplotlib.patches as patches
@@ -573,6 +579,23 @@ def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 			fig.canvas.draw_idle()
 
 		if start_x is None or start_y is None:
+			return
+
+		target_ax = interaction_state.get('target_axis')
+
+		# If interaction started on bottom plots (R^2 or Slope), set y-limit
+		if target_ax in (axes[1], axes[2]):
+			y_val = event.ydata
+			if y_val is None:
+				y_val = start_y
+			
+			if y_val is not None:
+				target_ax.set_ylim(bottom=y_val)
+				fig.canvas.draw_idle()
+			return
+
+		# Otherwise, assume top plot selection logic
+		if target_ax != axes[0]:
 			return
 
 		if interaction_state['is_dragging']:

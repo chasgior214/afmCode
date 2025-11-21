@@ -9,7 +9,7 @@ import path_loader as pl
 
 # List of substrings to filter filenames. Empty list = no filtering.
 filter_substrings = [
-    'blue'
+    'red'
 ]
 
 
