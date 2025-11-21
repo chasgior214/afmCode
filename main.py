@@ -8,7 +8,7 @@ import os
 import path_loader as pl
 
 ################################################################################
-save_to_csv = 0  # set true to save to CSV
+save_to_csv = 1  # set true to save to CSV
 end_hour = None # None to not give end limit
 end_day = None # None to be same day as depressurization date
 ################################################################################
@@ -16,6 +16,8 @@ end_day = None # None to be same day as depressurization date
 """TODO
 
 make a 3D map of the image data with the paraboloid superimposed
+
+when looking for the "substrate" (what I really mean is the graphene height outside the well), if it's bimodal/multimodal, can have it pick the one that's closest to the paraboloid vertex. Fixes edge cases where more of the image line off the well is either on the substrate or on a different step height of graphene
 
 make right click zoom and left click selections? Then can do away with button to enter/exit zoom mode and auto entering zoom mode on startup. Right drag could be box zoom and right click to zoom to 4x4 um square centred on cursor
 

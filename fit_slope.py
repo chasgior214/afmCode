@@ -634,6 +634,10 @@ def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 			s = float(slopes[idx]) if not np.isnan(slopes[idx]) else float('nan')
 			r2 = float(r2s[idx]) if not np.isnan(r2s[idx]) else float('nan')
 			b = float(intercepts[idx]) if not np.isnan(intercepts[idx]) else float('nan')
+			t = float(times[idx])
+			d = float(defs[idx])
+			s_prev = float(slopes_prev[idx]) if not np.isnan(slopes_prev[idx]) else float('nan')
+			s_local3 = float(slopes_local3[idx]) if not np.isnan(slopes_local3[idx]) else float('nan')
 			
 			# Get current timestamp
 			timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')

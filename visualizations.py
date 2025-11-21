@@ -751,7 +751,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         0.05, 0.75, "Paraboloid fit R^2: --", transform=ax_placeholder.transAxes
     )
     slider_min = max(pixel_size, 0.1)
-    slider_max_candidate = min(scan_size, y_dimension)
+    slider_max_candidate = max(scan_size, y_dimension)
     if slider_max_candidate <= 0:
         slider_max_candidate = slider_min
     slider_max = max(slider_min, slider_max_candidate)
