@@ -89,11 +89,43 @@ def get_saved_slope_text(deflation_curve_slope_id):
 		blocks.append(f"slope (nm/min)={slope_val}\nR^2={r2_val}{intercept_line}\nsaved={saved_val}")
 	return "\n\n".join(blocks)
 
+def get_latest_saved_points_path(deflation_curve_slope_id):
+	"""Find the most recent saved points file for the given slope ID."""
+	slope_points_dir = os.path.join(os.path.dirname(pl.deflation_curve_slope_path), 'slope_points')
+	if not os.path.exists(slope_points_dir):
+		return None
+
+	# Filename pattern: slope_points_{slope_id}_{timestamp_safe}.csv
+	# Find file with latest timestamp
+	candidates = []
+	prefix = f"slope_points_{deflation_curve_slope_id}_"
+	
+	try:
+		for fname in os.listdir(slope_points_dir):
+			if fname.startswith(prefix) and fname.endswith('.csv'):
+				# Extract timestamp part
+				ts_part = fname[len(prefix):-4] # remove prefix and .csv
+				try:
+					# Parse timestamp to compare
+					dt = datetime.strptime(ts_part, '%Y-%m-%d_%H%M%S')
+					candidates.append((dt, os.path.join(slope_points_dir, fname)))
+				except Exception:
+					pass
+	except Exception:
+		pass
+
+	if not candidates:
+		return None
+
+	# Sort by datetime descending
+	candidates.sort(key=lambda x: x[0], reverse=True)
+	return candidates[0][1]
+
 # plotting function with interactive selection and slope saving
 def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 
 	# compute cumulative linear fit slopes and R^2
-	def cumulative_linear_fit(x, y):
+	def cumulative_linear_fit(x, y, excluded_mask=None):
 		"""Compute cumulative slopes and R^2 for linear fits using points up to each index.
 
 		Returns arrays slope_up_to_i, r2_up_to_i, intercepts_up_to_i (same length as x)
@@ -103,9 +135,26 @@ def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 		r2s = np.full(n, np.nan)
 		intercepts = np.full(n, np.nan)
 
+		if excluded_mask is None:
+			excluded_mask = np.zeros(n, dtype=bool)
+
 		for i in range(1, n):
-			xi = x[: i + 1]
-			yi = y[: i + 1]
+			# If current point is excluded, we don't compute a cumulative fit ending here
+			if excluded_mask[i]:
+				continue
+
+			xi_all = x[: i + 1]
+			yi_all = y[: i + 1]
+			mask_all = excluded_mask[: i + 1]
+
+			# Filter out excluded points
+			xi = xi_all[~mask_all]
+			yi = yi_all[~mask_all]
+
+			# Need at least 2 points
+			if len(xi) < 2:
+				continue
+
 			# fit linear model y = m*x + b
 			A = np.vstack([xi, np.ones_like(xi)]).T
 			try:
@@ -128,46 +177,140 @@ def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 		return slopes, r2s, intercepts
 
 	# compute slope to previous point and slope from local 3-point regression
-	def adjacent_slopes(x, y):
+	def adjacent_slopes(x, y, excluded_mask=None):
 		n = len(x)
 		slope_prev = np.full(n, np.nan)
 		slope_local3 = np.full(n, np.nan)
 
-		# slope between current point and previous point
+		if excluded_mask is None:
+			excluded_mask = np.zeros(n, dtype=bool)
+
+		# slope between current point and previous included point
 		for i in range(1, n):
-			dx = x[i] - x[i - 1]
-			if dx != 0:
-				slope_prev[i] = (y[i] - y[i - 1]) / dx
-			else:
-				slope_prev[i] = np.nan
+			if excluded_mask[i]:
+				continue
+			
+			# find index of previous included point
+			prev_idx = -1
+			for j in range(i - 1, -1, -1):
+				if not excluded_mask[j]:
+					prev_idx = j
+					break
+			
+			if prev_idx != -1:
+				dx = x[i] - x[prev_idx]
+				if dx != 0:
+					slope_prev[i] = (y[i] - y[prev_idx]) / dx
+				else:
+					slope_prev[i] = np.nan
 
 		# slope from linear regression over previous, current, next (3-point window)
-		for i in range(1, n - 1):
-			xi = x[i - 1: i + 2]
-			yi = y[i - 1: i + 2]
-			A = np.vstack([xi, np.ones_like(xi)]).T
-			try:
-				m, b = np.linalg.lstsq(A, yi, rcond=None)[0]
-				slope_local3[i] = m
-			except Exception:
-				slope_local3[i] = np.nan
+		# We find the nearest included point before and after the current point to form a 3-point window.
+		for i in range(n):
+			if excluded_mask[i]:
+				continue
+
+			# find prev included
+			prev_idx = -1
+			for j in range(i - 1, -1, -1):
+				if not excluded_mask[j]:
+					prev_idx = j
+					break
+			
+			# find next included
+			next_idx = -1
+			for j in range(i + 1, n):
+				if not excluded_mask[j]:
+					next_idx = j
+					break
+			
+			if prev_idx != -1 and next_idx != -1:
+				# fit these 3 points
+				xi = np.array([x[prev_idx], x[i], x[next_idx]])
+				yi = np.array([y[prev_idx], y[i], y[next_idx]])
+				A = np.vstack([xi, np.ones_like(xi)]).T
+				try:
+					m, b = np.linalg.lstsq(A, yi, rcond=None)[0]
+					slope_local3[i] = m
+				except Exception:
+					slope_local3[i] = np.nan
 
 		return slope_prev, slope_local3
 
 	times, defs = load_csv(curve_path)
+	
+	# Initialize excluded mask
+	excluded_mask = np.zeros(len(times), dtype=bool)
+	
+	# Check for saved points
+	saved_points_path = get_latest_saved_points_path(deflation_curve_slope_id)
+	initial_selected_idx = None
+	warning_msg = None
+	
+	if saved_points_path:
+		try:
+			saved_times = []
+			saved_defs = []
+			with open(saved_points_path, 'r', newline='') as fh:
+				reader = csv.reader(fh)
+				header = next(reader, None)
+				for row in reader:
+					if row:
+						saved_times.append(float(row[0]))
+						saved_defs.append(float(row[1]))
+					
+			saved_times = np.array(saved_times)
+			saved_defs = np.array(saved_defs)
+			
+			if len(saved_times) > 0:
+				# Find the last saved point in the current data
+				last_saved_t = saved_times[-1]
+				last_saved_d = saved_defs[-1]
+				
+				# Find index of last saved point in current data
+				tol = 1e-9
+				matches = np.where((np.abs(times - last_saved_t) < tol) & (np.abs(defs - last_saved_d) < tol))[0]
+				
+				if len(matches) > 0:
+					last_idx = matches[0]
+					initial_selected_idx = last_idx
+					
+					# Create a set of (t, d) tuples for fast lookup of saved points
+					saved_set = set((round(t, 9), round(d, 9)) for t, d in zip(saved_times, saved_defs))
+					
+					for i in range(last_idx + 1):
+						pt = (round(times[i], 9), round(defs[i], 9))
+						if pt not in saved_set:
+							excluded_mask[i] = True
+						else:
+							excluded_mask[i] = False
+							
+					# Check if all saved points were found in current data
+					curr_set = set((round(t, 9), round(d, 9)) for t, d in zip(times, defs))
+					missing_saved = [pt for pt in saved_set if pt not in curr_set]
+					if missing_saved:
+						warning_msg = f"Warning: {len(missing_saved)} saved points not found in current curve."
+						
+				else:
+					warning_msg = "Warning: Last saved point not found in current curve."
+					
+		except Exception as e:
+			print(f"Error loading saved points: {e}")
 
-	slopes, r2s, intercepts = cumulative_linear_fit(times, defs)
-	slopes_prev, slopes_local3 = adjacent_slopes(times, defs)
+	slopes, r2s, intercepts = cumulative_linear_fit(times, defs, excluded_mask)
+	slopes_prev, slopes_local3 = adjacent_slopes(times, defs, excluded_mask)
 
 	fig, axes = plt.subplots(3, 1, sharex=True, figsize=(8, 9), gridspec_kw={'height_ratios': [3, 1, 1]})
 
 	# Scatter plot of deflection vs time
-	axes[0].scatter(times, defs, s=20, color='tab:blue', alpha=0.7)
+	# Split into included and excluded
+	scat_included = axes[0].scatter(times[~excluded_mask], defs[~excluded_mask], s=20, color='tab:blue', alpha=0.7, label='Included')
+	scat_excluded = axes[0].scatter(times[excluded_mask], defs[excluded_mask], s=20, color='red', alpha=0.7, label='Excluded')
 	axes[0].set_ylabel('Deflection (nm)')
 	axes[0].set_title('Deflection vs Time')
 
 	# R^2 plot
-	axes[1].scatter(times, r2s, s=10, color='tab:orange')
+	scat_r2 = axes[1].scatter(times[~excluded_mask], r2s[~excluded_mask], s=10, color='tab:orange')
 	axes[1].set_ylabel(r'$R^2$')
 	# Adapt y-limits for R^2: if R^2 occupies a narrow band, zoom in to improve resolution
 	r2_valid = r2s[~np.isnan(r2s)]
@@ -187,10 +330,10 @@ def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 	else:
 		axes[1].set_ylim(-0.05, 1.05)
 
-	# Slope plot: now show three series
-	axes[2].scatter(times, slopes, s=10, color='tab:green', label='cumulative fit')
-	axes[2].scatter(times, slopes_prev, s=20, color='tab:purple', marker='x', label='pairwise prev')
-	axes[2].scatter(times, slopes_local3, s=12, color='tab:cyan', marker='s', label='local 3-pt fit')
+	# Slope plot: show three series
+	scat_slope_cum = axes[2].scatter(times[~excluded_mask], slopes[~excluded_mask], s=10, color='tab:green', label='cumulative fit')
+	scat_slope_prev = axes[2].scatter(times[~excluded_mask], slopes_prev[~excluded_mask], s=20, color='tab:purple', marker='x', label='pairwise prev')
+	scat_slope_local3 = axes[2].scatter(times[~excluded_mask], slopes_local3[~excluded_mask], s=12, color='tab:cyan', marker='s', label='local 3-pt fit')
 	axes[2].set_ylabel('Slope (nm/min)')
 	axes[2].set_xlabel('Time (minutes)')
 	# place legend inside the bottom-left corner of the bottom subplot
@@ -206,8 +349,54 @@ def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 
 	# Interactive click handling: highlight selected index across all subplots and show annotation.
 	prev_artists = []   # previously drawn markers/annotations to remove
-	selected_idx = [None]  # Track currently selected index (use list to allow modification in nested function)
+	selected_idx = [initial_selected_idx]  # Track currently selected index (use list to allow modification in nested function)
 	
+	# Interaction state
+	interaction_state = {
+		'start_x': None,
+		'start_y': None,
+		'rect': None,
+		'is_dragging': False
+	}
+
+	def update_plots():
+		# Recompute fits
+		nonlocal slopes, r2s, intercepts, slopes_prev, slopes_local3
+		slopes, r2s, intercepts = cumulative_linear_fit(times, defs, excluded_mask)
+		slopes_prev, slopes_local3 = adjacent_slopes(times, defs, excluded_mask)
+
+		# Update scatter data
+		# Deflection plot
+		scat_included.set_offsets(np.c_[times[~excluded_mask], defs[~excluded_mask]])
+		scat_excluded.set_offsets(np.c_[times[excluded_mask], defs[excluded_mask]])
+
+		# R2 plot
+		# Filter out nans for plotting
+		mask_r2 = (~excluded_mask) & (~np.isnan(r2s))
+		scat_r2.set_offsets(np.c_[times[mask_r2], r2s[mask_r2]])
+
+		# Slope plot
+		mask_s = (~excluded_mask) & (~np.isnan(slopes))
+		scat_slope_cum.set_offsets(np.c_[times[mask_s], slopes[mask_s]])
+		
+		mask_sp = (~excluded_mask) & (~np.isnan(slopes_prev))
+		scat_slope_prev.set_offsets(np.c_[times[mask_sp], slopes_prev[mask_sp]])
+		
+		mask_sl = (~excluded_mask) & (~np.isnan(slopes_local3))
+		scat_slope_local3.set_offsets(np.c_[times[mask_sl], slopes_local3[mask_sl]])
+
+		# Redraw
+		fig.canvas.draw_idle()
+		
+		# If a point is selected, update its info
+		if selected_idx[0] is not None:
+			show_point_info(selected_idx[0])
+			
+		if warning_msg:
+			# Show warning on plot
+			axes[0].text(0.5, 0.95, warning_msg, transform=axes[0].transAxes, 
+						 ha='center', va='top', color='red', bbox=dict(boxstyle='round', fc='white', alpha=0.8))
+
 	def clear_prev():
 		nonlocal prev_artists
 		for art in prev_artists:
@@ -217,77 +406,9 @@ def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 				pass
 		prev_artists = []
 
-	def on_click(event):
-		# Only respond to clicks inside axes and with valid xdata/ydata
-		if event.inaxes is None or event.xdata is None or event.ydata is None:
+	def show_point_info(idx):
+		if idx is None or idx < 0 or idx >= len(times):
 			return
-
-		# Right-click (button==3): set the lower y-limit of the clicked axes to the y-value clicked
-		if getattr(event, "button", None) == 3:
-			ax = event.inaxes
-			try:
-				cur_ymin, cur_ymax = ax.get_ylim()
-				new_ymin = float(event.ydata)
-
-				# Determine which axis was clicked to decide if we auto-scale upper limit
-				# axes[1] is the R² plot - keep its upper limit at 1
-				if ax == axes[1]:
-					# R² plot: keep upper limit fixed at current ymax (typically 1.05)
-					if new_ymin >= cur_ymax:
-						pad = max(0.02 * max(abs(new_ymin), 1.0), 1e-6)
-						new_ymax = new_ymin + pad
-					else:
-						new_ymax = cur_ymax
-				else:
-					# For deflection (axes[0]) and slope (axes[2]) plots: auto-scale upper limit
-					# Find the maximum y-value in the data that is >= new_ymin
-					if ax == axes[0]:
-						# deflection plot
-						data_y = defs
-					elif ax == axes[2]:
-						# slope plot: consider all three slope series
-						data_y = np.concatenate([slopes[~np.isnan(slopes)], 
-												 slopes_prev[~np.isnan(slopes_prev)], 
-												 slopes_local3[~np.isnan(slopes_local3)]])
-					else:
-						# fallback
-						data_y = np.array([])
-					
-					# Filter data >= new_ymin
-					data_above = data_y[data_y >= new_ymin]
-					
-					if len(data_above) > 0:
-						data_max = float(np.max(data_above))
-						# Add a small padding (5% of the range or a minimum)
-						data_range = data_max - new_ymin
-						pad = max(0.05 * data_range, 0.02 * max(abs(data_max), 1.0), 1e-6)
-						new_ymax = data_max + pad
-					else:
-						# No data above new_ymin, use a small default range
-						pad = max(0.02 * max(abs(new_ymin), 1.0), 1e-6)
-						new_ymax = new_ymin + pad
-
-				ax.set_ylim(new_ymin, new_ymax)
-				try:
-					fig.canvas.draw_idle()
-				except Exception:
-					pass
-			except Exception:
-				# ignore any issues setting limits
-				pass
-			return
-
-		# Left-click and other buttons: selection/highlight behavior, find nearest index by time
-		try:
-			idx = int(np.argmin(np.abs(times - event.xdata)))
-		except Exception:
-			return
-		# ensure idx in range
-		if idx < 0 or idx >= len(times):
-			return
-
-		# Store the selected index
-		selected_idx[0] = idx
 
 		t = float(times[idx])
 		d = float(defs[idx])
@@ -301,7 +422,7 @@ def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 		clear_prev()
 
 		# highlight on deflection plot
-		m0, = axes[0].plot(t, d, marker='o', color='red', markersize=9, markeredgecolor='white', zorder=11)
+		m0, = axes[0].plot(t, d, marker='o', color='green', markersize=9, markeredgecolor='white', zorder=11)
 		prev_artists.append(m0)
 
 		# Plot the line of best fit on the deflection plot if we have valid slope and intercept
@@ -372,6 +493,137 @@ def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 		except Exception:
 			pass
 
+	def on_click(event):
+		# Only respond to clicks inside axes and with valid xdata/ydata
+		if event.inaxes is None or event.xdata is None or event.ydata is None:
+			return
+
+		# Right-click (button==3):
+		if getattr(event, "button", None) == 3:
+			# Store start position to distinguish click from drag in release event
+			interaction_state['start_x'] = event.xdata
+			interaction_state['start_y'] = event.ydata
+			interaction_state['is_dragging'] = False
+			return
+
+		# Left-click and other buttons: selection/highlight behavior, find nearest index by time
+		try:
+			idx = int(np.argmin(np.abs(times - event.xdata)))
+		except Exception:
+			return
+		# ensure idx in range
+		if idx < 0 or idx >= len(times):
+			return
+
+		# Store the selected index
+		selected_idx[0] = idx
+		
+		show_point_info(idx)
+
+	def on_motion(event):
+		if interaction_state['start_x'] is None:
+			return
+		if event.button != 3:
+			return
+		
+		# Get current coordinates (transform if outside axes)
+		curr_x, curr_y = event.xdata, event.ydata
+		if curr_x is None or curr_y is None:
+			# Transform from display to data coordinates
+			try:
+				inv = axes[0].transData.inverted()
+				curr_x, curr_y = inv.transform((event.x, event.y))
+			except Exception:
+				return
+		
+		# If moved enough, treat as drag
+		dx = curr_x - interaction_state['start_x']
+		dy = curr_y - interaction_state['start_y']
+		if (dx**2 + dy**2) > 0: # minimal threshold
+			interaction_state['is_dragging'] = True
+			
+			# Draw selection rectangle
+			if interaction_state['rect'] is None:
+				import matplotlib.patches as patches
+				rect = patches.Rectangle((interaction_state['start_x'], interaction_state['start_y']), 
+										 dx, dy, linewidth=1, edgecolor='r', facecolor='none', zorder=20)
+				axes[0].add_patch(rect)
+				interaction_state['rect'] = rect
+			else:
+				interaction_state['rect'].set_width(dx)
+				interaction_state['rect'].set_height(dy)
+			
+			fig.canvas.draw_idle()
+
+	def on_release(event):
+		if event.button != 3:
+			return
+		
+		start_x = interaction_state.get('start_x')
+		start_y = interaction_state.get('start_y')
+		
+		# Reset state
+		interaction_state['start_x'] = None
+		interaction_state['start_y'] = None
+		
+		rect = interaction_state.get('rect')
+		if rect:
+			rect.remove()
+			interaction_state['rect'] = None
+			fig.canvas.draw_idle()
+
+		if start_x is None or start_y is None:
+			return
+
+		if interaction_state['is_dragging']:
+			# Box selection
+			end_x = event.xdata
+			end_y = event.ydata
+			
+			# Handle out of axes release
+			if end_x is None or end_y is None:
+				try:
+					inv = axes[0].transData.inverted()
+					end_x, end_y = inv.transform((event.x, event.y))
+				except Exception:
+					return
+			
+			if end_x is None or end_y is None:
+				return
+			
+			x_min, x_max = sorted([start_x, end_x])
+			y_min, y_max = sorted([start_y, end_y])
+			
+			# Find points in box
+			mask_in_box = (times >= x_min) & (times <= x_max) & (defs >= y_min) & (defs <= y_max)
+			
+			# Toggle exclusion
+			# Flip the exclusion state for all points within the selection box.
+			excluded_mask[mask_in_box] = ~excluded_mask[mask_in_box]
+			
+			update_plots()
+			
+		else:
+			# Single click
+			# Find nearest point
+			if event.inaxes is None or event.xdata is None or event.ydata is None:
+				return
+			
+			# Find nearest point using normalized Euclidean distance to account for different axis scales
+			
+			# Normalize to range to avoid bias
+			x_range = times.max() - times.min()
+			y_range = defs.max() - defs.min()
+			if x_range == 0: x_range = 1
+			if y_range == 0: y_range = 1
+			
+			dist = ((times - event.xdata)/x_range)**2 + ((defs - event.ydata)/y_range)**2
+			idx = np.argmin(dist)
+			
+			# Toggle
+			excluded_mask[idx] = ~excluded_mask[idx]
+			update_plots()
+
 	def on_key(event):
 		"""Handle key press events. Space bar saves the currently selected slope."""
 		if event.key == ' ' and selected_idx[0] is not None:
@@ -402,21 +654,47 @@ def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 						writer.writerow(['id', 'slope_nm_per_min', 'r_squared', 'timestamp', 'y_intercept_nm'])
 					writer.writerow([deflation_curve_slope_id, s, r2, timestamp, b])
 				print(f"Saved: id={deflation_curve_slope_id}, slope={s:.6g}, intercept={b:.6g}, R²={r2:.6g}, time={timestamp}")
+
+				# Save the included points for this slope
+				try:
+					# Create slope_points directory
+					slope_points_dir = os.path.join(os.path.dirname(deflation_curve_slope_path), 'slope_points')
+					os.makedirs(slope_points_dir, exist_ok=True)
+					
+					# Filename: slope_points_{slope_id}_{timestamp_safe}.csv
+					ts_safe = timestamp.replace(':', '').replace(' ', '_')
+					points_filename = f"slope_points_{deflation_curve_slope_id}_{ts_safe}.csv"
+					points_path = os.path.join(slope_points_dir, points_filename)
+					
+					# Get points up to idx that are NOT excluded
+					# Note: cumulative_linear_fit uses points[:i+1]
+					subset_times = times[:idx+1]
+					subset_defs = defs[:idx+1]
+					subset_mask = excluded_mask[:idx+1]
+					
+					incl_times = subset_times[~subset_mask]
+					incl_defs = subset_defs[~subset_mask]
+					
+					with open(points_path, 'w', newline='') as fh:
+						writer = csv.writer(fh)
+						writer.writerow(['time_min', 'deflection_nm'])
+						for ti, di in zip(incl_times, incl_defs):
+							writer.writerow([ti, di])
+					
+					print(f"Saved included points to: {points_path}")
+				except Exception as e:
+					print(f"Error saving points: {e}")
 			
 				# Update the annotation to show the newly saved value
 				if prev_artists:
 					# Remove old annotation and recreate with updated "Last Saved" info
-					clear_prev()
-					t = float(times[idx])
-					d = float(defs[idx])
-					s_prev = float(slopes_prev[idx]) if not np.isnan(slopes_prev[idx]) else float('nan')
-					s_local3 = float(slopes_local3[idx]) if not np.isnan(slopes_local3[idx]) else float('nan')
+					show_point_info(idx)
 					
 					# Get intercept for this index (needed to draw best-fit line)
 					b = float(intercepts[idx]) if not np.isnan(intercepts[idx]) else float('nan')
 					
 					# Re-highlight all markers
-					m0, = axes[0].plot(t, d, marker='o', color='red', markersize=9, markeredgecolor='white', zorder=11)
+					m0, = axes[0].plot(t, d, marker='o', color='green', markersize=9, markeredgecolor='white', zorder=11)
 					prev_artists.append(m0)
 					if not np.isnan(r2):
 						m1, = axes[1].plot(t, r2, marker='o', color='red', markersize=7, markeredgecolor='white', zorder=11)
@@ -482,6 +760,8 @@ def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 
 	# connect the click event
 	fig.canvas.mpl_connect('button_press_event', on_click)
+	fig.canvas.mpl_connect('motion_notify_event', on_motion)
+	fig.canvas.mpl_connect('button_release_event', on_release)
 	# connect the key press event
 	fig.canvas.mpl_connect('key_press_event', on_key)
 
@@ -498,6 +778,15 @@ def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 		except Exception:
 			pass  # If maximizing fails, just show normally
 	
+	# Trigger initial update if we have a selection or warning
+	if initial_selected_idx is not None or warning_msg:
+		if initial_selected_idx is not None:
+			show_point_info(initial_selected_idx)
+		if warning_msg:
+			t = axes[0].text(0.5, 0.95, warning_msg, transform=axes[0].transAxes, 
+						 ha='center', va='top', color='red', bbox=dict(boxstyle='round', fc='white', alpha=0.8), zorder=20)
+			prev_artists.append(t)
+
 	plt.show()
 
 
