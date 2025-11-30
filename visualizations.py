@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button
 from matplotlib import patches
-from surface_analysis import fit_paraboloid, compute_extremum_square_info
+from surface_analysis import fit_paraboloid, compute_extremum_square_info, iterative_paraboloid_fit
 
 
 class DualHandleSlider:
@@ -253,7 +253,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     y_pixel_count = height_map.shape[0]
     pixel_size = image.get_pixel_size()  # microns per pixel
 
-    imaging_duration = y_pixel_count / scan_rate
+    imaging_duration = image.get_imaging_duration()
 
     x = np.linspace(0, scan_size, x_pixel_count)  # x-coordinates in microns
     y = np.linspace(0, scan_size, y_pixel_count)  # y-coordinates in microns
@@ -455,8 +455,6 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         nonlocal line_height, nearest_y_to_plot, cumulative_adjusted_height, time_since_start
         # Clamp to valid y-range in microns (0 .. y_dimension)
         line_height = float(new_height)
-        if not np.isfinite(line_height):
-            return
         if line_height < 0:
             line_height = 0.0
         elif line_height > y_dimension:
@@ -1223,70 +1221,25 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         Updates the extremum to the fitted vertex and repeats until convergence
         or a maximum number of iterations is reached.
         """
-        # We need an initial extremum to start with
+        # Check for an initial extremum to start with
         if selected_slots[1] is None:
             return
 
-        # Track history of (vertex_x, vertex_y, vertex_z, r2)
-        history = []
-        
-        # Initial center comes from the current selection
-        current_info = selected_slots[1]
-        if len(current_info) >= 5:
-            current_x, current_y = current_info[1], current_info[2]
-        else:
-            current_x, current_y = current_info[1], current_info[2]
+        # Initial center comes from the current extremum
+        current_x, current_y = selected_slots[1][1], selected_slots[1][2]
 
-        # Iteration loop
-        max_iterations = 10
-        converged = False
+        best_result = iterative_paraboloid_fit(
+            height_map,
+            x,
+            current_x,
+            current_y,
+            paraboloid_window_um,
+            pixel_size,
+            scan_size
+        )
 
-        for _ in range(max_iterations):
-            # Find indices for the current center coordinates
-            c_x_idx = int(np.argmin(np.abs(x - current_x)))
-            try:
-                c_y_idx = _y_to_index(current_y)
-            except Exception:
-                break
-
-            # Fit paraboloid
-            fit_result = fit_paraboloid(
-                height_map, c_x_idx, c_y_idx, paraboloid_window_um, pixel_size, scan_size
-            )
-
-            if fit_result is None:
-                break
-
-            vx = fit_result['vertex_x_um']
-            vy = fit_result['vertex_y_um']
-            vz = fit_result['vertex_z_nm']
-            r2 = fit_result['r2']
-
-            history.append({
-                'vx': vx, 'vy': vy, 'vz': vz, 'r2': r2,
-                'fit_result': fit_result
-            })
-
-            # Check for convergence (identical to old one)
-            # Using a small epsilon for float comparison
-            if np.isclose(vx, current_x, atol=1e-5) and np.isclose(vy, current_y, atol=1e-5):
-                converged = True
-                break
-
-            # Update current center for next iteration
-            current_x = vx
-            current_y = vy
-
-        if not history:
+        if best_result is None:
             return
-
-        # Decide which result to keep
-        best_result = None
-        if converged:
-            best_result = history[-1]
-        else:
-            # If not converged, pick the one with highest R^2 from the recorded vertices
-            best_result = max(history, key=lambda item: item['r2'])
 
         # Update the extremum selection to the best result
         final_vx = best_result['vx']
@@ -1297,7 +1250,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         _update_cross_section(final_vy)
         
         # Record the new extremum
-        # We need to find the closest indices for the record
+        # Find the closest indices for the record
         final_x_idx = int(np.argmin(np.abs(x - final_vx)))
         final_y_idx = _y_to_index(final_vy)
         
@@ -1530,7 +1483,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         if (scan_size >= 8 and y_dimension >= 5) and hasattr(toolbar, "zoom"):
             toolbar.zoom()
 
-    # Determine whether we were given selections to restore before running
+    # Determine whether there are selections to restore before running
     # the automatic small-scan defaults. If prior selections exist, keep them
     # instead of replacing them with auto-selected points.
     has_initial_preload = bool(
@@ -1538,8 +1491,8 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         and any(slot is not None for slot in initial_selected_slots)
     )
 
-    # Auto-select when x < 8 μm OR y < 5 μm unless we are restoring
-    # previously saved selections.
+    # Auto-select when x < 8 μm OR y < 5 μm unless restoring previously
+    # saved selections.
     if ((scan_size < 8) or (y_dimension < 5)) and not has_initial_preload:
         # Global max in slot 1 (orange), mode in slot 0 (purple)
         set_global_max(slot=1, silent=True)

@@ -230,3 +230,96 @@ def compute_extremum_square_info(z_data, center_x_idx, center_y_idx, pixel_size,
         'x_idx': int(max_x_idx),
         'y_idx': int(max_y_idx),
     }
+
+def iterative_paraboloid_fit(
+    height_map,
+    x_coords,
+    start_x_um,
+    start_y_um,
+    paraboloid_window_um,
+    pixel_size,
+    scan_size,
+    max_iterations=10,
+    convergence_tol=1e-5
+):
+    """
+    Iteratively fit a paraboloid to the data around a given point.
+    Updates the center to the fitted vertex and repeats until convergence
+    or a maximum number of iterations is reached.
+
+    Args:
+        height_map (np.ndarray): 2D array of height values.
+        x_coords (np.ndarray): 1D array of x coordinates in microns.
+        start_x_um (float): Initial x coordinate of the center in microns.
+        start_y_um (float): Initial y coordinate of the center in microns.
+        paraboloid_window_um (float): Diameter of the fit region in microns.
+        pixel_size (float): Size of one pixel in microns.
+        scan_size (float): Total physical size of the scan in microns.
+        max_iterations (int): Maximum number of iterations.
+        convergence_tol (float): Tolerance for convergence check.
+
+    Returns:
+        dict: Dictionary containing the best fit result with keys:
+              'vx', 'vy', 'vz', 'r2', 'fit_result'.
+              Returns None if fitting fails or no history is generated.
+    """
+    y_pixel_count = height_map.shape[0]
+
+    def _y_to_index(y_val):
+        # Convert y-value (microns) to row index, matching visualizations.py logic
+        # _index_to_y_center(idx) = (y_pixel_count - (idx + 0.5)) * pixel_size
+        idx = int(np.clip(round(y_pixel_count - 0.5 - y_val / pixel_size), 0, y_pixel_count - 1))
+        return idx
+
+    current_x = start_x_um
+    current_y = start_y_um
+    
+    history = []
+    converged = False
+
+    for _ in range(max_iterations):
+        # Find indices for the current center coordinates
+        c_x_idx = int(np.argmin(np.abs(x_coords - current_x)))
+        try:
+            c_y_idx = _y_to_index(current_y)
+        except Exception:
+            break
+
+        # Fit paraboloid
+        fit_result = fit_paraboloid(
+            height_map, c_x_idx, c_y_idx, paraboloid_window_um, pixel_size, scan_size
+        )
+
+        if fit_result is None:
+            break
+
+        vx = fit_result['vertex_x_um']
+        vy = fit_result['vertex_y_um']
+        vz = fit_result['vertex_z_nm']
+        r2 = fit_result['r2']
+
+        history.append({
+            'vx': vx, 'vy': vy, 'vz': vz, 'r2': r2,
+            'fit_result': fit_result
+        })
+
+        # Check for convergence
+        if np.isclose(vx, current_x, atol=convergence_tol) and np.isclose(vy, current_y, atol=convergence_tol):
+            converged = True
+            break
+
+        # Update current center for next iteration
+        current_x = vx
+        current_y = vy
+
+    if not history:
+        return None
+
+    # Decide which result to keep
+    if converged:
+        best_result = history[-1]
+    else:
+        # If not converged, pick the one with highest R^2
+        best_result = max(history, key=lambda item: item['r2'])
+        
+    return best_result

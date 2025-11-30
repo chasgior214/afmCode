@@ -47,7 +47,7 @@ class AFMImage:
     # Tapping mode: raw data indexes 0-3, contact mode: raw data indexes 0-2
     def get_height_retrace(self):
         """Get retrace for index 0, which is the default index for height in both tapping and contact modes. Converts units to nm."""
-        return self.get_retrace_data(0, unit_conversion=1e9) # Units are in nm
+        return self.get_retrace_data(0, unit_conversion=1e9)
 
     def get_contrast_retrace(self):
         """Get retrace for index 1, which is the default index for amplitude in tapping mode and deflection in contact mode. Both give high contrast to surface topographies, so can be used to extract a high-contrast qualitative map of topographical features from images taken in either mode."""
@@ -64,14 +64,14 @@ class AFMImage:
     def get_ZSensorRetrace(self):
         """Get retrace for the Z sensor, pulling from index 3 for tapping mode images and index 2 for contact mode images (their default indexes). Converts units to nm."""
         if self.get_imaging_mode() == 'AC Mode':
-            return self.get_retrace_data(3, unit_conversion=1e9) # Units are in nm
+            return self.get_retrace_data(3, unit_conversion=1e9)
         elif self.get_imaging_mode() == 'Contact':
             return self.get_retrace_data(2, unit_conversion=1e9)
 
     def get_FlatHeight(self):
         """Get the flattened height retrace (assuming postprocessing was done in Igor which put the flat height in the next free index after the Z retrace). Converts units to nm."""
         if self.get_imaging_mode() == 'AC Mode':
-            return self.get_retrace_data(4, unit_conversion=1e9) # Units are in nm
+            return self.get_retrace_data(4, unit_conversion=1e9)
         elif self.get_imaging_mode() == 'Contact':
             return self.get_retrace_data(3, unit_conversion=1e9)
 
@@ -141,6 +141,9 @@ class AFMImage:
     
     def get_x_y_size(self):
         return self.get_FastScanSize()*self.get_x_y_pixel_counts()[0]/self.get_ScanPoints(), self.get_SlowScanSize()*self.get_x_y_pixel_counts()[1]/self.get_ScanLines() # Returns (x_size in um, y_size in um)
+
+    def get_imaging_duration(self):
+        return self.get_x_y_size()[1]/self.get_scan_rate()
 
     def get_pixel_size(self):
         """
