@@ -91,7 +91,12 @@ class AFMImage:
         return float(self._extract_parameter('ScanRate')) # Units are Hz
 
     def get_scan_size(self):
-        return float(self._extract_parameter('ScanSize'))*1e6 # Units are um 
+        """Note that ScanSize is the size the image would be if the image was completed. For partial images, this is larger than the actual image size in the slow scan direction."""
+        return float(self._extract_parameter('ScanSize'))*1e6 # Units are um
+    
+    def get_x_y_pixel_counts(self):
+        image_shape = self.get_height_retrace().shape
+        return image_shape[1], image_shape[0]  # (X pixels, Y pixels)
 
     def get_initial_drive_amplitude(self):
         """Get the initial drive amplitude from the note (if drive amplitude not changed during imaging, this will be the drive amplitude for the entire image). Converts units to mV."""
@@ -123,17 +128,30 @@ class AFMImage:
 
     def get_filename(self):
         return self._extract_parameter('FileName')
+    
+    def get_FastScanSize(self):
+        return float(self._extract_parameter('FastScanSize')) * 1e6 # Units are in microns
+    def get_SlowScanSize(self):
+        """Note that SlowScanSize is the size the image would be in the slow scan direction if the image was completed. For partial images, this is larger than the actual image size."""
+        return float(self._extract_parameter('SlowScanSize')) * 1e6 # Units are in microns
+    def get_ScanPoints(self):
+        return int(self._extract_parameter('ScanPoints'))
+    def get_ScanLines(self):
+        return int(self._extract_parameter('ScanLines'))
+    
+    def get_x_y_size(self):
+        return self.get_FastScanSize()*self.get_x_y_pixel_counts()[0]/self.get_ScanPoints(), self.get_SlowScanSize()*self.get_x_y_pixel_counts()[1]/self.get_ScanLines() # Returns (x_size in um, y_size in um)
 
     def get_pixel_size(self):
         """
-        Calculate the pixel size in microns.
+        Calculate the pixel size. Units are same as FastScanSize and SlowScanSize (um).
         Validates that the pixels are square by comparing FastScanSize/ScanPoints and SlowScanSize/ScanLines.
         Raises ValueError if pixels are not square.
         """
-        fast_size = float(self._extract_parameter('FastScanSize'))
-        slow_size = float(self._extract_parameter('SlowScanSize'))
-        points = int(self._extract_parameter('ScanPoints'))
-        lines = int(self._extract_parameter('ScanLines'))
+        fast_size = self.get_FastScanSize()
+        slow_size = self.get_SlowScanSize()
+        points = self.get_ScanPoints()
+        lines = self.get_ScanLines()
 
         pixel_size_x = fast_size / points
         pixel_size_y = slow_size / lines
@@ -142,8 +160,7 @@ class AFMImage:
         if not np.isclose(pixel_size_x, pixel_size_y, rtol=0.01):
             raise ValueError(f"Non-square pixels: X size ({pixel_size_x:.3e}) != Y size ({pixel_size_y:.3e})")
 
-        # fast_size is in meters, convert to microns
-        return pixel_size_x * 1e6
+        return pixel_size_x
 
     def _extract_parameter(self, key, alternative_keys=None):
         if self.note:
