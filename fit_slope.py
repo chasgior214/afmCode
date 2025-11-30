@@ -1,3 +1,12 @@
+filter_by_sample = '37' # set to None to disable filtering
+filter_by_transfer_location = '$(6,3)' # set to None to disable filtering
+filter_by_cavity_position = None # set to None to disable filtering
+filter_by_depressurized_date = None # set to None to disable filtering, or 'YYYYMMDD' string
+filter_by_depressurized_time = None # set to None to disable filtering, or 'HHMMSS' string
+filter_at_least_n_points = 2  # if an integer n, only show CSVs with at least n data points
+filter_at_least_n_positive_points = 5  # if an integer n, only show CSVs with at least n positive deflection points
+
+##############################################################################
 import csv
 import os
 import sys
@@ -318,8 +327,8 @@ def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 		r2_min = float(np.min(r2_valid))
 		r2_max = float(np.max(r2_valid))
 		r2_span = r2_max - r2_min
-		# If the span is small (doesn't cover most of 0-1), zoom into the data
-		if r2_span < 0.6:
+		# If the span is small, zoom into the data
+		if r2_span < 0.8:
 			# Add a small padding relative to the span (or a minimum absolute padding)
 			pad = max(0.02, 0.05 * max(r2_span, 0.001))
 			ymin = max(0.0, r2_min - pad)
@@ -820,14 +829,6 @@ def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 
 csv_paths = pl.get_all_deflation_curve_paths()
 
-filter_by_sample = '37' # set to None to disable filtering
-filter_by_transfer_location = '$(6,3)' # set to None to disable filtering
-filter_by_cavity_position = None # set to None to disable filtering
-filter_by_depressurized_date = None # set to None to disable filtering, or 'YYYYMMDD' string
-filter_by_depressurized_time = None # set to None to disable filtering, or 'HHMMSS' string
-filter_at_least_two_points = True  # if True, only show CSVs with at least 2 data points
-filter_at_least_two_positive_points = True  # if True, only show CSVs with at least 2 positive deflection points
-
 if filter_by_sample is not None:
 	csv_paths = [p for p in csv_paths if f"_sample{filter_by_sample}_" in os.path.basename(p)]
 if filter_by_transfer_location is not None:
@@ -838,19 +839,19 @@ if filter_by_depressurized_date is not None:
 	csv_paths = [p for p in csv_paths if f"_depressurized{filter_by_depressurized_date}_" in os.path.basename(p)]
 if filter_by_depressurized_time is not None:
 	csv_paths = [p for p in csv_paths if f"_{filter_by_depressurized_time}_" in os.path.basename(p)]
-if filter_at_least_two_points:
+if filter_at_least_n_points:
 	filtered_paths = []
 	for p in csv_paths:
 		times, defs = load_csv(p)
-		if len(times) >= 2:
+		if len(times) >= filter_at_least_n_points:
 			filtered_paths.append(p)
 	csv_paths = filtered_paths
 
-if filter_at_least_two_positive_points:
+if filter_at_least_n_positive_points:
 	filtered_paths = []
 	for p in csv_paths:
 		times, defs = load_csv(p)
-		if sum(d > 0 for d in defs) >= 2:
+		if sum(d > 0 for d in defs) >= filter_at_least_n_positive_points:
 			filtered_paths.append(p)
 	csv_paths = filtered_paths
 

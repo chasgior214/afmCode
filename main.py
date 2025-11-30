@@ -8,7 +8,6 @@ import os
 import path_loader as pl
 
 ################################################################################
-save_to_csv = 1  # set true to save to CSV
 end_hour = None # None to not give end limit
 end_day = None # None to be same day as depressurization date
 ################################################################################
@@ -380,7 +379,7 @@ print(deflections)
 print(times)
 
 # save to CSV
-if save_to_csv:
+if pl.editing_mode:
     # only save if there is data
     if len(deflections) == 0:
         print("No deflection or time data to save; skipping CSV export")

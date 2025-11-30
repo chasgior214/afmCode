@@ -444,7 +444,7 @@ def plot_normalized_slope_vs_diameter():
     plt.grid(True)
     plt.show()
 
-# plot_recent_deflation_curve_slopes()
+plot_recent_deflation_curve_slopes()
 plot_slope_vs_diameter()
 plot_slope_vs_molecular_weight()
 plot_normalized_slope_vs_diameter()
