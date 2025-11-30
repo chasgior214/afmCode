@@ -200,24 +200,9 @@ def compute_extremum_square_info(z_data, center_x_idx, center_y_idx, pixel_size,
 
     # Compute the mode of the cross section at the y value of the max point.
     row_data = z_data[max_y_idx, :]
-    finite_row_indices = np.where(np.isfinite(row_data))[0]
-    if finite_row_indices.size == 0:
+    mode_height = calculate_substrate_height(row_data)
+    if mode_height is None:
         return None
-    row_values = row_data[finite_row_indices]
-    row_min = row_values.min()
-    row_max = row_values.max()
-    if not np.isfinite(row_min) or not np.isfinite(row_max):
-        return None
-    bins = np.arange(row_min, row_max + 0.5, 0.5)
-    if bins.size < 2:
-        return None
-    hist, edges = np.histogram(row_values, bins=bins)
-    if hist.size == 0:
-        return None
-    mode_idx = int(np.argmax(hist))
-    mode_center = (edges[mode_idx] + edges[mode_idx + 1]) / 2
-    nearest_idx = finite_row_indices[np.argmin(np.abs(row_values - mode_center))]
-    mode_height = float(row_data[nearest_idx])
 
     delta_nm = float(sub_max_height - mode_height)
     x_coord_um = float(x_coords[max_x_idx])
@@ -236,9 +221,9 @@ def iterative_paraboloid_fit(
     x_coords,
     start_x_um,
     start_y_um,
-    paraboloid_window_um,
     pixel_size,
     scan_size,
+    paraboloid_window_um=1,
     max_iterations=10,
     convergence_tol=1e-5
 ):
@@ -323,3 +308,34 @@ def iterative_paraboloid_fit(
         best_result = max(history, key=lambda item: item['r2'])
         
     return best_result
+
+
+def calculate_substrate_height(row_data, bin_size=0.5):
+    """
+    Calculate the substrate height from a row of data using the mode.
+    
+    Args:
+        row_data (np.ndarray): 1D array of height values.
+        bin_size (float): Size of the bin for histogramming. Units same as row_data.
+        
+    Returns:
+        float: The calculated substrate height, or None if calculation fails.
+    """
+    finite_row_indices = np.where(np.isfinite(row_data))[0]
+    if finite_row_indices.size == 0:
+        return None
+    row_values = row_data[finite_row_indices]
+    row_min = row_values.min()
+    row_max = row_values.max()
+    if not np.isfinite(row_min) or not np.isfinite(row_max):
+        return None
+    bins = np.arange(row_min, row_max + bin_size, bin_size)
+    if bins.size < 2:
+        return None
+    hist, edges = np.histogram(row_values, bins=bins)
+    if hist.size == 0:
+        return None
+    mode_idx = int(np.argmax(hist))
+    mode_center = (edges[mode_idx] + edges[mode_idx + 1]) / 2
+    nearest_idx = finite_row_indices[np.argmin(np.abs(row_values - mode_center))]
+    return float(row_data[nearest_idx])

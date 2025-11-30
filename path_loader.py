@@ -1,7 +1,9 @@
 editing_mode = False
 
-depressurized_date = '20251028'
-depressurized_time = '16:57:19'
+depressurized_date = '20251119'
+depressurized_time = '21:32:46'
+end_hour = None # None to not give end limit
+end_day = None # None to be same day as depressurization date
 sample_number = '37'
 transfer_location = '$(6,3)'
 cavity_position = 'red'

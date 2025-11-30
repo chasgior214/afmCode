@@ -7,11 +7,6 @@ import csv
 import os
 import path_loader as pl
 
-################################################################################
-end_hour = None # None to not give end limit
-end_day = None # None to be same day as depressurization date
-################################################################################
-
 """TODO
 
 make a 3D map of the image data with the paraboloid superimposed
@@ -288,6 +283,8 @@ def _build_initial_selections(collection, csv_path, depressurized_dt):
 
 
 depressurized_datetime = pl.depressurized_datetime
+end_day = pl.end_day
+end_hour = pl.end_hour
 if end_day is not None:
     end_datetime = depressurized_datetime.replace(day=end_day)
     if end_hour is not None:

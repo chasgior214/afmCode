@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button
 from matplotlib import patches
-from surface_analysis import fit_paraboloid, compute_extremum_square_info, iterative_paraboloid_fit
+from surface_analysis import fit_paraboloid, compute_extremum_square_info, iterative_paraboloid_fit, calculate_substrate_height
 
 
 class DualHandleSlider:
@@ -1190,14 +1190,11 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     def set_mode_height(event=None, *, slot=None, advance=True, silent=False):
         """Select the mode height from the current cross-section using 0.5 nm bins."""
         ydata = cumulative_adjusted_height if cumulative_adjusted_height is not None else height_map[nearest_y_to_plot, :]
-        if ydata.size == 0:
+        
+        mode_val = calculate_substrate_height(ydata)
+        if mode_val is None:
             return False
-        bins = np.arange(np.min(ydata), np.max(ydata) + 0.5, 0.5)
-        if bins.size < 2:
-            return False
-        hist, edges = np.histogram(ydata, bins=bins)
-        mode_idx = int(np.argmax(hist))
-        mode_val = (edges[mode_idx] + edges[mode_idx + 1]) / 2
+
         idx = int(np.argmin(np.abs(ydata - mode_val)))
         success = _record_selection(
             x[idx],
@@ -1233,9 +1230,9 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             x,
             current_x,
             current_y,
-            paraboloid_window_um,
             pixel_size,
-            scan_size
+            scan_size,
+            paraboloid_window_um
         )
 
         if best_result is None:
