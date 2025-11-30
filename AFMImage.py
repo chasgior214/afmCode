@@ -1,6 +1,6 @@
 import igor.binarywave
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timedelta
 
 class AFMImage:
     """
@@ -143,7 +143,41 @@ class AFMImage:
         return self.get_FastScanSize()*self.get_x_y_pixel_counts()[0]/self.get_ScanPoints(), self.get_SlowScanSize()*self.get_x_y_pixel_counts()[1]/self.get_ScanLines() # Returns (x_size in um, y_size in um)
 
     def get_imaging_duration(self):
-        return self.get_x_y_size()[1]/self.get_scan_rate()
+        return self.get_x_y_pixel_counts()[1]/self.get_scan_rate()
+
+    def get_acquisition_start_time(self):
+        """
+        Get the time when the image acquisition started.
+        Assumes get_datetime() returns the finish time.
+        """
+        return self.get_datetime() - timedelta(seconds=self.get_imaging_duration())
+
+    def get_line_acquisition_time(self, line_index):
+        """
+        Calculate the acquisition time for a specific line index.
+        
+        Args:
+            line_index (int): The 0-based index of the line.
+            
+        Returns:
+            datetime: When the line was imaged.
+        """
+        start_time = self.get_acquisition_start_time()
+        duration = self.get_imaging_duration()
+        direction = self.get_scan_direction()
+        _, total_lines = self.get_x_y_pixel_counts()
+        
+        # Clamp index
+        line_index = max(0, min(line_index, total_lines - 1))
+        
+        ratio = line_index / total_lines
+        
+        if direction == 1: # Scan Down
+            offset_seconds = ratio * duration
+        else: # Scan Up
+            offset_seconds = (1 - ratio) * duration
+            
+        return start_time + timedelta(seconds=offset_seconds)
 
     def get_pixel_size(self):
         """

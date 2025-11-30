@@ -464,11 +464,8 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             y_pixels, key=lambda y_pixel: abs(y_pixel * pixel_size - line_height)
         )
 
-        ratio = nearest_y_to_plot / y_pixel_count
-        if scan_direction == 1:  # Scanning down
-            time_since_start = ratio * imaging_duration
-        else:
-            time_since_start = (1 - ratio) * imaging_duration
+        line_time = image.get_line_acquisition_time(nearest_y_to_plot)
+        time_since_start = (line_time - image.get_acquisition_start_time()).total_seconds()
 
         cumulative_adjusted_height = height_map[nearest_y_to_plot, :].copy()
         hline_height.set_ydata([line_height, line_height])
