@@ -29,16 +29,16 @@ overall_slopes = {
     'Ar': {
         'red': 0.95,
         'blue': 2.7,
-        'green': 0.088,
-        'orange': 0.059,
-        'black': 0.080
+        'green': 0.118,
+        'orange': 0.081,
+        'black': 0.110
     },
     'CH4': {
         'red': 1.32,
         'blue': 3.56,
-        'green': 0.036,
-        'black': 0.033,
-        'orange': 0.021
+        'green': 0.043,
+        'black': 0.043,
+        'orange': 0.026
     },
     'N2': {
         'green': 0.026,
@@ -50,16 +50,23 @@ overall_slopes = {
     'C2H4': {
         'red': 3.42,
         'blue': 7.52,
-        'green': 0.049,
-        'black': 0.043,
+        'green': 0.059,
+        'black': 0.059,
         'orange': 0.036
     },
     'C3H8': {
         'blue': 1.03,
-        'red': 0.0465,
-        'green': 0.0061,
-        'black': 0.0039,
-        'orange': 0.0036
+        'red': 0.031,
+        'green': 0.0063,
+        'black': 0.0061,
+        'orange': 0.0044
+    },
+    'C2H6': {
+        'black': 0.019,
+        'blue': 0.72,
+        'green': 0.018,
+        'orange': 0.012,
+        'red': 0.061
     }
 }
 
@@ -147,6 +154,8 @@ def plot_recent_deflation_curve_slopes():
         # '17-Nov	15:24:00': 'H2',
     # }
         '19-Nov	21:32:46': 'H2',
+        '26-Nov	14:07:40': 'C2H6',
+        '01-Dec	14:15:20': 'C2H6'
     }
 
     # convert date/time to YYYYMMDD_HHMMSS format, including replacing the 3 character month with 2 digit month
@@ -273,7 +282,7 @@ def plot_recent_deflation_curve_slopes():
 
 def plot_slope_vs_diameter():
     # plot the slopes versus kinetic diameters. Colour the points by the keys of the slope dictionaries. Make the orange and red point markers unfilled.
-    for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('CO2', overall_slopes['CO2']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4']), ('N2', overall_slopes['N2']), ('C2H4', overall_slopes['C2H4']), ('C3H8', overall_slopes['C3H8'])]:
+    for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('CO2', overall_slopes['CO2']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4']), ('N2', overall_slopes['N2']), ('C2H4', overall_slopes['C2H4']), ('C3H8', overall_slopes['C3H8']), ('C2H6', overall_slopes['C2H6'])]:
         kd = gc.kinetic_diameters[gas]
         for color, slope in slopes.items():
             marker = color_to_marker[color]
@@ -284,7 +293,7 @@ def plot_slope_vs_diameter():
     plt.yscale('log')
 
     # put labels for each gas kinematic diameters on the x axis
-    for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('CO2', overall_slopes['CO2']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4']), ('N2', overall_slopes['N2']), ('C2H4', overall_slopes['C2H4']), ('C3H8', overall_slopes['C3H8'])]:
+    for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('CO2', overall_slopes['CO2']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4']), ('N2', overall_slopes['N2']), ('C2H4', overall_slopes['C2H4']), ('C3H8', overall_slopes['C3H8']), ('C2H6', overall_slopes['C2H6'])]:
         kd = gc.kinetic_diameters[gas]
         plt.axvline(x=kd, color='gray', linestyle='--', linewidth=0.5)
         plt.text(kd, plt.ylim()[0], gas, verticalalignment='bottom', horizontalalignment='right')
@@ -321,7 +330,7 @@ def plot_slope_vs_molecular_weight():
     # do the same but plot slopes versus molecular weights
     plt.figure()
     delta_for_close_mws = 0.4
-    for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('CO2', overall_slopes['CO2']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4']), ('N2', overall_slopes['N2']), ('C2H4', overall_slopes['C2H4']), ('C3H8', overall_slopes['C3H8'])]:
+    for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('CO2', overall_slopes['CO2']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4']), ('N2', overall_slopes['N2']), ('C2H4', overall_slopes['C2H4']), ('C3H8', overall_slopes['C3H8']), ('C2H6', overall_slopes['C2H6'])]:
         mw = gc.molecular_weights[gas]
         if gas in ['N2', 'CO2']:
             mw -= delta_for_close_mws
@@ -396,7 +405,7 @@ def plot_slope_vs_molecular_weight():
 def plot_normalized_slope_vs_diameter():
     # make a plot with diameter on the x axis and slope normalized by multiplying by the square root of (molar mass * 2 * π * R * T) on the y axis
     plt.figure()
-    for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('CO2', overall_slopes['CO2']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4']), ('N2', overall_slopes['N2']), ('C2H4', overall_slopes['C2H4']), ('C3H8', overall_slopes['C3H8'])]:
+    for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('CO2', overall_slopes['CO2']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4']), ('N2', overall_slopes['N2']), ('C2H4', overall_slopes['C2H4']), ('C3H8', overall_slopes['C3H8']), ('C2H6', overall_slopes['C2H6'])]:
         kd = gc.kinetic_diameters[gas]
         mm = gc.molar_masses_kg_per_mol[gas]
         for color, slope in slopes.items():
@@ -409,7 +418,7 @@ def plot_normalized_slope_vs_diameter():
     plt.yscale('log')
 
     # put labels for each gas kinematic diameters on the x axis
-    for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('CO2', overall_slopes['CO2']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4']), ('N2', overall_slopes['N2']), ('C2H4', overall_slopes['C2H4']), ('C3H8', overall_slopes['C3H8'])]:
+    for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('CO2', overall_slopes['CO2']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4']), ('N2', overall_slopes['N2']), ('C2H4', overall_slopes['C2H4']), ('C3H8', overall_slopes['C3H8']), ('C2H6', overall_slopes['C2H6'])]:
         kd = gc.kinetic_diameters[gas]
         plt.axvline(x=kd, color='gray', linestyle='--', linewidth=0.5)
         plt.text(kd, plt.ylim()[0], gas, verticalalignment='bottom', horizontalalignment='right')

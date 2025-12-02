@@ -5,6 +5,8 @@ import AFMImageCollection
 import surface_analysis as sa
 import path_loader as pl
 import visualizations as vis
+import csv
+import os
 from matplotlib.patches import Circle
 from matplotlib.widgets import Slider, Button
 from matplotlib.colors import is_color_like
@@ -543,6 +545,8 @@ class WellPositionsReviewer:
                     entry = None
                 if entry:
                     self.handle_retrack(entry)
+            elif event.key == 'e':
+                self.export_deflation_curves()
 
         self.fig.canvas.mpl_connect('key_press_event', on_key)
 
@@ -566,6 +570,77 @@ class WellPositionsReviewer:
         
         if selected_entry:
             self.handle_retrack(selected_entry)
+
+    def export_deflation_curves(self):
+        print("Exporting deflation curves...")
+        print(self.results)
+
+        if not pl.editing_mode:
+            print("Editing mode is disabled (pl.editing_mode == False); skipping CSV export.")
+            return
+
+        if not self.results:
+            print("No results available to export.")
+            return
+
+        os.makedirs(pl.deflation_curves_path, exist_ok=True)
+
+        header = [
+            'Time (minutes)',
+            'Deflection (nm)',
+            'Point 1 X Pixel',
+            'Point 1 Y Pixel',
+            'Point 1 X (um)',
+            'Point 1 Y (um)',
+            'Point 1 Z (nm)',
+            'Point 2 X Pixel',
+            'Point 2 Y Pixel',
+            'Point 2 X (um)',
+            'Point 2 Y (um)',
+            'Point 2 Z (nm)'
+        ]
+
+        wells = sorted(set(entry['Well'] for entry in self.results))
+        for well in wells:
+            well_entries = [entry for entry in self.results if entry['Well'] == well]
+            if not well_entries:
+                continue
+
+            well_entries.sort(key=lambda e: e.get('Time (minutes)', 0))
+            file_path = pl.get_deflation_curve_path(
+                pl.sample_number,
+                pl.depressurized_date,
+                pl.depressurized_time,
+                pl.transfer_location,
+                well
+            )
+
+            if os.path.exists(file_path):
+                print(f"Overwriting existing file {file_path}")
+            else:
+                print(f"Saving deflation curve for well '{well}' to {file_path}")
+
+            with open(file_path, mode='w', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow(header)
+                for entry in well_entries:
+                    writer.writerow([
+                        entry.get('Time (minutes)'),
+                        entry.get('Deflection (nm)'),
+                        entry.get('Point 1 X Pixel'),
+                        entry.get('Point 1 Y Pixel'),
+                        entry.get('Point 1 X (um)'),
+                        entry.get('Point 1 Y (um)'),
+                        entry.get('Point 1 Z (nm)'),
+                        entry.get('Point 2 X Pixel'),
+                        entry.get('Point 2 Y Pixel'),
+                        entry.get('Point 2 X (um)'),
+                        entry.get('Point 2 Y (um)'),
+                        entry.get('Point 2 Z (nm)'),
+                    ])
+
+        print("Deflation curve export complete.")
+
 
     def handle_retrack(self, entry):
         image_name = entry['Image Name']
@@ -696,11 +771,11 @@ if __name__ == "__main__":
                 each_found_well_updates_all_well_positions=True
             )
             
-            print("Results:")
-            for entry in results:
-                # only print first 5 and last 5 entries to avoid flooding the output
-                if results.index(entry) < 5 or results.index(entry) >= len(results) - 5:
-                    print(entry)
+            # print("Results:")
+            # for entry in results:
+            #     # only print first 5 and last 5 entries to avoid flooding the output
+            #     if results.index(entry) < 5 or results.index(entry) >= len(results) - 5:
+            #         print(entry)
             
             # Call WellPositionsReviewer
             plotter = WellPositionsReviewer(navigator, image_collection, results, sample37_wells_as_coords)

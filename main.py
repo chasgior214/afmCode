@@ -9,6 +9,12 @@ import path_loader as pl
 
 """TODO
 
+general code cleanup/some refactoring, documentation
+- YAML config instead of settings all over the place (or at least keep centralizing in path_loader)
+
+keep working on Excel integration
+- For chronological plot, let me just give a start date (last week’s ppt) and it automatically takes the ones since then and plots them (would need to do basic Excel access for getting the gas species but mostly could read from the slopeIDs)
+
 make a 3D map of the image data with the paraboloid superimposed
 
 when looking for the "substrate" (what I really mean is the graphene height outside the well), if it's bimodal/multimodal, can have it pick the one that's closest to the paraboloid vertex. Fixes edge cases where more of the image line off the well is either on the substrate or on a different step height of graphene
@@ -25,6 +31,7 @@ Try using a denoising model to smooth images before paraboloid fitting?
     - https://careamics.github.io/0.1/
     - likely use either an algorithm of single images or pairs of images
     - give it cleaner photos only (not when the drive amplitude is too low, maybe only ones with good phase maps)
+    - test on some particularly noisy deflations (ex H2 deflation images from Oct 17th), see how much the fits change
 
 Add filters to the list of images, could show only ones within a certain range of offsets to pick specific wells
 
