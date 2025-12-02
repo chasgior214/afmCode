@@ -22,6 +22,9 @@ another line, extremum location relative to neutral piezo in um (take position r
 could I do the fourier transform thing that the drift thing uses to align all my images? Could feed it all the images from a depressurization and it could match the wells together, then I could pinpoint centeres and do completely automated data extraction, could be amazing with sample53
 
 Try using a denoising model to smooth images before paraboloid fitting?
+    - https://careamics.github.io/0.1/
+    - likely use either an algorithm of single images or pairs of images
+    - give it cleaner photos only (not when the drive amplitude is too low, maybe only ones with good phase maps)
 
 Add filters to the list of images, could show only ones within a certain range of offsets to pick specific wells
 

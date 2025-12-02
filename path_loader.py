@@ -1,7 +1,7 @@
 editing_mode = False
 
-depressurized_date = '20251119'
-depressurized_time = '21:32:46'
+depressurized_date = '20251126'
+depressurized_time = '14:07:40'
 end_hour = None # None to not give end limit
 end_day = None # None to be same day as depressurization date
 sample_number = '37'

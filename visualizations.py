@@ -1528,7 +1528,14 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
                 if x_center is not None and y_center is not None:
                     _zoom_to_square(float(x_center), float(y_center))
 
-    plt.show()
+    # Use a manual event loop to ensure blocking behavior, especially when called
+    # from within another matplotlib callback (nested event loops).
+    def _on_close(event):
+        fig.canvas.stop_event_loop()
+    fig.canvas.mpl_connect('close_event', _on_close)
+
+    plt.show(block=False)
+    fig.canvas.start_event_loop()
 
     if aborted:
         return None  # Canceled by Tab key

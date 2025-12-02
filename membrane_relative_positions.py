@@ -6,7 +6,8 @@ import surface_analysis as sa
 import path_loader as pl
 import visualizations as vis
 from matplotlib.patches import Circle
-from matplotlib.widgets import Slider, Button  # added import (Slider + Button)
+from matplotlib.widgets import Slider, Button
+from matplotlib.colors import is_color_like
 
 # GOAL: have my system know where the wells are relative to each other, so for any images with multiple wells, I only point out one well, and it figures out where the others are, gets the deflections autonomously, and logs the data. Will be important for sample53, but also speeds up sample37 (only have to pick one well per image cuts time down aby about 40%, and some persistence between images when there's not much time between them could cut 90+% of the time spent picking wells)
 # TODO update x_spacing, y_spacing based on an average over a big image
@@ -59,7 +60,7 @@ class MembraneNavigator:
         x_size, y_size = image.get_x_y_size()
         return (image_origin_absolute_x, image_origin_absolute_y, image_origin_absolute_x + x_size, image_origin_absolute_y + y_size)
 
-    def track_wells(self, image_collection, initial_well_name, initial_well_coords, well_map, initial_well_absolute_pos=None, edge_tolerance=0, each_found_well_updates_all_well_positions=False):
+    def track_wells(self, image_collection, initial_well_name, initial_well_coords, well_map, initial_well_absolute_pos=None, initial_well_fixed_z=None, edge_tolerance=0, each_found_well_updates_all_well_positions=False):
         """
         Track wells across an image collection.
         
@@ -163,7 +164,12 @@ class MembraneNavigator:
                     rel_x = clamped_x - absolute_image_bounds[0]
                     rel_y = clamped_y - absolute_image_bounds[1]
 
-                    fit_result = sa.iterative_paraboloid_fit(
+                    # Check if should use fixed position for the initial well in the first image
+                    if image == images[0] and well == initial_well_name and initial_well_fixed_z is not None:
+                        print(f"Using user-supplied position for {well} in {image.bname}")
+                        fit_result = {'vx': rel_x, 'vy': rel_y, 'vz': initial_well_fixed_z}
+                    else:
+                        fit_result = sa.iterative_paraboloid_fit(
                         height_map,
                         x_coords,
                         rel_x,
@@ -266,6 +272,391 @@ sample37_wells_as_coords = {
 # plt.grid()
 # plt.show()
 
+class WellPositionsReviewer:
+    def __init__(self, navigator, image_collection, results, well_map):
+        self.navigator = navigator
+        self.image_collection = image_collection
+        self.results = results
+        self.well_map = well_map
+        self.image_map = {img.bname: img for img in self.image_collection.images}
+        self.fig = None
+        self.ax1 = None
+        self.ax2 = None
+        self.slider = None
+        self.scatter_map_ax1 = {}
+        self.scatter_map_ax2 = {}
+        self.abs_points = []
+        self.times = []
+        self.min_time = 0
+        self.max_time = 1
+        self.initial_xlim = (0, 1)
+        self.initial_ylim = (0, 1)
+        self.well_colors = {}
+
+    def _assign_well_colors(self):
+        unique_wells = sorted(list(set(entry['Well'] for entry in self.results)))
+        palette = plt.cm.tab10.colors  # Use a standard palette
+        palette_idx = 0
+        
+        for well in unique_wells:
+            if is_color_like(well):
+                self.well_colors[well] = well
+            else:
+                # Assign a color from the palette
+                self.well_colors[well] = palette[palette_idx % len(palette)]
+                palette_idx += 1
+
+    def plot(self):
+        self.refresh_data()
+        
+        self.fig, (self.ax1, self.ax2) = plt.subplots(2, 1, figsize=(10, 12), gridspec_kw={'height_ratios': [1, 2]})
+        # Increase top/bottom margins and vertical spacing so slider fits between plots
+        plt.subplots_adjust(bottom=0.08, top=0.95, hspace=0.35)
+        
+        self.draw_deflection_plot()
+        self.draw_absolute_positions(self.max_time)
+        self.setup_slider_and_buttons()
+        
+        self.fig.canvas.mpl_connect('pick_event', self.on_pick)
+        
+        # Maximize window if possible
+        manager = plt.get_current_fig_manager()
+        try:
+            manager.window.showMaximized()
+        except Exception:
+            try:
+                manager.window.state('zoomed')
+            except Exception:
+                pass
+        plt.show()
+
+    def refresh_data(self):
+        # Precompute absolute coordinates
+        self._assign_well_colors()
+        self.abs_points = []
+        for entry in self.results:
+            img = self.image_map.get(entry['Image Name'])
+            if img is None:
+                continue
+            ox, oy = self.navigator.offset_image_origin_to_absolute_piezo_position(img)
+            abs_x = ox + entry['Point 2 X (um)']
+            abs_y = oy + entry['Point 2 Y (um)']
+            # Store full entry for retrieval
+            self.abs_points.append({
+                'time': entry['Time (minutes)'],
+                'x': abs_x,
+                'y': abs_y,
+                'well': entry['Well'],
+                'deflection': entry['Deflection (nm)'],
+                'entry': entry
+            })
+        
+        if not self.abs_points:
+            self.min_time, self.max_time = 0, 1
+            return
+
+        self.abs_points.sort(key=lambda p: p['time'])
+        self.times = [p['time'] for p in self.abs_points]
+        self.min_time, self.max_time = min(self.times), max(self.times)
+        
+        xs = [p['x'] for p in self.abs_points]
+        ys = [p['y'] for p in self.abs_points]
+        margin_x = max(1.0, 0.05 * (max(xs) - min(xs)))
+        margin_y = max(1.0, 0.05 * (max(ys) - min(ys)))
+        self.initial_xlim = (min(xs) - margin_x, max(xs) + margin_x)
+        self.initial_ylim = (min(ys) - margin_y, max(ys) + margin_y)
+
+    def draw_deflection_plot(self):
+        self.ax1.clear()
+        self.scatter_map_ax1 = {}
+        
+        for well_name in set(entry['Well'] for entry in self.results):
+            well_data = [entry for entry in self.results if entry['Well'] == well_name]
+            t = [entry['Time (minutes)'] for entry in well_data]
+            d = [entry['Deflection (nm)'] for entry in well_data]
+            color = self.well_colors.get(well_name, 'black')
+            sc = self.ax1.scatter(t, d, label=well_name, picker=5, color=color)
+            self.scatter_map_ax1[sc] = well_data
+            
+        self.ax1.set_xlabel('Time (min)')
+        self.ax1.set_ylabel('Deflection (nm)')
+        self.ax1.set_title('Deflection vs Time (Click point to re-track)')
+        if not all(is_color_like(well) for well in self.well_colors):
+            self.ax1.legend(loc='upper right')
+        self.ax1.grid(True, alpha=0.3)
+
+    def draw_absolute_positions(self, time_cut):
+        self.ax2.clear()
+        self.scatter_map_ax2 = {}
+        
+        # Group points by well
+        points_by_well = {}
+        for p in self.abs_points:
+            if p['time'] <= time_cut:
+                if p['well'] not in points_by_well:
+                    points_by_well[p['well']] = []
+                points_by_well[p['well']].append(p)
+        
+        drawn_labels = set()
+        # Determine last displayed time across points that are within `time_cut`.
+        # This ensures star marks most recent point shown by the slider.
+        displayed_last_time = None
+        if points_by_well:
+            displayed_last_time = max(p['time'] for pts in points_by_well.values() for p in pts)
+        for well, points in points_by_well.items():
+            points.sort(key=lambda p: p['time'])
+            
+            # Previous points
+            if len(points) > 1:
+                prev_points = points[:-1]
+                xs = [p['x'] for p in prev_points]
+                ys = [p['y'] for p in prev_points]
+                color = self.well_colors.get(well, 'black')
+                sc = self.ax2.scatter(xs, ys, color=color, s=100, alpha=0.6, marker='o', picker=5)
+                self.scatter_map_ax2[sc] = prev_points
+            
+            # Last point
+            last_point = points[-1]
+            label = well if well not in drawn_labels else None
+            color = self.well_colors.get(well, 'black')
+            # If last point is most recent among displayed points, mark it with a star
+            if displayed_last_time is not None and last_point['time'] == displayed_last_time:
+                sc = self.ax2.scatter([last_point['x']], [last_point['y']], color=color, s=250, alpha=1.0, marker='*', linewidths=2, label=label, picker=5)
+            else:
+                sc = self.ax2.scatter([last_point['x']], [last_point['y']], color=color, s=150, alpha=1.0, marker='x', linewidths=3, label=label, picker=5)
+            self.scatter_map_ax2[sc] = [last_point]
+            if label:
+                drawn_labels.add(label)
+
+        self.ax2.set_xlabel('Absolute X Position (μm)')
+        self.ax2.set_ylabel('Absolute Y Position (μm)')
+        self.ax2.set_title(f'Found Well Positions up to {time_cut:.1f} min (Click point to re-track)')
+        self.ax2.grid(True, alpha=0.3)
+        self.ax2.set_aspect('equal', adjustable='box')
+        self.ax2.set_xlim(self.initial_xlim)
+        self.ax2.set_ylim(self.initial_ylim)
+        if drawn_labels and not all(is_color_like(well) for well in self.well_colors):
+            self.ax2.legend(loc='upper right')
+        
+        self.fig.canvas.draw_idle()
+
+    def get_last_displayed_entry(self, time_cut):
+        """Return the original results entry for the last point with time <= time_cut.
+
+        If no points are displayed for the given cut, returns None.
+        """
+        # Guard if no points
+        if not self.abs_points:
+            return None
+
+        # Filter points that are within the displayed time cut
+        pts = [p for p in self.abs_points if p['time'] <= time_cut]
+        if not pts:
+            return None
+
+        # Find the most recent time among displayed points
+        max_time = max(p['time'] for p in pts)
+        # Choose the last point with that time (preserves ordering)
+        candidates = [p for p in pts if p['time'] == max_time]
+        if not candidates:
+            return None
+        return candidates[-1]['entry']
+
+    def setup_slider_and_buttons(self):
+        # Slider for time cut: place between the two plots and make its width match ax1
+        axcolor = 'lightgoldenrodyellow'
+        # Ensure figure layout is drawn so axes positions are accurate
+        try:
+            self.fig.canvas.draw()
+        except Exception:
+            pass
+
+        pos1 = self.ax1.get_position()
+        pos2 = self.ax2.get_position()
+
+        slider_height = 0.03
+        # x and width match ax1 so slider lines up with the deflection plot x-axis
+        slider_x = pos1.x0
+        slider_width = pos1.x1 - pos1.x0
+        # place vertically between ax1 bottom and ax2 top
+        slider_y = pos2.y1 + (pos1.y0 - pos2.y1) / 2.0 - slider_height / 2.0
+
+        # Clamp slider_y to reasonable figure bounds
+        slider_y = max(0.01, min(0.95, slider_y))
+
+        ax_slider = self.fig.add_axes([slider_x, slider_y, slider_width, slider_height], facecolor=axcolor)
+        # Remove label text (only keep buttons); also hide the value text
+        self.slider = Slider(ax_slider, '', self.min_time, self.max_time,
+                             valinit=self.max_time, valstep=max((self.max_time - self.min_time) / 200.0, 0.1))
+        try:
+            # hide the text that shows the current slider value
+            self.slider.valtext.set_visible(False)
+        except Exception:
+            pass
+        self.slider.on_changed(lambda val: self.draw_absolute_positions(val))
+
+        # Buttons: Prev / Next — position them just outside the slider ends
+        button_width = min(0.08, slider_width * 0.08 + 0.02)
+        gap = 0.01
+        left_x = max(0.0, slider_x - button_width - gap)
+        right_x = min(0.99 - button_width, slider_x + slider_width + gap)
+        axprev = self.fig.add_axes([left_x, slider_y, button_width, slider_height])
+        axnext = self.fig.add_axes([right_x, slider_y, button_width, slider_height])
+        bprev = Button(axprev, 'Prev')
+        bnext = Button(axnext, 'Next')
+        
+        # Keep references to prevent garbage collection
+        self.bprev = bprev
+        self.bnext = bnext
+
+        def show_n(n):
+            n = int(max(1, min(len(self.abs_points), n)))
+            if n > 0:
+                t = self.abs_points[n - 1]['time']
+                self.slider.set_val(t)
+
+        def on_prev(event):
+            # Find current count based on slider value
+            current_time = self.slider.val
+            current_n = sum(1 for p in self.abs_points if p['time'] <= current_time)
+            show_n(current_n - 1)
+
+        def on_next(event):
+            current_time = self.slider.val
+            current_n = sum(1 for p in self.abs_points if p['time'] <= current_time)
+            show_n(current_n + 1)
+
+        bprev.on_clicked(on_prev)
+        bnext.on_clicked(on_next)
+
+        def on_key(event):
+            if event.key in ('left', 'arrowleft'):
+                on_prev(None)
+            elif event.key in ('right', 'arrowright'):
+                on_next(None)
+            elif event.key in (' ', 'space'):
+                # Spacebar: retrack the last displayed point (the most recent point
+                # up to the current slider value). This mirrors clicking the star.
+                try:
+                    entry = self.get_last_displayed_entry(self.slider.val)
+                except Exception:
+                    entry = None
+                if entry:
+                    self.handle_retrack(entry)
+
+        self.fig.canvas.mpl_connect('key_press_event', on_key)
+
+    def on_pick(self, event):
+        artist = event.artist
+        # Just take the first point if multiple are close
+        if not hasattr(event, 'ind') or len(event.ind) == 0:
+            return
+        ind = event.ind[0] 
+        
+        selected_entry = None
+        
+        if artist in self.scatter_map_ax1:
+            entries = self.scatter_map_ax1[artist]
+            if ind < len(entries):
+                selected_entry = entries[ind]
+        elif artist in self.scatter_map_ax2:
+            points = self.scatter_map_ax2[artist]
+            if ind < len(points):
+                selected_entry = points[ind]['entry']
+        
+        if selected_entry:
+            self.handle_retrack(selected_entry)
+
+    def handle_retrack(self, entry):
+        image_name = entry['Image Name']
+        well_name = entry['Well']
+        print(f"\nSelected {well_name} in {image_name}")
+        
+        image = self.image_map.get(image_name)
+        if not image:
+            return
+
+        # Open select_heights
+        print("Opening image for selection... Please select the new extremum.")
+        # Prepare initial selection from existing entry
+        p1 = (
+            entry.get('Point 1 Z (nm)'),
+            entry.get('Point 1 X (um)'),
+            entry.get('Point 1 Y (um)'),
+            entry.get('Point 1 X Pixel'),
+            entry.get('Point 1 Y Pixel')
+        )
+        p2 = (
+            entry.get('Point 2 Z (nm)'),
+            entry.get('Point 2 X (um)'),
+            entry.get('Point 2 Y (um)'),
+            entry.get('Point 2 X Pixel'),
+            entry.get('Point 2 Y Pixel')
+        )
+        initial_slots = [p1, p2]
+        initial_y = entry.get('Point 2 Y (um)', 0)
+
+        res = vis.select_heights(image, initial_line_height=initial_y, initial_selected_slots=initial_slots)
+        print(f"DEBUG: select_heights returned: {res}")
+        slots = res.get('selected_slots', [None, None])
+        extremum = slots[1]
+        
+        if extremum:
+            new_well_name = input(f"Enter well name (default = {well_name}): ")
+            if not new_well_name:
+                new_well_name = well_name
+            
+            # Calculate absolute position
+            ox, oy = self.navigator.offset_image_origin_to_absolute_piezo_position(image)
+            abs_x = extremum[1] + ox
+            abs_y = extremum[2] + oy
+            initial_pos = (abs_x, abs_y)
+            initial_z = extremum[0]
+            
+            # Slice images
+            all_images = self.image_collection.images
+            try:
+                start_idx = all_images.index(image)
+            except ValueError:
+                return
+                
+            images_to_process = all_images[start_idx:]
+            
+            # Truncate results: Keep results from images BEFORE the clicked image
+            images_to_keep = set(img.bname for img in all_images[:start_idx])
+            self.results = [r for r in self.results if r['Image Name'] in images_to_keep]
+            
+            print(f"Retracking from {image_name} with {new_well_name}...")
+            
+            new_results = self.navigator.track_wells(
+                images_to_process,
+                new_well_name,
+                self.well_map.get(new_well_name, (0,0)), 
+                self.well_map,
+                initial_well_absolute_pos=initial_pos,
+                initial_well_fixed_z=initial_z,
+                edge_tolerance=0.3,
+                each_found_well_updates_all_well_positions=True
+            )
+            
+            self.results.extend(new_results)
+            
+            # Refresh plot
+            self.refresh_data()
+            self.draw_deflection_plot()
+            self.draw_absolute_positions(self.max_time)
+            
+            # Update slider limits
+            self.slider.valmin = self.min_time
+            self.slider.valmax = self.max_time
+            self.slider.ax.set_xlim(self.min_time, self.max_time)
+            self.slider.set_val(self.max_time)
+            
+            print("Retracking complete. Plot updated.")
+        else:
+            print("No extremum selected. Retracking cancelled.")
+
+
 # Example Usage / Script
 if __name__ == "__main__":
     navigator = MembraneNavigator()
@@ -307,121 +698,14 @@ if __name__ == "__main__":
             
             print("Results:")
             for entry in results:
-                # onlt print first 5 and last 5 entries to avoid flooding the output
+                # only print first 5 and last 5 entries to avoid flooding the output
                 if results.index(entry) < 5 or results.index(entry) >= len(results) - 5:
                     print(entry)
             
-            # Plot results
-            for entry in results:
-                plt.scatter(entry['Time (minutes)'], entry['Deflection (nm)'], color=entry['Well'], label=entry['Well'])
-            plt.xlabel('Time (min)')
-            plt.ylabel('Deflection (nm)')
-            plt.show()
+            # Call WellPositionsReviewer
+            plotter = WellPositionsReviewer(navigator, image_collection, results, sample37_wells_as_coords)
+            plotter.plot()
             
-            # Plot the found well positions from results converted to absolute positions
-            # Create image lookup map
-            image_map = {img.bname: img for img in image_collection.images}
-            
-            # Prepare interactive plot with slider for time window
-            if not results:
-                print("No results to plot.")
-            else:
-                # Precompute absolute coordinates for all results (skip entries with missing images)
-                abs_points = []
-                for entry in results:
-                    img = image_map.get(entry['Image Name'])
-                    if img is None:
-                        continue
-                    ox, oy = navigator.offset_image_origin_to_absolute_piezo_position(img)
-                    abs_x = ox + entry['Point 2 X (um)']
-                    abs_y = oy + entry['Point 2 Y (um)']
-                    abs_points.append((entry['Time (minutes)'], abs_x, abs_y, entry['Well']))
-
-                if not abs_points:
-                    print("No valid absolute points to plot.")
-                else:
-                    # sort by time so "next"/"prev" operate in chronological order
-                    abs_points.sort(key=lambda p: p[0])
-                    xs = [p[1] for p in abs_points]
-                    ys = [p[2] for p in abs_points]
-                    # small margin so points aren't on the edge
-                    margin_x = max(1.0, 0.05 * (max(xs) - min(xs)))
-                    margin_y = max(1.0, 0.05 * (max(ys) - min(ys)))
-                    initial_xlim = (min(xs) - margin_x, max(xs) + margin_x)
-                    initial_ylim = (min(ys) - margin_y, max(ys) + margin_y)
-
-                    times = [p[0] for p in abs_points]
-                    min_time, max_time = min(times), max(times)
-
-                    fig, ax = plt.subplots(figsize=(10, 8))
-                    plt.subplots_adjust(bottom=0.22)  # extra room for buttons
-
-                    def draw_points(time_cut):
-                        ax.clear()
-                        drawn_labels = set()
-                        for t, x, y, well in abs_points:
-                            if t <= time_cut:
-                                label = well if well not in drawn_labels else None
-                                ax.scatter(x, y, color=well, s=100, alpha=0.6, label=label)
-                                if label:
-                                    drawn_labels.add(label)
-                        ax.set_xlabel('Absolute X Position (μm)')
-                        ax.set_ylabel('Absolute Y Position (μm)')
-                        ax.set_title(f'Found Well Positions up to {time_cut:.1f} min')
-                        ax.grid(True, alpha=0.3)
-                        ax.set_aspect('equal', adjustable='box')
-                        # always enforce the same limits computed from all valid points
-                        ax.set_xlim(initial_xlim)
-                        ax.set_ylim(initial_ylim)
-                        if drawn_labels:
-                            ax.legend(loc='upper right')
-                        fig.canvas.draw_idle()
-
-                    # Slider
-                    axcolor = 'lightgoldenrodyellow'
-                    ax_slider = plt.axes([0.15, 0.08, 0.7, 0.04], facecolor=axcolor)
-                    time_slider = Slider(ax_slider, 'Minutes', min_time, max_time,
-                                         valinit=max_time, valstep=max((max_time - min_time) / 200.0, 0.1))
-                    time_slider.on_changed(lambda val: draw_points(val))
-
-                    # Buttons: Prev / Next (show/remove one more result)
-                    axprev = plt.axes([0.02, 0.08, 0.08, 0.04])
-                    axnext = plt.axes([0.9, 0.08, 0.08, 0.04])
-                    bprev = Button(axprev, 'Prev')
-                    bnext = Button(axnext, 'Next')
-
-                    # use a mutable container so nested callbacks can update the count without 'nonlocal'
-                    current_n = [len(abs_points)]  # how many points are currently shown (1..N)
-
-                    def show_n(n):
-                        n = int(max(1, min(len(abs_points), n)))
-                        current_n[0] = n
-                        # set slider to time of nth point (this triggers draw_points via on_changed)
-                        t = abs_points[n - 1][0]
-                        time_slider.set_val(t)
-
-                    def on_prev(event):
-                        show_n(current_n[0] - 1)
-
-                    def on_next(event):
-                        show_n(current_n[0] + 1)
-
-                    bprev.on_clicked(on_prev)
-                    bnext.on_clicked(on_next)
-
-                    # allow left/right arrow keys to navigate like the buttons
-                    def on_key(event):
-                        # event.key is typically 'left' / 'right' for arrow keys
-                        if event.key in ('left', 'arrowleft'):
-                            show_n(current_n[0] - 1)
-                        elif event.key in ('right', 'arrowright'):
-                            show_n(current_n[0] + 1)
-
-                    fig.canvas.mpl_connect('key_press_event', on_key)
-
-                    # initial draw with all points visible
-                    draw_points(max_time)
-                    plt.show()
         else:
             print(f"Well '{well_clicked_on}' not found in coordinates map.")
     else:
