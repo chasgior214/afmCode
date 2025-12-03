@@ -337,7 +337,7 @@ print(times)
 if pl.editing_mode:
     # only save if there is data
     if len(deflections) == 0:
-        print("No deflection or time data to save; skipping CSV export")
+        print("No deflection data to save; skipping CSV export")
     else:
         dir_path = pl.deflation_curves_path
         file_path = pl.deflation_curve_path

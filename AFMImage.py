@@ -247,7 +247,7 @@ class AFMImage:
 
     def get_x_4z(self):
         conversion_rate = self.get_conversion_rate()
-        max_value, max_position = self.get_maximum_Zpoint()
+        _, max_position = self.get_maximum_Zpoint()
         a, b = self.get_trace_z()
         z_x_x = [None] * len(a) 
         if max_position is not None:
@@ -267,7 +267,7 @@ class AFMImage:
 
     def get_x_4H(self):
         conversion_rate = self.get_conversion_rate()
-        max_value, max_position = self.get_maximum_Hpoint()
+        _, max_position = self.get_maximum_Hpoint()
         a, b = self.get_trace_h()
         h_x_x = [None] * len(a)
         if max_position is not None:

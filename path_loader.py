@@ -2,8 +2,8 @@ editing_mode = True
 
 depressurized_date = '20251126'
 depressurized_time = '14:07:40'
-end_hour = None # None to not give end limit
-end_day = None # None to be same day as depressurization date
+end_hour = None # None to not give end limit (if end_hour given and end_day not given, uses only day of depressurization up to this hour)
+end_day = None # None to not give end limit (use all files in specified folder)
 sample_number = '37'
 transfer_location = '$(6,3)'
 cavity_position = 'red'

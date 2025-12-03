@@ -51,10 +51,6 @@ class AFMImageCollection:
     def __getitem__(self, index): return self.images[index]
     def __iter__(self): yield from self.images
 
-    def print_conversion_rates(self):
-        for image in self.images:
-            print(f"Image {image.bname} has the conversion rate of {image.get_conversion_rate()} microns per pixel")
-
     def review_maximum_Zpoints(self):
         rejected_images = []
         
@@ -251,7 +247,7 @@ class AFMImageCollection:
                         print(f"Warning for image index {idx}: {warning_msgs} ({exc})")
                     selections[idx].pop('warning_messages', None)
             
-            # Call existing select_heights; it now accepts initial selections and returns a dict
+            # Call existing select_heights. It accepts initial selections and returns a dict
             res = vis.select_heights(img, initial_selected_slots=init_slots)
             if res is None:
                 return
