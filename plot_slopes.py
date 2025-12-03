@@ -6,7 +6,7 @@ import path_loader as pl
 import gas_constants as gc
 deflation_curve_slope_path = pl.deflation_curve_slope_path
 
-overall_slopes = {
+consensus_slopes = {
     'H2': {
         'green': 2.1,
         'red': 33,
@@ -241,7 +241,7 @@ def plot_recent_deflation_curve_slopes():
 
     x_labels = [f"{fmt_mon_day(t)} — {gas_per_dt[t]}" for t in unique_times]
 
-    # if the gas/colour combination exists in the overall_slopes dictionary, plot a dotted horizontal line at that slope value that extends twice the width of the markers
+    # if the gas/colour combination exists in the consensus_slopes dictionary, plot a dotted horizontal line at that slope value that extends twice the width of the markers
     # compute marker width in data coordinates so horizontal lines are twice that width
     fig = plt.gcf()
     ax = plt.gca()
@@ -257,13 +257,13 @@ def plot_recent_deflation_curve_slopes():
     data1 = ax.transData.inverted().transform(disp1)
     desired_line_dx = data1[0] - data0[0]
 
-    # if the gas/colour combination isn't a first time, plot a horizontal line at the slope value in overall_slopes
+    # if the gas/colour combination isn't a first time, plot a horizontal line at the slope value in consensus_slopes
     for t in unique_times:
         gas = gas_per_dt[t]
         xcenter = x_pos_map[t]
         for color in ['red', 'blue', 'green', 'orange', 'black']:
-            if color in overall_slopes.get(gas, {}):
-                slope_value = overall_slopes[gas][color]
+            if color in consensus_slopes.get(gas, {}):
+                slope_value = consensus_slopes[gas][color]
                 xmin = xcenter - desired_line_dx / 2.0
                 xmax = xcenter + desired_line_dx / 2.0
                 ax.hlines(y=slope_value, xmin=xmin, xmax=xmax, colors=color, linestyles='dotted', linewidth=2.0, alpha=0.7)
@@ -282,7 +282,7 @@ def plot_recent_deflation_curve_slopes():
 
 def plot_slope_vs_diameter():
     # plot the slopes versus kinetic diameters. Colour the points by the keys of the slope dictionaries. Make the orange and red point markers unfilled.
-    for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('CO2', overall_slopes['CO2']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4']), ('N2', overall_slopes['N2']), ('C2H4', overall_slopes['C2H4']), ('C3H8', overall_slopes['C3H8']), ('C2H6', overall_slopes['C2H6'])]:
+    for gas, slopes in [('H2', consensus_slopes['H2']), ('He', consensus_slopes['He']), ('CO2', consensus_slopes['CO2']), ('Ar', consensus_slopes['Ar']), ('CH4', consensus_slopes['CH4']), ('N2', consensus_slopes['N2']), ('C2H4', consensus_slopes['C2H4']), ('C3H8', consensus_slopes['C3H8']), ('C2H6', consensus_slopes['C2H6'])]:
         kd = gc.kinetic_diameters[gas]
         for color, slope in slopes.items():
             marker = color_to_marker[color]
@@ -293,7 +293,7 @@ def plot_slope_vs_diameter():
     plt.yscale('log')
 
     # put labels for each gas kinematic diameters on the x axis
-    for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('CO2', overall_slopes['CO2']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4']), ('N2', overall_slopes['N2']), ('C2H4', overall_slopes['C2H4']), ('C3H8', overall_slopes['C3H8']), ('C2H6', overall_slopes['C2H6'])]:
+    for gas, slopes in [('H2', consensus_slopes['H2']), ('He', consensus_slopes['He']), ('CO2', consensus_slopes['CO2']), ('Ar', consensus_slopes['Ar']), ('CH4', consensus_slopes['CH4']), ('N2', consensus_slopes['N2']), ('C2H4', consensus_slopes['C2H4']), ('C3H8', consensus_slopes['C3H8']), ('C2H6', consensus_slopes['C2H6'])]:
         kd = gc.kinetic_diameters[gas]
         plt.axvline(x=kd, color='gray', linestyle='--', linewidth=0.5)
         plt.text(kd, plt.ylim()[0], gas, verticalalignment='bottom', horizontalalignment='right')
@@ -330,7 +330,7 @@ def plot_slope_vs_molecular_weight():
     # do the same but plot slopes versus molecular weights
     plt.figure()
     delta_for_close_mws = 0.4
-    for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('CO2', overall_slopes['CO2']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4']), ('N2', overall_slopes['N2']), ('C2H4', overall_slopes['C2H4']), ('C3H8', overall_slopes['C3H8']), ('C2H6', overall_slopes['C2H6'])]:
+    for gas, slopes in [('H2', consensus_slopes['H2']), ('He', consensus_slopes['He']), ('CO2', consensus_slopes['CO2']), ('Ar', consensus_slopes['Ar']), ('CH4', consensus_slopes['CH4']), ('N2', consensus_slopes['N2']), ('C2H4', consensus_slopes['C2H4']), ('C3H8', consensus_slopes['C3H8']), ('C2H6', consensus_slopes['C2H6'])]:
         mw = gc.molecular_weights[gas]
         if gas in ['N2', 'CO2']:
             mw -= delta_for_close_mws
@@ -345,7 +345,7 @@ def plot_slope_vs_molecular_weight():
     plt.yscale('log')
 
     # put labels for each gas molecular weights on the x axis
-    for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4'])]:
+    for gas, slopes in [('H2', consensus_slopes['H2']), ('He', consensus_slopes['He']), ('Ar', consensus_slopes['Ar']), ('CH4', consensus_slopes['CH4'])]:
         mw = gc.molecular_weights[gas]
         plt.axvline(x=mw, color='gray', linestyle='--', linewidth=0.5)
         plt.text(mw, plt.ylim()[0], gas, verticalalignment='bottom', horizontalalignment='right')
@@ -382,9 +382,9 @@ def plot_slope_vs_molecular_weight():
 
     # plot lines proportional to 1/sqrt(molecular weight) which intersect the blue, red, and green H2 points
     h2_mw = gc.molecular_weights['H2']
-    h2_slope_blue = overall_slopes['H2']['blue']
-    h2_slope_red = overall_slopes['H2']['red']
-    h2_slope_green = overall_slopes['H2']['green']
+    h2_slope_blue = consensus_slopes['H2']['blue']
+    h2_slope_red = consensus_slopes['H2']['red']
+    h2_slope_green = consensus_slopes['H2']['green']
     mw_range = np.linspace(0.5, 50, 100)
     plt.plot(mw_range, h2_slope_blue * (h2_mw / mw_range) ** 0.5, color='blue', linestyle='--')
     plt.plot(mw_range, h2_slope_red * (h2_mw / mw_range) ** 0.5, color='red', linestyle='--')
@@ -405,7 +405,7 @@ def plot_slope_vs_molecular_weight():
 def plot_normalized_slope_vs_diameter():
     # make a plot with diameter on the x axis and slope normalized by multiplying by the square root of (molar mass * 2 * π * R * T) on the y axis
     plt.figure()
-    for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('CO2', overall_slopes['CO2']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4']), ('N2', overall_slopes['N2']), ('C2H4', overall_slopes['C2H4']), ('C3H8', overall_slopes['C3H8']), ('C2H6', overall_slopes['C2H6'])]:
+    for gas, slopes in [('H2', consensus_slopes['H2']), ('He', consensus_slopes['He']), ('CO2', consensus_slopes['CO2']), ('Ar', consensus_slopes['Ar']), ('CH4', consensus_slopes['CH4']), ('N2', consensus_slopes['N2']), ('C2H4', consensus_slopes['C2H4']), ('C3H8', consensus_slopes['C3H8']), ('C2H6', consensus_slopes['C2H6'])]:
         kd = gc.kinetic_diameters[gas]
         mm = gc.molar_masses_kg_per_mol[gas]
         for color, slope in slopes.items():
@@ -418,7 +418,7 @@ def plot_normalized_slope_vs_diameter():
     plt.yscale('log')
 
     # put labels for each gas kinematic diameters on the x axis
-    for gas, slopes in [('H2', overall_slopes['H2']), ('He', overall_slopes['He']), ('CO2', overall_slopes['CO2']), ('Ar', overall_slopes['Ar']), ('CH4', overall_slopes['CH4']), ('N2', overall_slopes['N2']), ('C2H4', overall_slopes['C2H4']), ('C3H8', overall_slopes['C3H8']), ('C2H6', overall_slopes['C2H6'])]:
+    for gas, slopes in [('H2', consensus_slopes['H2']), ('He', consensus_slopes['He']), ('CO2', consensus_slopes['CO2']), ('Ar', consensus_slopes['Ar']), ('CH4', consensus_slopes['CH4']), ('N2', consensus_slopes['N2']), ('C2H4', consensus_slopes['C2H4']), ('C3H8', consensus_slopes['C3H8']), ('C2H6', consensus_slopes['C2H6'])]:
         kd = gc.kinetic_diameters[gas]
         plt.axvline(x=kd, color='gray', linestyle='--', linewidth=0.5)
         plt.text(kd, plt.ylim()[0], gas, verticalalignment='bottom', horizontalalignment='right')

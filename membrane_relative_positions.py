@@ -11,7 +11,7 @@ from matplotlib.patches import Circle
 from matplotlib.widgets import Slider, Button
 from matplotlib.colors import is_color_like
 
-# GOAL: have my system know where the wells are relative to each other, so for any images with multiple wells, I only point out one well, and it figures out where the others are, gets the deflections autonomously, and logs the data. Will be important for sample53, but also speeds up sample37 (only have to pick one well per image cuts time down aby about 40%, and some persistence between images when there's not much time between them could cut 90+% of the time spent picking wells)
+# GOAL: have my system know where the wells are relative to each other, so for any images with multiple wells, I only point out one well, and it figures out where the others are, gets the deflections autonomously, and logs the data
 # TODO update x_spacing, y_spacing based on an average over a big image
 x_spacing = 7.63
 y_spacing = 4.6

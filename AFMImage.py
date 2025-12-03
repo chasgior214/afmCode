@@ -83,6 +83,7 @@ class AFMImage:
             return self.get_retrace_data(4, unit_conversion=1e9)
 
     # Metadata Extraction Methods
+    ## Imaging parameters
     def get_imaging_mode(self):
         """Get the imaging mode from the note. Tapping is 'AC Mode' and contact is 'Contact'."""
         return self._extract_parameter('ImagingMode')
@@ -90,6 +91,19 @@ class AFMImage:
     def get_scan_rate(self):
         return float(self._extract_parameter('ScanRate')) # Units are Hz
 
+    def get_initial_drive_amplitude(self):
+        """Get the initial drive amplitude from the note (if drive amplitude not changed during imaging, this will be the drive amplitude for the entire image). Converts units to mV."""
+        return float(self._extract_parameter('DriveAmplitude'))*1e3 # Units are in mV
+
+    def get_tapping_setpoint(self):
+        """Get the setpoint from the note for a tapping mode image. Units are in V."""
+        return float(self._extract_parameter('AmplitudeSetpointVolts'))
+    
+    def get_contact_setpoint(self):
+        """Get the setpoint from the note for a contact mode image. Units are in V."""
+        return float(self._extract_parameter('DeflectionSetpointVolts'))
+
+    ## Image geometry/position
     def get_scan_size(self):
         """Note that ScanSize is the size the image would be if the image was completed. For partial images, this is larger than the actual image size in the slow scan direction."""
         return float(self._extract_parameter('ScanSize'))*1e6 # Units are um
@@ -98,10 +112,6 @@ class AFMImage:
         image_shape = self.get_height_retrace().shape
         return image_shape[1], image_shape[0]  # (X pixels, Y pixels)
 
-    def get_initial_drive_amplitude(self):
-        """Get the initial drive amplitude from the note (if drive amplitude not changed during imaging, this will be the drive amplitude for the entire image). Converts units to mV."""
-        return float(self._extract_parameter('DriveAmplitude'))*1e3 # Units are in mV
-
     def get_x_offset(self):
         """Get the X offset from the note. Converts units to um."""
         return float(self._extract_parameter('XOffset'))*1e6
@@ -109,15 +119,6 @@ class AFMImage:
     def get_y_offset(self):
         """Get the Y offset from the note. Converts units to um."""
         return float(self._extract_parameter('YOffset'))*1e6
-
-    def get_setpoint(self):
-        # Since Setpoint might have different keys, adjust as needed
-        return float(self._extract_parameter('Setpoint', alternative_keys=['AmplitudeSetpointVolts', 'DeflectionSetpointVolts']))
-
-    def get_datetime(self):
-        combined_str = f"{self._extract_parameter('Date')} {self._extract_parameter('Time')}"
-        # Parse the combined string into a datetime object
-        return datetime.strptime(combined_str, "%Y-%m-%d %I:%M:%S %p")
 
     def get_pointsLines(self):
         return float(self._extract_parameter('PointsLines'))
@@ -135,14 +136,44 @@ class AFMImage:
         """Note that SlowScanSize is the size the image would be in the slow scan direction if the image was completed. For partial images, this is larger than the actual image size."""
         return float(self._extract_parameter('SlowScanSize')) * 1e6 # Units are in microns
     def get_ScanPoints(self):
+        """Get the number of scan points (pixels) in the fast scan direction."""
         return int(self._extract_parameter('ScanPoints'))
     def get_ScanLines(self):
+        """Get the number of scan lines (pixels) that would be in the slow scan direction if the image was completed. For partial images, this is larger than the actual number of lines in the image."""
         return int(self._extract_parameter('ScanLines'))
     
     def get_x_y_size(self):
+        """Calculate the physical size of the image in the X and Y directions, accounting for partial images. Returns a tuple (x_size in um, y_size in um)."""
         return self.get_FastScanSize()*self.get_x_y_pixel_counts()[0]/self.get_ScanPoints(), self.get_SlowScanSize()*self.get_x_y_pixel_counts()[1]/self.get_ScanLines() # Returns (x_size in um, y_size in um)
 
+    def get_pixel_size(self):
+        """
+        Calculate the pixel size. Units are same as FastScanSize and SlowScanSize (um).
+        Validates that the pixels are square by comparing FastScanSize/ScanPoints and SlowScanSize/ScanLines.
+        Raises ValueError if pixels are not square.
+        """
+        fast_size = self.get_FastScanSize()
+        slow_size = self.get_SlowScanSize()
+        points = self.get_ScanPoints()
+        lines = self.get_ScanLines()
+
+        pixel_size_x = fast_size / points
+        pixel_size_y = slow_size / lines
+
+        # Check if pixel dimensions match within a small tolerance (relative tolerance of 1%)
+        if not np.isclose(pixel_size_x, pixel_size_y, rtol=0.01):
+            raise ValueError(f"Non-square pixels: X size ({pixel_size_x:.3e}) != Y size ({pixel_size_y:.3e})")
+
+        return pixel_size_x
+
+    ## Date and Time Methods
+    def get_datetime(self):
+        combined_str = f"{self._extract_parameter('Date')} {self._extract_parameter('Time')}"
+        # Parse the combined string into a datetime object
+        return datetime.strptime(combined_str, "%Y-%m-%d %I:%M:%S %p")
+
     def get_imaging_duration(self):
+        """Calculate the total imaging duration in seconds."""
         return self.get_x_y_pixel_counts()[1]/self.get_scan_rate()
 
     def get_acquisition_start_time(self):
@@ -179,26 +210,7 @@ class AFMImage:
             
         return start_time + timedelta(seconds=offset_seconds)
 
-    def get_pixel_size(self):
-        """
-        Calculate the pixel size. Units are same as FastScanSize and SlowScanSize (um).
-        Validates that the pixels are square by comparing FastScanSize/ScanPoints and SlowScanSize/ScanLines.
-        Raises ValueError if pixels are not square.
-        """
-        fast_size = self.get_FastScanSize()
-        slow_size = self.get_SlowScanSize()
-        points = self.get_ScanPoints()
-        lines = self.get_ScanLines()
-
-        pixel_size_x = fast_size / points
-        pixel_size_y = slow_size / lines
-
-        # Check if pixel dimensions match within a small tolerance (relative tolerance of 1%)
-        if not np.isclose(pixel_size_x, pixel_size_y, rtol=0.01):
-            raise ValueError(f"Non-square pixels: X size ({pixel_size_x:.3e}) != Y size ({pixel_size_y:.3e})")
-
-        return pixel_size_x
-
+    ## Helper method to extract parameters from the note
     def _extract_parameter(self, key, alternative_keys=None):
         if self.note:
             for line in self.note.split('\r'):
@@ -211,7 +223,7 @@ class AFMImage:
                         return value
         return None
 
-    # Methods for extracting maximum points and traces
+    ## Methods for extracting maximum points and traces
     def get_maximum_point(self, retrace_function):
         retrace_data = retrace_function()
         if retrace_data is not None:
