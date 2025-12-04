@@ -12,6 +12,31 @@ from matplotlib.widgets import Slider, Button
 from matplotlib.colors import is_color_like
 
 # GOAL: have my system know where the wells are relative to each other, so for any images with multiple wells, I only point out one well, and it figures out where the others are, gets the deflections autonomously, and logs the data
+
+# Functions for relating absolute piezo positions to map coordinates
+def offset_image_origin_to_absolute_piezo_position(image: AFMImage.AFMImage):
+    """Get the offset to translate the image origin (the bottom left corner of the image) to absolute piezo position."""
+    x_size, y_size = image.get_x_y_size()
+    slow_scan_size = image.get_SlowScanSize()
+    scan_direction = image.get_scan_direction()
+    image_origin_x_offset_to_image_centre = -0.5 * x_size
+    if scan_direction:  # scan down
+        image_origin_y_offset_to_image_centre = 0.5 * slow_scan_size - y_size
+    else: # scan up
+        image_origin_y_offset_to_image_centre = 0.5 * slow_scan_size
+
+    # adjust for image offsets
+    image_origin_absolute_x = image.get_x_offset() + image_origin_x_offset_to_image_centre
+    image_origin_absolute_y = image.get_y_offset() + image_origin_y_offset_to_image_centre
+    return (image_origin_absolute_x, image_origin_absolute_y)
+
+def image_bounds_absolute_positions(image: AFMImage.AFMImage):
+    """Get the bounds of the image in absolute piezo positions.
+    Returns (x_min, y_min, x_max, y_max)"""
+    image_origin_absolute_x, image_origin_absolute_y = offset_image_origin_to_absolute_piezo_position(image)
+    x_size, y_size = image.get_x_y_size()
+    return (image_origin_absolute_x, image_origin_absolute_y, image_origin_absolute_x + x_size, image_origin_absolute_y + y_size)
+
 # TODO update x_spacing, y_spacing based on an average over a big image
 x_spacing = 7.63
 y_spacing = 4.6
@@ -30,22 +55,6 @@ class MembraneNavigator:
                     positions.append((i * x_spacing, j * y_spacing))
         return positions
 
-    def offset_image_origin_to_absolute_piezo_position(self, image: AFMImage.AFMImage):
-        """Get the offset to translate the image origin (the bottom left corner of the image) to absolute piezo position."""
-        x_size, y_size = image.get_x_y_size()
-        slow_scan_size = image.get_SlowScanSize()
-        scan_direction = image.get_scan_direction()
-        image_origin_x_offset_to_image_centre = -0.5 * x_size
-        if scan_direction:  # scan down
-            image_origin_y_offset_to_image_centre = 0.5 * slow_scan_size - y_size
-        else: # scan up
-            image_origin_y_offset_to_image_centre = 0.5 * slow_scan_size
-
-        # adjust for image offsets
-        image_origin_absolute_x = image.get_x_offset() + image_origin_x_offset_to_image_centre
-        image_origin_absolute_y = image.get_y_offset() + image_origin_y_offset_to_image_centre
-        return (image_origin_absolute_x, image_origin_absolute_y)
-
     def predict_position_from_change_in_coordinates(self, pos, pos_coords, final_coords):
         """Predict the position of a well based on the position of another well and each well's coordinates."""
         x_coords_change = final_coords[0] - pos_coords[0]
@@ -53,13 +62,6 @@ class MembraneNavigator:
         predicted_x_pos = pos[0] + x_coords_change * x_spacing
         predicted_y_pos = pos[1] + y_coords_change * y_spacing
         return (predicted_x_pos, predicted_y_pos)
-
-    def image_bounds_absolute_positions(self, image: AFMImage.AFMImage):
-        """Get the bounds of the image in absolute piezo positions.
-        Returns (x_min, y_min, x_max, y_max)"""
-        image_origin_absolute_x, image_origin_absolute_y = self.offset_image_origin_to_absolute_piezo_position(image)
-        x_size, y_size = image.get_x_y_size()
-        return (image_origin_absolute_x, image_origin_absolute_y, image_origin_absolute_x + x_size, image_origin_absolute_y + y_size)
 
     def track_wells(self, image_collection, initial_well_name, initial_well_coords, well_map, initial_well_absolute_pos=None, initial_well_fixed_z=None, edge_tolerance=0, each_found_well_updates_all_well_positions=False):
         """
@@ -109,7 +111,7 @@ class MembraneNavigator:
 
         for image in images:
             print(f"Processing image {image.bname}")
-            absolute_image_bounds = self.image_bounds_absolute_positions(image)
+            absolute_image_bounds = image_bounds_absolute_positions(image)
             pixel_size = image.get_pixel_size()
             scan_size = image.get_scan_size()
             x_pixel_count, y_pixel_count = image.get_x_y_pixel_counts()
@@ -249,8 +251,8 @@ class MembraneNavigator:
         
         return results
 
-# Sample 37 Configuration
-sample37_wells_as_coords = {
+# sample37 Configuration
+sample37_well_map = {
     'orange': (0, 0),
     'blue': (0, 2),
     'green': (1, 1),
@@ -258,8 +260,58 @@ sample37_wells_as_coords = {
     'black': (2, 0)
 }
 
-# plot a 4um diameter circle at each position in sample37_wells_as_coords
-# for color, (x_idx, y_idx) in sample37_wells_as_coords.items():
+
+# sample53 o(5,1) wells
+sample53_o_5_1_well_coords = [
+    (1,5), (1,7), (1,9),
+    (2,6), (2,8), (2,10),
+    (3,5), (3,7), (3,9), (3,11),
+    (4,4), (4,6), (4,8), (4,10), (4,12),
+    (5,3), (5,5), (5,7), (5,9), (5,11),
+    (6,2), (6,4), (6,6), (6,8), (6,10), (6,12),
+    (7,3), (7,5), (7,7), (7,9), (7,11),
+    (8,6), (8,8), (8,10),
+    (9,7), (9,9),
+    (10,6), (10,8), (10,10),
+    (11,9)
+]
+
+# make the well map from the list of well coordinates, using the coordinates as both the well names and the well positions
+sample53_o_5_1_well_map = {
+    str((x_idx, y_idx)): (x_idx, y_idx) for (x_idx, y_idx) in sample53_o_5_1_well_coords
+}
+
+sample_53_o_5_1_potential_well_coords = [
+    (10,12), (10,14),
+    (11,11), (11,13), (11,15),
+    (12,8), (12,10), (12,12), (12,14), (12,16),
+    (13,9), (13,11), (13,13), (13,15),
+    (14,12), (14,14)
+]
+
+# plot the sample53 well coordinates as blue 4um diameter circles and the potential well coordinates as red 4um diameter circles
+# for (x_idx, y_idx) in sample53_o_5_1_well_coords:
+#     center_x = x_idx * x_spacing
+#     center_y = y_idx * y_spacing
+#     circle = plt.Circle((center_x, center_y), 2, color='blue', fill=True, linewidth=2)
+#     plt.gca().add_artist(circle)
+# for (x_idx, y_idx) in sample_53_o_5_1_potential_well_coords:
+#     center_x = x_idx * x_spacing
+#     center_y = y_idx * y_spacing
+#     circle = plt.Circle((center_x, center_y), 2, color='red', fill=True, linewidth=2)
+#     plt.gca().add_artist(circle)
+# plt.xlim(0, x_spacing*15)
+# plt.ylim(0, y_spacing*17)
+# plt.gca().set_aspect('equal', adjustable='box')
+# plt.xlabel('X Position (um)')
+# plt.ylabel('Y Position (um)')
+# plt.title('Well Positions for Sample 53')
+# plt.grid()
+# plt.show()
+
+
+# plot a 4um diameter circle at each position in sample37_well_map
+# for color, (x_idx, y_idx) in sample37_well_map.items():
 #     center_x = x_idx * x_spacing
 #     center_y = y_idx * y_spacing
 #     circle = plt.Circle((center_x, center_y), 2, color=color, fill=False, linewidth=2)
@@ -339,7 +391,7 @@ class WellPositionsReviewer:
             img = self.image_map.get(entry['Image Name'])
             if img is None:
                 continue
-            ox, oy = self.navigator.offset_image_origin_to_absolute_piezo_position(img)
+            ox, oy = offset_image_origin_to_absolute_piezo_position(img)
             abs_x = ox + entry['Point 2 X (um)']
             abs_y = oy + entry['Point 2 Y (um)']
             # Store full entry for retrieval
@@ -681,7 +733,7 @@ class WellPositionsReviewer:
                 new_well_name = well_name
             
             # Calculate absolute position
-            ox, oy = self.navigator.offset_image_origin_to_absolute_piezo_position(image)
+            ox, oy = offset_image_origin_to_absolute_piezo_position(image)
             abs_x = extremum[1] + ox
             abs_y = extremum[2] + oy
             initial_pos = (abs_x, abs_y)
@@ -734,12 +786,17 @@ class WellPositionsReviewer:
 # Example Usage / Script
 if __name__ == "__main__":
     navigator = MembraneNavigator()
+    well_map = sample53_o_5_1_well_map
 
-    image_collection = AFMImageCollection.AFMImageCollection(pl.afm_images_path, pl.depressurized_datetime)
+    # make a datetime that's 75 minutes after the depressurized datetime
+    from datetime import timedelta
+    depressurized_datetime_plus_75_mins = pl.depressurized_datetime + timedelta(minutes=75)
+
+    image_collection = AFMImageCollection.AFMImageCollection(pl.afm_images_path, pl.depressurized_datetime, end_datetime=depressurized_datetime_plus_75_mins)
     
     # Show the first image to pick a well
     first_image = image_collection.images[0]
-    first_image_origin_absolute_x, first_image_origin_absolute_y = navigator.offset_image_origin_to_absolute_piezo_position(first_image)
+    first_image_origin_absolute_x, first_image_origin_absolute_y = offset_image_origin_to_absolute_piezo_position(first_image)
     
     print(f"First image origin absolute position: x={first_image_origin_absolute_x:.3f} μm, y={first_image_origin_absolute_y:.3f} μm")
     
@@ -750,8 +807,8 @@ if __name__ == "__main__":
     
     if well_clicked_on_extremum:
         well_clicked_on = input("Enter well name (e.g., green, orange): ")
-        if well_clicked_on in sample37_wells_as_coords:
-            well_clicked_on_coords = sample37_wells_as_coords[well_clicked_on]
+        if well_clicked_on in well_map:
+            well_clicked_on_coords = well_map[well_clicked_on]
             
             well_clicked_on_absolute_x = well_clicked_on_extremum[1] + first_image_origin_absolute_x
             well_clicked_on_absolute_y = well_clicked_on_extremum[2] + first_image_origin_absolute_y
@@ -764,7 +821,7 @@ if __name__ == "__main__":
                 image_collection, 
                 well_clicked_on, 
                 well_clicked_on_coords, 
-                sample37_wells_as_coords, 
+                well_map, 
                 initial_well_absolute_pos=initial_pos,
                 edge_tolerance=0.3,
                 each_found_well_updates_all_well_positions=True
@@ -777,7 +834,7 @@ if __name__ == "__main__":
             #         print(entry)
             
             # Call WellPositionsReviewer
-            plotter = WellPositionsReviewer(navigator, image_collection, results, sample37_wells_as_coords)
+            plotter = WellPositionsReviewer(navigator, image_collection, results, well_map)
             plotter.plot()
             
         else:
