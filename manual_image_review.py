@@ -12,9 +12,9 @@ def _get_height_map_for_selection(image):
     mode = image.get_imaging_mode()
     depth = image.wave_data.shape[2] if getattr(image, 'wave_data', None) is not None else 0
     if mode == 'AC Mode' and depth > 4:
-        return image.get_FlatHeight()
+        return image.get_flat_height_retrace()
     if mode == 'Contact' and depth > 3:
-        return image.get_FlatHeight()
+        return image.get_flat_height_retrace()
     return image.get_height_retrace()
 
 

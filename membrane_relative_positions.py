@@ -38,9 +38,8 @@ class MembraneNavigator:
         image_origin_x_offset_to_image_centre = -0.5 * x_size
         if scan_direction:  # scan down
             image_origin_y_offset_to_image_centre = 0.5 * slow_scan_size - y_size
-        else:
-            print('scan up not implemented yet')
-            image_origin_y_offset_to_image_centre = 0.5 * slow_scan_size - y_size # Fallback/Placeholder
+        else: # scan up
+            image_origin_y_offset_to_image_centre = 0.5 * slow_scan_size
 
         # adjust for image offsets
         image_origin_absolute_x = image.get_x_offset() + image_origin_x_offset_to_image_centre
@@ -120,9 +119,9 @@ class MembraneNavigator:
             # Determine height map once per image
             imaging_mode = image.get_imaging_mode()
             if imaging_mode == 'AC Mode' and image.wave_data.shape[2] > 4:
-                height_map = image.get_FlatHeight()
+                height_map = image.get_flat_height_retrace()
             elif imaging_mode == 'Contact' and image.wave_data.shape[2] > 3:
-                height_map = image.get_FlatHeight()
+                height_map = image.get_flat_height_retrace()
             else:
                 height_map = image.get_height_retrace() # Fallback
 

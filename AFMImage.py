@@ -11,23 +11,27 @@ class AFMImage:
     data : dict
         The raw data loaded from the .ibw file.
     wave_data : numpy.ndarray
-        The set of 2D arrays of data points from the AFM images.
+        The set of 2D arrays of data points (channels/layers) from the AFM image.
     note : str
         The note associated with the AFM image.
     labels : list
         The labels associated with the AFM image.
+    channel_names : list
+        The names of the data channels/layers in the AFM image.
     """
+
     # Class initialization and loading of the .ibw file
     def __init__(self, file_path):
         self.data = self.load_ibw_file(file_path)
         if not self.data or 'wave' not in self.data:
             raise RuntimeError(f"Cannot load wave from {file_path}")
         wave = self.data['wave']
-        self.hdr  = wave['wave_header']
+        self.hdr = wave['wave_header']
         self.bname = self.hdr['bname']
         self.wave_data = wave['wData']
-        self.note = wave['note'].decode('utf-8', 'replace')
+        self.note = wave['note'].decode('latin-1', 'replace')
         self.labels = wave['labels']
+        self.channel_names = [label.decode('latin-1', 'replace') for label in self.labels[2]][1:]
 
     def load_ibw_file(self, file_path):
         """Load an Igor Binary Wave (.ibw) file from the specified file path."""
@@ -36,51 +40,64 @@ class AFMImage:
         except Exception as e:
             print(f"Error loading file {file_path}: {e}")
             return None
-
-    # Retrace Data Methods
-    def get_retrace_data(self, index, unit_conversion=1):
-        """Get retrace for a specific index with optional unit conversion."""
+    
+    # Channel Data Methods
+    def get_channel_data(self, index=None, channel_name=None, unit_conversion=1):
+        """Get channel data for a specific index or channel name with optional unit conversion."""
         if self.wave_data is not None:
-            return np.rot90(self.wave_data[:, :, index], k=1) * unit_conversion
+            if index is not None:
+                return np.rot90(self.wave_data[:, :, index], k=1) * unit_conversion
+            elif channel_name is not None:
+                if channel_name in self.channel_names:
+                    index = self.channel_names.index(channel_name)
+                return np.rot90(self.wave_data[:, :, index], k=1) * unit_conversion
         return None
+
+    def get_number_of_arrays(self):
+        """Get the number of data arrays (a.k.a. channels/layers in the image) in the wave data."""
+        return self.hdr['nDim'][2]
 
     # Tapping mode: raw data indexes 0-3, contact mode: raw data indexes 0-2
     def get_height_retrace(self):
-        """Get retrace for index 0, which is the default index for height in both tapping and contact modes. Converts units to nm."""
-        return self.get_retrace_data(0, unit_conversion=1e9)
+        """Returns the image's height retrace channel. Converts units to nm."""
+        return self.get_channel_data(channel_name='HeightRetrace', unit_conversion=1e9)
 
-    def get_contrast_retrace(self):
-        """Get retrace for index 1, which is the default index for amplitude in tapping mode and deflection in contact mode. Both give high contrast to surface topographies, so can be used to extract a high-contrast qualitative map of topographical features from images taken in either mode."""
-        return self.get_retrace_data(1)
+    def get_amplitude_retrace(self):
+        """Returns the image's amplitude retrace channel."""
+        return self.get_channel_data(channel_name='AmplitudeRetrace')
+
+    def get_deflection_retrace(self):
+        """Returns the image's deflection retrace channel."""
+        return self.get_channel_data(channel_name='DeflectionRetrace')
+
+    def get_contrast_map(self):
+        """If the image was taken in tapping mode, this will return the amplitude retrace. If the image was taken in contact mode, this will return the deflection retrace. Both give high contrast to surface topographies, so can be used to extract a high-contrast qualitative map of topographical features from images taken in either mode."""
+        if self.get_imaging_mode() == 'AC Mode':
+            return self.get_amplitude_retrace()
+        elif self.get_imaging_mode() == 'Contact':
+            return self.get_deflection_retrace()
 
     def get_phase_retrace(self):
-        """If a tapping mode image, this will return the phase retrace (assuming it is stored at the default index, index 2). If a contact mode image, this will return None."""
-        if self.get_imaging_mode() == 'AC Mode':
-            return self.get_retrace_data(2)
-        elif self.get_imaging_mode() == 'Contact':
-            print("Phase retrace is not available for Contact mode images.")
-            return None
+        """Returns the image's phase retrace channel. Units are in degrees."""
+        return self.get_channel_data(channel_name='PhaseRetrace')
 
-    def get_ZSensorRetrace(self):
-        """Get retrace for the Z sensor, pulling from index 3 for tapping mode images and index 2 for contact mode images (their default indexes). Converts units to nm."""
-        if self.get_imaging_mode() == 'AC Mode':
-            return self.get_retrace_data(3, unit_conversion=1e9)
-        elif self.get_imaging_mode() == 'Contact':
-            return self.get_retrace_data(2, unit_conversion=1e9)
+    def get_z_sensor_retrace(self):
+        """Returns the image's Z sensor retrace channel. Converts units to nm."""
+        return self.get_channel_data(channel_name='ZSensorRetrace', unit_conversion=1e9)
 
-    def get_FlatHeight(self):
+    def get_flat_height_retrace(self):
         """Get the flattened height retrace (assuming postprocessing was done in Igor which put the flat height in the next free index after the Z retrace). Converts units to nm."""
         if self.get_imaging_mode() == 'AC Mode':
-            return self.get_retrace_data(4, unit_conversion=1e9)
+            return self.get_channel_data(4, unit_conversion=1e9)
         elif self.get_imaging_mode() == 'Contact':
-            return self.get_retrace_data(3, unit_conversion=1e9)
+            return self.get_channel_data(3, unit_conversion=1e9)
 
-    def get_FlatZtrace(self):
+    def get_flat_z_retrace(self):
         """Get the flattened Z retrace (assuming postprocessing was done in Igor which put the flat Z retrace in the second next free index after the Z retrace). Converts units to nm."""
         if self.get_imaging_mode() == 'AC Mode':
-            return self.get_retrace_data(5, unit_conversion=1e9)
+            return self.get_channel_data(5, unit_conversion=1e9)
         elif self.get_imaging_mode() == 'Contact':
-            return self.get_retrace_data(4, unit_conversion=1e9)
+            return self.get_channel_data(4, unit_conversion=1e9)
 
     # Metadata Extraction Methods
     ## Imaging parameters
@@ -89,11 +106,12 @@ class AFMImage:
         return self._extract_parameter('ImagingMode')
 
     def get_scan_rate(self):
-        return float(self._extract_parameter('ScanRate')) # Units are Hz
+        """Get the scan rate from the note. Units are in Hz (lines per second)."""
+        return float(self._extract_parameter('ScanRate'))
 
     def get_initial_drive_amplitude(self):
         """Get the initial drive amplitude from the note (if drive amplitude not changed during imaging, this will be the drive amplitude for the entire image). Converts units to mV."""
-        return float(self._extract_parameter('DriveAmplitude'))*1e3 # Units are in mV
+        return float(self._extract_parameter('DriveAmplitude'))*1e3
 
     def get_tapping_setpoint(self):
         """Get the setpoint from the note for a tapping mode image. Units are in V."""
@@ -105,12 +123,14 @@ class AFMImage:
 
     ## Image geometry/position
     def get_scan_size(self):
-        """Note that ScanSize is the size the image would be if the image was completed. For partial images, this is larger than the actual image size in the slow scan direction."""
-        return float(self._extract_parameter('ScanSize'))*1e6 # Units are um
-    
+        """Note that ScanSize is the size the image would be if the image was completed. For partial images, this is larger than the actual image size in the slow scan direction. Converts units to um."""
+        return float(self._extract_parameter('ScanSize'))*1e6
+
     def get_x_y_pixel_counts(self):
+        """Get the number of pixels in the X and Y directions as a tuple (X pixels, Y pixels).
+        Equivalent to using self.hdr['nDim'][:2]"""
         image_shape = self.get_height_retrace().shape
-        return image_shape[1], image_shape[0]  # (X pixels, Y pixels)
+        return image_shape[1], image_shape[0]
 
     def get_x_offset(self):
         """Get the X offset from the note. Converts units to um."""
@@ -127,9 +147,6 @@ class AFMImage:
         """1 if scanning down, 0 if scanning up."""
         return int(self._extract_parameter('ScanDown'))
 
-    def get_filename(self):
-        return self._extract_parameter('FileName')
-    
     def get_FastScanSize(self):
         return float(self._extract_parameter('FastScanSize')) * 1e6 # Units are in microns
     def get_SlowScanSize(self):
@@ -144,7 +161,7 @@ class AFMImage:
     
     def get_x_y_size(self):
         """Calculate the physical size of the image in the X and Y directions, accounting for partial images. Returns a tuple (x_size in um, y_size in um)."""
-        return self.get_FastScanSize()*self.get_x_y_pixel_counts()[0]/self.get_ScanPoints(), self.get_SlowScanSize()*self.get_x_y_pixel_counts()[1]/self.get_ScanLines() # Returns (x_size in um, y_size in um)
+        return self.get_FastScanSize()*self.get_x_y_pixel_counts()[0]/self.get_ScanPoints(), self.get_SlowScanSize()*self.get_x_y_pixel_counts()[1]/self.get_ScanLines()
 
     def get_pixel_size(self):
         """
@@ -210,6 +227,10 @@ class AFMImage:
             
         return start_time + timedelta(seconds=offset_seconds)
 
+    ## Other Metadata Methods
+    def get_filename(self):
+        return self._extract_parameter('FileName')
+
     ## Helper method to extract parameters from the note
     def _extract_parameter(self, key, alternative_keys=None):
         if self.note:
@@ -223,7 +244,7 @@ class AFMImage:
                         return value
         return None
 
-    ## Methods for extracting maximum points and traces
+    ## Methods for extracting maximum points and retraces
     def get_maximum_point(self, retrace_function):
         retrace_data = retrace_function()
         if retrace_data is not None:
@@ -233,10 +254,10 @@ class AFMImage:
         return None, None
 
     def get_maximum_Zpoint(self):
-        return self.get_maximum_point(self.get_FlatZtrace)
+        return self.get_maximum_point(self.get_flat_z_retrace)
 
     def get_maximum_Hpoint(self):
-        return self.get_maximum_point(self.get_FlatHeight)
+        return self.get_maximum_point(self.get_flat_height_retrace)
 
     def get_trace(self, retrace_function, max_position):
         retrace_data = retrace_function()
@@ -248,11 +269,11 @@ class AFMImage:
 
     def get_trace_z(self):
         _, max_position = self.get_maximum_Zpoint()
-        return self.get_trace(self.get_FlatZtrace, max_position)
+        return self.get_trace(self.get_flat_z_retrace, max_position)
 
     def get_trace_h(self):
         _, max_position = self.get_maximum_Hpoint()
-        return self.get_trace(self.get_FlatHeight, max_position)
+        return self.get_trace(self.get_flat_height_retrace, max_position)
 
     def get_conversion_rate(self):
         return self.get_scan_size()/self.get_pointsLines()

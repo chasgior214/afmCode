@@ -230,27 +230,28 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     image_save_date_time = image.get_datetime().strftime("%Y-%m-%d %H:%M:%S")
 
     scan_size = image.get_scan_size()
-    scan_direction = image.get_scan_direction()
     scan_rate = image.get_scan_rate()
 
     # Determine which height data to use. If flattened data is available use it
     # and update the title prefix accordingly.
     imaging_mode = image.get_imaging_mode()
-    title_prefix = "Height"
     if imaging_mode == 'AC Mode' and image.wave_data.shape[2] > 4:
-        height_map = image.get_FlatHeight()
+        height_map = image.get_flat_height_retrace()
         title_prefix = "Flattened Height"
     elif imaging_mode == 'Contact' and image.wave_data.shape[2] > 3:
-        height_map = image.get_FlatHeight()
+        height_map = image.get_flat_height_retrace()
         title_prefix = "Flattened Height"
     else:
         height_map = image.get_height_retrace()
-    contrast_map = image.get_contrast_retrace()
-    phase_map = image.get_phase_retrace()
+        title_prefix = "Raw Height"
+    contrast_map = image.get_contrast_map()
+    if imaging_mode == 'AC Mode':
+        phase_map = image.get_phase_retrace()
+    else:
+        phase_map = None
 
     # Calculate pixel size
-    x_pixel_count = height_map.shape[1]
-    y_pixel_count = height_map.shape[0]
+    x_pixel_count, y_pixel_count = image.get_x_y_pixel_counts()
     pixel_size = image.get_pixel_size()  # microns per pixel
 
     imaging_duration = image.get_imaging_duration()
@@ -271,7 +272,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         return (y_pixel_count - (idx + 0.5)) * pixel_size
 
     selected_points = []  # To store the two right-clicked points
-    cumulative_adjusted_height = None  # To store the cumulative adjusted height retrace
+    cumulative_adjusted_height = None  # To store the cumulative adjusted height cross-section
 
     # Slots for the two selectable height values
     selected_slots = [None, None]  # [(height, x, y), ...]
@@ -689,7 +690,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
                 x2, y2 = selected_points[1]
                 slope = (y2 - y1) / (x2 - x1)
 
-                # Adjust the displayed height retrace using the slope
+                # Adjust the displayed height cross-section using the slope
                 if cumulative_adjusted_height is None:
                     cumulative_adjusted_height = height_map[nearest_y_to_plot, :].copy()
                 cumulative_adjusted_height -= slope * x
@@ -803,7 +804,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             vmax=np.max(phase_map),
         )
         hline_phase = ax3.axhline(y=line_height, color='r', linestyle='--')
-        ax3.set_title("Phase Retrace")
+        ax3.set_title("Phase Map")
         ax3.set_ylabel("y (μm)")
         image_axes.append(ax3)
     else:
@@ -1547,24 +1548,23 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
 
     return {
         'selected_slots': selected_slots,  # list [ (h,x,y) | None, (h,x,y) | None ]
-        'time_offset': time_offset,
+        'time_offset': time_offset
     }
 
 def export_heightmap_3d_surface(image):
     imaging_mode = image.get_imaging_mode()
     scan_size = image.get_scan_size()
     if imaging_mode == 'AC Mode' and image.wave_data.shape[2] > 4:
-        height_map = image.get_FlatHeight()
+        height_map = image.get_flat_height_retrace()
         title_prefix = "Flattened Height"
     elif imaging_mode == 'Contact' and image.wave_data.shape[2] > 3:
-        height_map = image.get_FlatHeight()
+        height_map = image.get_flat_height_retrace()
         title_prefix = "Flattened Height"
     else:
         height_map = image.get_height_retrace()
-        title_prefix = "Height Retrace"
+        title_prefix = "Height Map"
 
-    x_pixel_count = height_map.shape[1]
-    y_pixel_count = height_map.shape[0]
+    x_pixel_count, y_pixel_count = image.get_x_y_pixel_counts()
     
     # Calculate y dimension based on aspect ratio
     y_dimension = scan_size * y_pixel_count / x_pixel_count

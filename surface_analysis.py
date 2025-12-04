@@ -6,7 +6,7 @@ def fit_paraboloid(z_data, center_x_idx, center_y_idx, diameter_um, pixel_size, 
     Fit a paraboloid to a circular region of the data map.
     
     Args:
-        z_data (np.ndarray): 2D array of z values (e.g. height, z-retrace).
+        z_data (np.ndarray): 2D array of z values (e.g. height, z-sensor scan).
         center_x_idx (int): X index of the center of the fit region.
         center_y_idx (int): Y index of the center of the fit region.
         diameter_um (float): Diameter of the fit region in microns.

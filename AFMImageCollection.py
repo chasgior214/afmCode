@@ -68,7 +68,7 @@ class AFMImageCollection:
             if max_value is not None:
                 # Display the image with a marker on the maximum point
                 fig, ax = plt.subplots()
-                ax.imshow(image.get_FlatZtrace(), cmap='gray', aspect='auto')
+                ax.imshow(image.get_flat_z_retrace(), cmap='gray', aspect='auto')
                 ax.scatter(max_position[1], max_position[0], color='red', marker='x')  # Mark the max point
                 ax.set_title(f"Image {i+1}: {image.get_datetime()} - Max Value: {max_value}")
                 ax.set_xlabel('X Pixels')
