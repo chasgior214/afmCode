@@ -127,128 +127,170 @@ class MembraneNavigator:
             else:
                 height_map = image.get_height_retrace() # Fallback
 
-            for well in well_positions:
-                if well_positions[well] is None:
-                    continue
+            scan_direction = image.get_scan_direction()
 
-                print(f"\tChecking {well} with estimated position {well_positions[well]}")
-                
-                # Check if well is within image bounds or within edge tolerance
-                well_x, well_y = well_positions[well]
+            # Determine which wells are expected to appear in this image
+            def well_expected_in_image(well_name):
+                if well_positions[well_name] is None:
+                    return None
+
+                well_x, well_y = well_positions[well_name]
                 x_min, y_min, x_max, y_max = absolute_image_bounds
-                
-                # Calculate distance from well to image bounds
+
                 dist_to_left = well_x - x_min
                 dist_to_right = x_max - well_x
                 dist_to_bottom = well_y - y_min
                 dist_to_top = y_max - well_y
-                
-                # Check if well is strictly inside bounds
+
                 inside_bounds = (x_min < well_x < x_max and y_min < well_y < y_max)
-                
-                # Check if well is within tolerance of bounds
                 within_tolerance = (
                     dist_to_left >= -edge_tolerance and dist_to_right >= -edge_tolerance and
                     dist_to_bottom >= -edge_tolerance and dist_to_top >= -edge_tolerance
                 )
-                
+
                 if inside_bounds or (edge_tolerance > 0 and within_tolerance):
-                    
-                    # Clamp position to image bounds for fitting
                     clamped_x = np.clip(well_x, x_min, x_max)
                     clamped_y = np.clip(well_y, y_min, y_max)
-                    
-                    if inside_bounds:
-                        print(f"Found {well} in image {image.bname}")
+                    return {
+                        'name': well_name,
+                        'position': (well_x, well_y),
+                        'clamped': (clamped_x, clamped_y),
+                        'inside_bounds': inside_bounds,
+                    }
+
+                return None
+
+            remaining_wells = {
+                w['name'] for w in filter(None, (well_expected_in_image(name) for name in well_positions))
+            }
+            expect_multiple_in_image = len(remaining_wells) > 1
+
+            def ordered_expected_wells():
+                expected = []
+                missing = []
+                for well in remaining_wells:
+                    expectation = well_expected_in_image(well)
+                    if expectation:
+                        expected.append(expectation)
                     else:
-                        print(f"Found {well} near edge of image {image.bname} (within {edge_tolerance} μm tolerance), using clamped position")
-                    
-                    # Calculate relative position for fitting (using clamped position)
-                    rel_x = clamped_x - absolute_image_bounds[0]
-                    rel_y = clamped_y - absolute_image_bounds[1]
+                        missing.append(well)
 
-                    # Check if should use fixed position for the initial well in the first image
-                    if image == images[0] and well == initial_well_name and initial_well_fixed_z is not None:
-                        print(f"Using user-supplied position for {well} in {image.bname}")
-                        fit_result = {'vx': rel_x, 'vy': rel_y, 'vz': initial_well_fixed_z}
-                    else:
-                        fit_result = sa.iterative_paraboloid_fit(
-                        height_map,
-                        x_coords,
-                        rel_x,
-                        rel_y,
-                        pixel_size,
-                        scan_size
-                    )
-                    
-                    if fit_result:
-                        vertex_x_um = fit_result['vx']
-                        vertex_y_um = fit_result['vy']
-                        vertex_z_nm = fit_result['vz']
+                # Drop any wells no longer expected (e.g., moved out of bounds after an update)
+                for well in missing:
+                    remaining_wells.discard(well)
 
-                        # Calculate Substrate Height
-                        y_idx = int(np.clip(round(y_pixel_count - 0.5 - vertex_y_um / pixel_size), 0, y_pixel_count - 1))
-                        row_data = height_map[y_idx, :]
-                        substrate_z_nm = sa.calculate_substrate_height(row_data)
+                reverse = bool(scan_direction)  # scan down -> earlier lines are higher y values
+                expected.sort(key=lambda item: item['position'][1], reverse=reverse)
+                return expected
 
-                        if substrate_z_nm is not None:
-                            deflection = vertex_z_nm - substrate_z_nm
-                            
-                            # Calculate acquisition time for the well's line
-                            well_time = image.get_line_acquisition_time(y_idx)
-                            
-                            # Point 1 (Substrate) calculations
-                            # Find x index closest to substrate height in the row
-                            finite_indices = np.where(np.isfinite(row_data))[0]
-                            closest_idx_in_finite = np.argmin(np.abs(row_data[finite_indices] - substrate_z_nm))
-                            p1_x_pixel = int(finite_indices[closest_idx_in_finite])
-                            
-                            p1_x_um = float(x_coords[p1_x_pixel])
-                            p1_y_pixel = int(y_idx)
-                            p1_y_um = float((y_pixel_count - (y_idx + 0.5)) * pixel_size)
-                            p1_z_nm = float(substrate_z_nm)
+            while remaining_wells:
+                expected_wells = ordered_expected_wells()
+                if not expected_wells:
+                    break
 
-                            # Point 2 (Extremum) calculations
-                            p2_x_um = float(vertex_x_um)
-                            p2_y_um = float(vertex_y_um)
-                            p2_z_nm = float(vertex_z_nm)
-                            p2_x_pixel = int(np.argmin(np.abs(x_coords - vertex_x_um)))
-                            p2_y_pixel = int(np.clip(round(y_pixel_count - 0.5 - vertex_y_um / pixel_size), 0, y_pixel_count - 1))
+                current = expected_wells[0]
+                well = current['name']
+                well_x, well_y = current['position']
 
-                            result_entry = {
-                                'Well': well,
-                                'Image Name': image.bname,
-                                'Time (minutes)': (well_time - pl.depressurized_datetime).total_seconds() / 60.0,
-                                'Deflection (nm)': float(deflection),
-                                'Point 1 X Pixel': p1_x_pixel,
-                                'Point 1 Y Pixel': p1_y_pixel,
-                                'Point 1 X (um)': p1_x_um,
-                                'Point 1 Y (um)': p1_y_um,
-                                'Point 1 Z (nm)': p1_z_nm,
-                                'Point 2 X Pixel': p2_x_pixel,
-                                'Point 2 Y Pixel': p2_y_pixel,
-                                'Point 2 X (um)': p2_x_um,
-                                'Point 2 Y (um)': p2_y_um,
-                                'Point 2 Z (nm)': p2_z_nm,
-                            }
-                            
-                            results.append(result_entry)
-                            
-                            # Update position to account for drift
-                            absolute_vertex_x = vertex_x_um + absolute_image_bounds[0]
-                            absolute_vertex_y = vertex_y_um + absolute_image_bounds[1]
-                            well_positions[well] = (absolute_vertex_x, absolute_vertex_y)
-                            
-                            if each_found_well_updates_all_well_positions:
-                                # It can cause one well not being found correctly to mess up all the others
-                                for other_well in well_map:
-                                    if other_well != well:
-                                        well_positions[other_well] = self.predict_position_from_change_in_coordinates(well_positions[well], well_map[well], well_map[other_well])
+                print(f"\tChecking {well} with estimated position {current['position']}")
+
+                if current['inside_bounds']:
+                    print(f"Found {well} in image {image.bname}")
+                else:
+                    print(f"Found {well} near edge of image {image.bname} (within {edge_tolerance} μm tolerance), using clamped position")
+
+                clamped_x, clamped_y = current['clamped']
+
+                # Calculate relative position for fitting (using clamped position)
+                rel_x = clamped_x - absolute_image_bounds[0]
+                rel_y = clamped_y - absolute_image_bounds[1]
+
+                # Check if should use fixed position for the initial well in the first image
+                if image == images[0] and well == initial_well_name and initial_well_fixed_z is not None:
+                    print(f"Using user-supplied position for {well} in {image.bname}")
+                    fit_result = {'vx': rel_x, 'vy': rel_y, 'vz': initial_well_fixed_z}
+                else:
+                    fit_result = sa.iterative_paraboloid_fit(
+                    height_map,
+                    x_coords,
+                    rel_x,
+                    rel_y,
+                    pixel_size,
+                    scan_size
+                )
+
+                if fit_result:
+                    vertex_x_um = fit_result['vx']
+                    vertex_y_um = fit_result['vy']
+                    vertex_z_nm = fit_result['vz']
+
+                    # Calculate Substrate Height
+                    y_idx = int(np.clip(round(y_pixel_count - 0.5 - vertex_y_um / pixel_size), 0, y_pixel_count - 1))
+                    row_data = height_map[y_idx, :]
+                    substrate_z_nm = sa.calculate_substrate_height(row_data)
+
+                    if substrate_z_nm is not None:
+                        deflection = vertex_z_nm - substrate_z_nm
+
+                        # Calculate acquisition time for the well's line
+                        well_time = image.get_line_acquisition_time(y_idx)
+
+                        # Point 1 (Substrate) calculations
+                        # Find x index closest to substrate height in the row
+                        finite_indices = np.where(np.isfinite(row_data))[0]
+                        closest_idx_in_finite = np.argmin(np.abs(row_data[finite_indices] - substrate_z_nm))
+                        p1_x_pixel = int(finite_indices[closest_idx_in_finite])
+
+                        p1_x_um = float(x_coords[p1_x_pixel])
+                        p1_y_pixel = int(y_idx)
+                        p1_y_um = float((y_pixel_count - (y_idx + 0.5)) * pixel_size)
+                        p1_z_nm = float(substrate_z_nm)
+
+                        # Point 2 (Extremum) calculations
+                        p2_x_um = float(vertex_x_um)
+                        p2_y_um = float(vertex_y_um)
+                        p2_z_nm = float(vertex_z_nm)
+                        p2_x_pixel = int(np.argmin(np.abs(x_coords - vertex_x_um)))
+                        p2_y_pixel = int(np.clip(round(y_pixel_count - 0.5 - vertex_y_um / pixel_size), 0, y_pixel_count - 1))
+
+                        result_entry = {
+                            'Well': well,
+                            'Image Name': image.bname,
+                            'Time (minutes)': (well_time - pl.depressurized_datetime).total_seconds() / 60.0,
+                            'Deflection (nm)': float(deflection),
+                            'Point 1 X Pixel': p1_x_pixel,
+                            'Point 1 Y Pixel': p1_y_pixel,
+                            'Point 1 X (um)': p1_x_um,
+                            'Point 1 Y (um)': p1_y_um,
+                            'Point 1 Z (nm)': p1_z_nm,
+                            'Point 2 X Pixel': p2_x_pixel,
+                            'Point 2 Y Pixel': p2_y_pixel,
+                            'Point 2 X (um)': p2_x_um,
+                            'Point 2 Y (um)': p2_y_um,
+                            'Point 2 Z (nm)': p2_z_nm,
+                        }
+
+                        results.append(result_entry)
+
+                        # Update position to account for drift
+                        absolute_vertex_x = vertex_x_um + absolute_image_bounds[0]
+                        absolute_vertex_y = vertex_y_um + absolute_image_bounds[1]
+                        well_positions[well] = (absolute_vertex_x, absolute_vertex_y)
+
+                        if each_found_well_updates_all_well_positions or expect_multiple_in_image:
+                            # Update predictions for remaining wells based on the newly found position
+                            for other_well in well_map:
+                                if other_well != well:
+                                    well_positions[other_well] = self.predict_position_from_change_in_coordinates(
+                                        well_positions[well], well_map[well], well_map[other_well]
+                                    )
                         else:
                             print(f"Failed to calculate substrate height for {well}")
                     else:
                         print(f"Fit failed for {well}")
-        
+
+                remaining_wells.discard(well)
+
         return results
 
 # sample37 Configuration
@@ -335,6 +377,8 @@ class WellPositionsReviewer:
         self.fig = None
         self.ax1 = None
         self.ax2 = None
+        self.secax_map_x = None
+        self.secax_map_y = None
         self.slider = None
         self.scatter_map_ax1 = {}
         self.scatter_map_ax2 = {}
@@ -345,6 +389,7 @@ class WellPositionsReviewer:
         self.initial_xlim = (0, 1)
         self.initial_ylim = (0, 1)
         self.well_colors = {}
+        self.future_span = None
 
     def _assign_well_colors(self):
         unique_wells = sorted(list(set(entry['Well'] for entry in self.results)))
@@ -363,8 +408,8 @@ class WellPositionsReviewer:
         self.refresh_data()
         
         self.fig, (self.ax1, self.ax2) = plt.subplots(2, 1, figsize=(10, 12), gridspec_kw={'height_ratios': [1, 2]})
-        # Increase top/bottom margins and vertical spacing so slider fits between plots
-        plt.subplots_adjust(bottom=0.08, top=0.95, hspace=0.35)
+        # Pull the top plot a bit closer to the top of the window while leaving extra room between the plots
+        plt.subplots_adjust(bottom=0.08, top=0.975, hspace=0.42)
         
         self.draw_deflection_plot()
         self.draw_absolute_positions(self.max_time)
@@ -420,9 +465,18 @@ class WellPositionsReviewer:
         self.initial_ylim = (min(ys) - margin_y, max(ys) + margin_y)
 
     def draw_deflection_plot(self):
+        # Clear any existing future shading before wiping the axes to avoid
+        # stale artists that cannot be removed afterwards.
+        if self.future_span and getattr(self.future_span, 'axes', None) is not None:
+            try:
+                self.future_span.remove()
+            except NotImplementedError:
+                pass
+        self.future_span = None
+
         self.ax1.clear()
         self.scatter_map_ax1 = {}
-        
+
         for well_name in set(entry['Well'] for entry in self.results):
             well_data = [entry for entry in self.results if entry['Well'] == well_name]
             t = [entry['Time (minutes)'] for entry in well_data]
@@ -433,13 +487,23 @@ class WellPositionsReviewer:
             
         self.ax1.set_xlabel('Time (min)')
         self.ax1.set_ylabel('Deflection (nm)')
-        self.ax1.set_title('Deflection vs Time (Click point to re-track)')
         if not all(is_color_like(well) for well in self.well_colors):
             self.ax1.legend(loc='upper right')
         self.ax1.grid(True, alpha=0.3)
+        # Re-apply any future shading if a slider already exists
+        if self.slider is not None:
+            self.update_deflection_future_background(self.slider.val)
+        else:
+            self.future_span = None
 
     def draw_absolute_positions(self, time_cut):
         self.ax2.clear()
+        if self.secax_map_x:
+            self.secax_map_x.remove()
+            self.secax_map_x = None
+        if self.secax_map_y:
+            self.secax_map_y.remove()
+            self.secax_map_y = None
         self.scatter_map_ax2 = {}
         
         # Group points by well
@@ -483,15 +547,80 @@ class WellPositionsReviewer:
 
         self.ax2.set_xlabel('Absolute X Position (μm)')
         self.ax2.set_ylabel('Absolute Y Position (μm)')
-        self.ax2.set_title(f'Found Well Positions up to {time_cut:.1f} min (Click point to re-track)')
         self.ax2.grid(True, alpha=0.3)
         self.ax2.set_aspect('equal', adjustable='box')
         self.ax2.set_xlim(self.initial_xlim)
         self.ax2.set_ylim(self.initial_ylim)
-        if drawn_labels and not all(is_color_like(well) for well in self.well_colors):
-            self.ax2.legend(loc='upper right')
+        # Move the absolute position axes to the top and right
+        self.ax2.xaxis.set_label_position('top')
+        self.ax2.xaxis.tick_top()
+        self.ax2.tick_params(axis='x', labelbottom=False)
+        self.ax2.yaxis.set_label_position('right')
+        self.ax2.yaxis.tick_right()
+        self.ax2.tick_params(axis='y', labelleft=False)
+
+        # Add bottom/left axes showing well map coordinates anchored on the last displayed point
+        anchor_point = self.get_last_displayed_point(time_cut)
+        if anchor_point and anchor_point['well'] in self.well_map:
+            anchor_abs_x = anchor_point['x']
+            anchor_abs_y = anchor_point['y']
+            anchor_map_x, anchor_map_y = self.well_map[anchor_point['well']]
+
+            def abs_to_map_x(x):
+                return (x - anchor_abs_x) / x_spacing + anchor_map_x
+
+            def map_to_abs_x(mx):
+                return (mx - anchor_map_x) * x_spacing + anchor_abs_x
+
+            def abs_to_map_y(y):
+                return (y - anchor_abs_y) / y_spacing + anchor_map_y
+
+            def map_to_abs_y(my):
+                return (my - anchor_map_y) * y_spacing + anchor_abs_y
+
+            self.secax_map_x = self.ax2.secondary_xaxis('bottom', functions=(abs_to_map_x, map_to_abs_x))
+            self.secax_map_x.set_xlabel(f"Well Map X (anchor: {anchor_point['well']})")
+            self.secax_map_x.tick_params(axis='x', labelbottom=True, direction='out')
+
+            self.secax_map_y = self.ax2.secondary_yaxis('left', functions=(abs_to_map_y, map_to_abs_y))
+            self.secax_map_y.set_ylabel(f"Well Map Y (anchor: {anchor_point['well']})")
+            self.secax_map_y.tick_params(axis='y', labelleft=True, direction='out')
         
         self.fig.canvas.draw_idle()
+
+    def update_deflection_future_background(self, time_cut):
+        """Shade the portion of the deflection plot after ``time_cut``."""
+        if self.future_span:
+            remove_method = getattr(self.future_span, 'remove', None)
+            has_axes = getattr(self.future_span, 'axes', None) is not None
+            if remove_method and has_axes:
+                try:
+                    remove_method()
+                except (ValueError, NotImplementedError):
+                    pass
+            self.future_span = None
+
+        if time_cut < self.max_time:
+            self.future_span = self.ax1.axvspan(
+                time_cut,
+                self.max_time,
+                facecolor='lightgrey',
+                alpha=0.2,
+                zorder=0
+            )
+        self.fig.canvas.draw_idle()
+
+    def get_last_displayed_point(self, time_cut):
+        """Return the last displayed absolute point (with well metadata) up to ``time_cut``."""
+        pts = [p for p in self.abs_points if p['time'] <= time_cut]
+        if not pts:
+            return None
+
+        max_time = max(p['time'] for p in pts)
+        candidates = [p for p in pts if p['time'] == max_time]
+        if not candidates:
+            return None
+        return candidates[-1]
 
     def get_last_displayed_entry(self, time_cut):
         """Return the original results entry for the last point with time <= time_cut.
@@ -527,12 +656,28 @@ class WellPositionsReviewer:
         pos1 = self.ax1.get_position()
         pos2 = self.ax2.get_position()
 
-        slider_height = 0.03
+        slider_height = 0.025
         # x and width match ax1 so slider lines up with the deflection plot x-axis
         slider_x = pos1.x0
         slider_width = pos1.x1 - pos1.x0
         # place vertically between ax1 bottom and ax2 top
         slider_y = pos2.y1 + (pos1.y0 - pos2.y1) / 2.0 - slider_height / 2.0
+
+        # Keep slider clear of the top axis label and tick labels on the lower plot
+        axis_top = pos2.y1
+        try:
+            renderer = self.fig.canvas.get_renderer()
+            tight_bbox = self.ax2.xaxis.get_tightbbox(renderer=renderer)
+            if tight_bbox is not None:
+                tight_bbox = tight_bbox.transformed(self.fig.transFigure.inverted())
+                axis_top = tight_bbox.y1
+        except Exception:
+            pass
+
+        padding = 0.015
+        min_slider_y = axis_top + padding + slider_height
+        max_slider_y = max(pos1.y0 - slider_height - padding, min_slider_y)
+        slider_y = min(max(slider_y, min_slider_y), max_slider_y)
 
         # Clamp slider_y to reasonable figure bounds
         slider_y = max(0.01, min(0.95, slider_y))
@@ -546,7 +691,11 @@ class WellPositionsReviewer:
             self.slider.valtext.set_visible(False)
         except Exception:
             pass
-        self.slider.on_changed(lambda val: self.draw_absolute_positions(val))
+        def on_slider(val):
+            self.draw_absolute_positions(val)
+            self.update_deflection_future_background(val)
+
+        self.slider.on_changed(on_slider)
 
         # Buttons: Prev / Next — position them just outside the slider ends
         button_width = min(0.08, slider_width * 0.08 + 0.02)
@@ -788,11 +937,11 @@ if __name__ == "__main__":
     navigator = MembraneNavigator()
     well_map = sample53_o_5_1_well_map
 
-    # make a datetime that's 75 minutes after the depressurized datetime
+    # make a datetime that's delta minutes after the depressurized datetime
     from datetime import timedelta
-    depressurized_datetime_plus_75_mins = pl.depressurized_datetime + timedelta(minutes=75)
+    depressurized_datetime_plus_delta = pl.depressurized_datetime + timedelta(minutes=180)
 
-    image_collection = AFMImageCollection.AFMImageCollection(pl.afm_images_path, pl.depressurized_datetime, end_datetime=depressurized_datetime_plus_75_mins)
+    image_collection = AFMImageCollection.AFMImageCollection(pl.afm_images_path, pl.depressurized_datetime, end_datetime=depressurized_datetime_plus_delta)
     
     # Show the first image to pick a well
     first_image = image_collection.images[0]

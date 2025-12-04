@@ -10,7 +10,7 @@ cavity_position = 'red'
 
 # Additional depressurization date/time combinations can be added to this list to plot multiple datasets at once (see plot_curves.py)
 plot_depressurizations = [
-    # (depressurized_date, depressurized_time),
+    (depressurized_date, depressurized_time),
     # ('20250729', '17:18:16'),
     # ('20250918', '15:03:22'),
     # ('20250919', '15:45:32'),
@@ -25,8 +25,8 @@ plot_depressurizations = [
     # ('20251119', '21:32:46'),
     # ('20251001', '14:31:11'),
     # ('20251028', '16:57:19'),
-    ('20251126', '14:07:40'),
-    ('20251201', '14:15:20'),
+    # ('20251126', '14:07:40'),
+    # ('20251201', '14:15:20'),
     ]
 
 

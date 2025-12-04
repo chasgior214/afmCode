@@ -11,7 +11,8 @@ import path_loader as pl
 filter_substrings = [
     # 'red'
 ]
-
+plot_type = 'scatter'
+plot_type = 'line'
 
 def _load_saved_slopes():
     """Return a mapping of deflation curve slope IDs to slope/intercept values."""
@@ -128,8 +129,12 @@ for idx, entry in enumerate(csv_entries):
     csv_file = entry['path']
     df = pd.read_csv(csv_file)
     marker = markers[entry['target_idx'] % len(markers)]
-    plt.scatter(df['Time (minutes)'], df['Deflection (nm)'],
-                label=os.path.basename(csv_file), color=colors[idx % len(colors)], s=60, marker=marker)
+    if plot_type == 'scatter':
+        plt.scatter(df['Time (minutes)'], df['Deflection (nm)'],
+                    label=os.path.basename(csv_file), color=colors[idx % len(colors)], s=60, marker=marker)
+    elif plot_type == 'line':
+        plt.plot(df['Time (minutes)'], df['Deflection (nm)'],
+                 label=os.path.basename(csv_file), color=colors[idx % len(colors)], linewidth=1.5)
 
     slope_id = _get_slope_id_from_filename(csv_file)
     if slope_id and slope_id in saved_slopes:
@@ -164,6 +169,6 @@ else:
 
 plt.xlabel('Time since depressurization (minutes)')
 plt.ylabel('Deflection (nm)')
-plt.legend()
+# plt.legend()
 plt.tight_layout()
 plt.show()
