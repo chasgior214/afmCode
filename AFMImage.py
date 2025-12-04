@@ -230,6 +230,8 @@ class AFMImage:
     ## Other Metadata Methods
     def get_filename(self):
         return self._extract_parameter('FileName')
+    
+    # If I have a need to check if a channel was saved raw or flattened, look for FlattenOrder {channel_index} in the note.
 
     ## Helper method to extract parameters from the note
     def _extract_parameter(self, key, alternative_keys=None):
