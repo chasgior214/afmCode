@@ -349,8 +349,7 @@ def paraboloid_substrate_intersection_area(a, b, c, d, e, f_const, row_data, bin
         z = a*x^2 + b*y^2 + c*x*y + d*x + e*y + f
 
     The substrate height is estimated from row_data using calculate_substrate_height. The intersection of the paraboloid and
-    the substrate (a plane) forms an ellipse when it exists; this function
-    returns the area of that ellipse.
+    the substrate (a plane) forms an ellipse when it exists; this function returns the area of that ellipse.
 
     Args:
         a (float): Coefficient for x^2.
@@ -387,17 +386,25 @@ def paraboloid_substrate_intersection_area(a, b, c, d, e, f_const, row_data, bin
     except np.linalg.LinAlgError:
         return None
 
-    # Check positive definiteness to ensure the quadratic form is an ellipse.
+    # Check definiteness: accept positive-definite (upward) or negative-definite (downward)
     eigenvalues = np.linalg.eigvals(A)
-    if not np.all(eigenvalues > 0):
+    if np.all(eigenvalues > 0):
+        orientation = "up"
+    elif np.all(eigenvalues < 0):
+        orientation = "down"
+    else:
+        # Indefinite or semi-definite → hyperbola, parabola, or degenerate
         return None
 
     offset_term = 0.25 * float(B.T @ inv_A @ B)
     constant_term = F - offset_term
 
-    # For an ellipse, the quadratic form equals a positive constant.
-    if constant_term >= 0:
+    # For upward-opening: vertex below substrate → constant_term < 0.
+    # For downward-opening: vertex above substrate → constant_term > 0.
+    if orientation == "up" and constant_term >= 0:
+        return None
+    elif orientation == "down" and constant_term <= 0:
         return None
 
-    area = np.pi * (-constant_term) / np.sqrt(det_A)
+    area = np.pi * np.abs(constant_term) / np.sqrt(det_A)
     return float(area)
