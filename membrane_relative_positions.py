@@ -389,19 +389,25 @@ class WellPositionsReviewer:
         self.initial_xlim = (0, 1)
         self.initial_ylim = (0, 1)
         self.well_colors = {}
+        self.well_markers = {}
         self.future_span = None
 
     def _assign_well_colors(self):
         unique_wells = sorted(list(set(entry['Well'] for entry in self.results)))
         palette = plt.cm.tab10.colors  # Use a standard palette
         palette_idx = 0
+        markers = ['o', '^', 's', 'D']
+        self.well_colors = {}
+        self.well_markers = {}
         
         for well in unique_wells:
             if is_color_like(well):
                 self.well_colors[well] = well
+                self.well_markers[well] = 'o'
             else:
                 # Assign a color from the palette
                 self.well_colors[well] = palette[palette_idx % len(palette)]
+                self.well_markers[well] = markers[(palette_idx // 10) % 4]
                 palette_idx += 1
 
     def plot(self):
@@ -482,7 +488,8 @@ class WellPositionsReviewer:
             t = [entry['Time (minutes)'] for entry in well_data]
             d = [entry['Deflection (nm)'] for entry in well_data]
             color = self.well_colors.get(well_name, 'black')
-            sc = self.ax1.scatter(t, d, label=well_name, picker=5, color=color)
+            marker = self.well_markers.get(well_name, 'o')
+            sc = self.ax1.scatter(t, d, label=well_name, picker=5, edgecolors=color, facecolors='none', marker=marker)
             self.scatter_map_ax1[sc] = well_data
             
         self.ax1.set_xlabel('Time (min)')
@@ -529,7 +536,8 @@ class WellPositionsReviewer:
                 xs = [p['x'] for p in prev_points]
                 ys = [p['y'] for p in prev_points]
                 color = self.well_colors.get(well, 'black')
-                sc = self.ax2.scatter(xs, ys, color=color, s=100, alpha=0.6, marker='o', picker=5)
+                marker = self.well_markers.get(well, 'o')
+                sc = self.ax2.scatter(xs, ys, edgecolors=color, facecolors='none', s=100, alpha=0.6, marker=marker, picker=5)
                 self.scatter_map_ax2[sc] = prev_points
             
             # Last point

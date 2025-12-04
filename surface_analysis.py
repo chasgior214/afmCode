@@ -339,3 +339,65 @@ def calculate_substrate_height(row_data, bin_size=0.5):
     mode_center = (edges[mode_idx] + edges[mode_idx + 1]) / 2
     nearest_idx = finite_row_indices[np.argmin(np.abs(row_values - mode_center))]
     return float(row_data[nearest_idx])
+
+def paraboloid_substrate_intersection_area(a, b, c, d, e, f_const, row_data, bin_size=0.5):
+    """
+    Calculate the area of the intersection between a paraboloid and the substrate.
+
+    The paraboloid is defined by the quadratic surface:
+
+        z = a*x^2 + b*y^2 + c*x*y + d*x + e*y + f
+
+    The substrate height is estimated from row_data using calculate_substrate_height. The intersection of the paraboloid and
+    the substrate (a plane) forms an ellipse when it exists; this function
+    returns the area of that ellipse.
+
+    Args:
+        a (float): Coefficient for x^2.
+        b (float): Coefficient for y^2.
+        c (float): Coefficient for x*y.
+        d (float): Coefficient for x.
+        e (float): Coefficient for y.
+        f_const (float): Constant term of the paraboloid.
+        row_data (np.ndarray): 1D array of height values used to estimate the substrate.
+        bin_size (float, optional): Bin size passed to calculate_substrate_height.
+
+    Returns:
+        float: Area of the intersection ellipse, or None if it cannot be determined
+        (e.g., substrate height cannot be estimated or the intersection is not an ellipse).
+    """
+    substrate_height = calculate_substrate_height(row_data, bin_size=bin_size)
+    if substrate_height is None:
+        return None
+
+    A = np.array([[a, c / 2.0], [c / 2.0, b]], dtype=float)
+    B = np.array([d, e], dtype=float)
+    F = float(f_const - substrate_height)
+
+    try:
+        det_A = float(np.linalg.det(A))
+    except np.linalg.LinAlgError:
+        return None
+
+    if det_A <= 0:
+        return None
+
+    try:
+        inv_A = np.linalg.inv(A)
+    except np.linalg.LinAlgError:
+        return None
+
+    # Check positive definiteness to ensure the quadratic form is an ellipse.
+    eigenvalues = np.linalg.eigvals(A)
+    if not np.all(eigenvalues > 0):
+        return None
+
+    offset_term = 0.25 * float(B.T @ inv_A @ B)
+    constant_term = F - offset_term
+
+    # For an ellipse, the quadratic form equals a positive constant.
+    if constant_term >= 0:
+        return None
+
+    area = np.pi * (-constant_term) / np.sqrt(det_A)
+    return float(area)
