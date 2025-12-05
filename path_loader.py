@@ -1,7 +1,7 @@
 editing_mode = True
 
-depressurized_date = '20251120'
-depressurized_time = '14:47:12'
+depressurized_date = '20251204'
+depressurized_time = '16:01:37'
 end_hour = None # None to not give end limit (if end_hour given and end_day not given, uses only day of depressurization up to this hour)
 end_day = None # None to not give end limit (use all files in specified folder)
 sample_number = '53'

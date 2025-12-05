@@ -57,47 +57,69 @@ class AFMImage:
         """Get the number of data arrays (a.k.a. channels/layers in the image) in the wave data."""
         return self.hdr['nDim'][2]
 
-    # Tapping mode: raw data indexes 0-3, contact mode: raw data indexes 0-2
     def get_height_retrace(self):
         """Returns the image's height retrace channel. Converts units to nm."""
         return self.get_channel_data(channel_name='HeightRetrace', unit_conversion=1e9)
+    
+    def get_height_trace(self):
+        """Returns the image's height trace channel. Converts units to nm."""
+        return self.get_channel_data(channel_name='HeightTrace', unit_conversion=1e9)
 
     def get_amplitude_retrace(self):
         """Returns the image's amplitude retrace channel."""
         return self.get_channel_data(channel_name='AmplitudeRetrace')
+    
+    def get_amplitude_trace(self):
+        """Returns the image's amplitude trace channel."""
+        return self.get_channel_data(channel_name='AmplitudeTrace')
 
     def get_deflection_retrace(self):
         """Returns the image's deflection retrace channel."""
         return self.get_channel_data(channel_name='DeflectionRetrace')
+    
+    def get_deflection_trace(self):
+        """Returns the image's deflection trace channel."""
+        return self.get_channel_data(channel_name='DeflectionTrace')
 
     def get_contrast_map(self):
-        """If the image was taken in tapping mode, this will return the amplitude retrace. If the image was taken in contact mode, this will return the deflection retrace. Both give high contrast to surface topographies, so can be used to extract a high-contrast qualitative map of topographical features from images taken in either mode."""
-        if self.get_imaging_mode() == 'AC Mode':
-            return self.get_amplitude_retrace()
-        elif self.get_imaging_mode() == 'Contact':
-            return self.get_deflection_retrace()
+        """If the image was taken in tapping mode and an amplitude channel is available, this will return AmplitudeRetrace or AmplitudeTrace. If the image was taken in contact mode and a deflection channel is available, this will return the deflection retrace or deflection trace. All give high contrast to surface topographies, so can be used to extract a high-contrast qualitative map of topographical features from images taken in either mode."""
+        potential_contrast_maps = ['AmplitudeRetrace', 'AmplitudeTrace', 'DeflectionRetrace', 'DeflectionTrace']
+        for channel_name in potential_contrast_maps:
+            if channel_name in self.channel_names:
+                return self.get_channel_data(channel_name=channel_name)
 
     def get_phase_retrace(self):
         """Returns the image's phase retrace channel. Units are in degrees."""
         return self.get_channel_data(channel_name='PhaseRetrace')
 
+    def get_phase_trace(self):
+        """Returns the image's phase trace channel. Units are in degrees."""
+        return self.get_channel_data(channel_name='PhaseTrace')
+
     def get_z_sensor_retrace(self):
         """Returns the image's Z sensor retrace channel. Converts units to nm."""
         return self.get_channel_data(channel_name='ZSensorRetrace', unit_conversion=1e9)
+    
+    def get_z_sensor_trace(self):
+        """Returns the image's Z sensor trace channel. Converts units to nm."""
+        return self.get_channel_data(channel_name='ZSensorTrace', unit_conversion=1e9)
 
     def get_flat_height_retrace(self):
-        """Get the flattened height retrace (assuming postprocessing was done in Igor which put the flat height in the next free index after the Z retrace). Converts units to nm."""
-        if self.get_imaging_mode() == 'AC Mode':
-            return self.get_channel_data(4, unit_conversion=1e9)
-        elif self.get_imaging_mode() == 'Contact':
-            return self.get_channel_data(3, unit_conversion=1e9)
+        """Get the flattened height retrace (assuming postprocessing was done in Igor which flattened the height retrace and put that flattened image in 'HeightRetraceMod0'). Converts units to nm."""
+        return self.get_channel_data(channel_name='HeightRetraceMod0', unit_conversion=1e9)
+    
+    def get_flat_height_trace(self):
+        """Get the flattened height trace (assuming postprocessing was done in Igor which flattened the height trace and put that flattened image in 'HeightTraceMod0'). Converts units to nm."""
+        return self.get_channel_data(channel_name='HeightTraceMod0', unit_conversion=1e9)
 
     def get_flat_z_retrace(self):
-        """Get the flattened Z retrace (assuming postprocessing was done in Igor which put the flat Z retrace in the second next free index after the Z retrace). Converts units to nm."""
-        if self.get_imaging_mode() == 'AC Mode':
-            return self.get_channel_data(5, unit_conversion=1e9)
-        elif self.get_imaging_mode() == 'Contact':
-            return self.get_channel_data(4, unit_conversion=1e9)
+        """Get the flattened Z retrace (assuming postprocessing was done in Igor which flattened the Z retrace and put that flattened image in 'ZSensorRetraceMod0'). Converts units to nm."""
+        return self.get_channel_data(channel_name='ZSensorRetraceMod0', unit_conversion=1e9)
+    
+    def get_flat_z_trace(self):
+        """Get the flattened Z trace (assuming postprocessing was done in Igor which flattened the Z trace and put that flattened image in 'ZSensorTraceMod0'). Converts units to nm."""
+        return self.get_channel_data(channel_name='ZSensorTraceMod0', unit_conversion=1e9)
+
 
     # Metadata Extraction Methods
     ## Imaging parameters
