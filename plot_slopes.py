@@ -10,7 +10,7 @@ consensus_slopes = {
     'H2': {
         'green': 2.1,
         'red': 33,
-        'blue': 35,
+        'blue': 34.5,
         'orange': 2.2,
         'black': 2.3
     },
@@ -153,9 +153,11 @@ def plot_recent_deflation_curve_slopes():
         # '09-Nov	18:58:36': 'C3H8',
         # '17-Nov	15:24:00': 'H2',
     # }
-        '19-Nov	21:32:46': 'H2',
-        '26-Nov	14:07:40': 'C2H6',
-        '01-Dec	14:15:20': 'C2H6'
+        # '19-Nov	21:32:46': 'H2',
+        # '26-Nov	14:07:40': 'C2H6',
+        # '01-Dec	14:15:20': 'C2H6',
+    # }
+        '04-Dec	16:01:37': 'H2',
     }
 
     # convert date/time to YYYYMMDD_HHMMSS format, including replacing the 3 character month with 2 digit month
@@ -180,7 +182,7 @@ def plot_recent_deflation_curve_slopes():
         date8 = dt_str[:8]
         time6 = dt_str[9:]
         for colour in ['red', 'blue', 'green', 'orange', 'black']:
-            _id = pl.get_deflation_curve_slope_id(pl.sample_number, date8, time6, pl.transfer_location, colour)
+            _id = pl.get_deflation_curve_slope_id(pl.sample_ID, date8, time6, pl.transfer_location, colour)
             potential_ids.append(_id)
             id_to_meta[_id] = {"color": colour, "dtstr": dt_str, "gas": gas}
 

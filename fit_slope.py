@@ -857,7 +857,7 @@ if filter_at_least_n_positive_points:
 
 def csv_path_to_slope_id(path):
 	# Expect filenames like:
-	# deflation_curve_sample{sample_number}_depressurized{depressurized_date}_{depressurized_time}_loc{transfer_location}_cav{cavity_position}.csv
+	# deflation_curve_sample{sample_ID}_depressurized{depressurized_date}_{depressurized_time}_loc{transfer_location}_cav{cavity_position}.csv
 	base = os.path.basename(path)
 
 	# Use regex to robustly capture each component, allowing non-underscore characters for fields.
@@ -871,14 +871,14 @@ def csv_path_to_slope_id(path):
 		# helpful debug message
 		raise ValueError(f"Filename does not match expected pattern: {base}")
 
-	sample_number = m.group('sample')
+	sample_ID = m.group('sample')
 	depressurized_date = m.group('date')
 	depressurized_time = m.group('time')
 	transfer_location = m.group('loc')
 	cavity_position = m.group('cav')
 
 	# call existing helper to get slope id
-	return get_deflation_curve_slope_id(sample_number, depressurized_date, depressurized_time, transfer_location, cavity_position)
+	return get_deflation_curve_slope_id(sample_ID, depressurized_date, depressurized_time, transfer_location, cavity_position)
 
 def load_saved_slopes():
 	"""Load all saved slopes into a dictionary keyed by slope_id."""

@@ -816,7 +816,7 @@ class WellPositionsReviewer:
 
             well_entries.sort(key=lambda e: e.get('Time (minutes)', 0))
             file_path = pl.get_deflation_curve_path(
-                pl.sample_number,
+                pl.sample_ID,
                 pl.depressurized_date,
                 pl.depressurized_time,
                 pl.transfer_location,
@@ -940,10 +940,17 @@ class WellPositionsReviewer:
             print("No extremum selected. Retracking cancelled.")
 
 
+sample_ID_and_location_to_well_map = {
+    ('37', '$(6,3)'): sample37_well_map,
+    ('53', 'o(5,1)'): sample53_o_5_1_well_map
+}
+
 # Example Usage / Script
 if __name__ == "__main__":
     navigator = MembraneNavigator()
-    well_map = sample53_o_5_1_well_map
+    sample_ID = pl.sample_ID
+    location = pl.transfer_location
+    well_map = sample_ID_and_location_to_well_map.get((sample_ID, location), None)
 
     # make a datetime that's delta minutes after the depressurized datetime
     from datetime import timedelta

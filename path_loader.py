@@ -4,9 +4,9 @@ depressurized_date = '20251204'
 depressurized_time = '16:01:37'
 end_hour = None # None to not give end limit (if end_hour given and end_day not given, uses only day of depressurization up to this hour)
 end_day = None # None to not give end limit (use all files in specified folder)
-sample_number = '53'
-transfer_location = 'o(5,1)' # $(6,3)
-cavity_position = 'red'
+sample_ID = '37'
+transfer_location = '$(6,3)' # o(5,1)
+cavity_position = 'green'
 
 # Additional depressurization date/time combinations can be added to this list to plot multiple datasets at once (see plot_curves.py)
 plot_depressurizations = [
@@ -46,15 +46,15 @@ afm_images_path = experiment_data_path + '\\raw_data\\'+depressurized_date+'\\Fl
 
 deflation_curves_path = experiment_data_path + '\\data_processing\\deflation_curves'
 
-def get_deflation_curve_path(sample_number, depressurized_date, depressurized_time, transfer_location, cavity_position):
-    deflation_curve_filename = f'deflation_curve_sample{sample_number}_depressurized{depressurized_date}_{depressurized_time}_loc{transfer_location}_cav{cavity_position}.csv'
+def get_deflation_curve_path(sample_ID, depressurized_date, depressurized_time, transfer_location, cavity_position):
+    deflation_curve_filename = f'deflation_curve_sample{sample_ID}_depressurized{depressurized_date}_{depressurized_time}_loc{transfer_location}_cav{cavity_position}.csv'
     return deflation_curves_path + f'\\{deflation_curve_filename}'
 
-deflation_curve_path = get_deflation_curve_path(sample_number, depressurized_date, depressurized_time, transfer_location, cavity_position)
+deflation_curve_path = get_deflation_curve_path(sample_ID, depressurized_date, depressurized_time, transfer_location, cavity_position)
 
-def get_deflation_curve_slope_id(sample_number, depressurized_date, depressurized_time, transfer_location, cavity_position):
+def get_deflation_curve_slope_id(sample_ID, depressurized_date, depressurized_time, transfer_location, cavity_position):
     depressurized_time = depressurized_time.replace(':', '')  # 'HHMMSS' format
-    return f'slope_sample{sample_number}_depressurized{depressurized_date}_{depressurized_time}_loc{transfer_location}_cav{cavity_position}'
+    return f'slope_sample{sample_ID}_depressurized{depressurized_date}_{depressurized_time}_loc{transfer_location}_cav{cavity_position}'
 
 deflation_curve_slope_path = experiment_data_path + '\\data_processing\\deflation_curve_slopes.csv'
 

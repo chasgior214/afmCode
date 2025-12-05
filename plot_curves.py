@@ -12,7 +12,7 @@ filter_substrings = [
     # 'red'
 ]
 plot_type = 'scatter'
-plot_type = 'line'
+# plot_type = 'line'
 
 def _load_saved_slopes():
     """Return a mapping of deflation curve slope IDs to slope/intercept values."""
@@ -92,7 +92,7 @@ depressurization_targets = _get_depressurization_targets()
 # Find all CSV files in the folder for specified sample and depressurization date/time
 csv_entries = []
 for target_idx, (date, time) in enumerate(depressurization_targets):
-    pattern = f"deflation_curve_sample{pl.sample_number}_depressurized{date}_{time}*.csv"
+    pattern = f"deflation_curve_sample{pl.sample_ID}_depressurized{date}_{time}*.csv"
     for csv_file in glob.glob(os.path.join(folder, pattern)):
         basename = os.path.basename(csv_file)
         if filter_substrings:
