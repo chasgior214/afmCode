@@ -35,7 +35,7 @@ def _build_initial_selections(collection, csv_path, depressurized_dt):
 
     image_windows = []
     for idx, image in enumerate(collection):
-        end_dt = image.get_datetime()
+        end_dt = image.get_scan_end_datetime()
         if end_dt is None:
             continue
         height_map = _get_height_map_for_selection(image)
@@ -285,8 +285,8 @@ for idx in sorted(selections.keys()):
     try:
         res = selections[idx]
         image = collection[idx]
-        taken = image.get_datetime()
-        print(f"Image {image.bname} saved {taken - depressurized_datetime} after depressurization")
+        scan_finished = image.get_scan_end_datetime()
+        print(f"Image {image.bname} scan finished {scan_finished - depressurized_datetime} after depressurization")
 
         slots = res.get('selected_slots', [None, None])
         time_offset = res.get('time_offset')
@@ -300,7 +300,7 @@ for idx in sorted(selections.keys()):
             if time_offset is None:
                 print(f"No time offset for image {image.bname}; skipping time entry")
                 continue
-            time_unpressurized = (taken - depressurized_datetime).total_seconds() + time_offset
+            time_unpressurized = (scan_finished - depressurized_datetime).total_seconds() + time_offset
             times.append(time_unpressurized / 60)
             deflections.append(delta_deflection)
             p1x = p1y = p2x = p2y = None
@@ -344,7 +344,8 @@ if pl.editing_mode:
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
         if os.path.exists(file_path):
-            print(f"Overwriting existing file {file_path}")
+            print(f"Will overwrite existing file {file_path}")
+            input("Press Enter to continue...")
         with open(file_path, mode='w', newline='') as file:
             writer = csv.writer(file)
             writer.writerow([
@@ -391,14 +392,14 @@ plt.show()
 # collection.export_deflection_time(3)
 # collection.export_shift(3)
 
-# t = collection[0].get_datetime()
+# t = collection[0].get_scan_end_datetime()
 
 # T = [] 
 # max_height = [] 
 
 # for image in collection:
 #     x,y,max_value, shift = image.get_trimmed_trace_z(3)
-#     timediff = image.get_datetime() - t 
+#     timediff = image.get_scan_end_datetime() - t 
 #     T.append(timediff.total_seconds()/3600)
 #     max_height.append(max_value)
 

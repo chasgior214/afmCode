@@ -206,7 +206,8 @@ class AFMImage:
         return pixel_size_x
 
     ## Date and Time Methods
-    def get_datetime(self):
+    def get_scan_end_datetime(self):
+        """Get when the image scan finished as a datetime object."""
         combined_str = f"{self._extract_parameter('Date')} {self._extract_parameter('Time')}"
         # Parse the combined string into a datetime object
         return datetime.strptime(combined_str, "%Y-%m-%d %I:%M:%S %p")
@@ -215,24 +216,23 @@ class AFMImage:
         """Calculate the total imaging duration in seconds."""
         return self.get_x_y_pixel_counts()[1]/self.get_scan_rate()
 
-    def get_acquisition_start_time(self):
+    def get_scan_start_datetime(self):
         """
-        Get the time when the image acquisition started.
-        Assumes get_datetime() returns the finish time.
+        Get when the image scan started as a datetime object.
         """
-        return self.get_datetime() - timedelta(seconds=self.get_imaging_duration())
+        return self.get_scan_end_datetime() - timedelta(seconds=self.get_imaging_duration())
 
-    def get_line_acquisition_time(self, line_index):
+    def get_line_acquisition_datetime(self, line_index):
         """
         Calculate the acquisition time for a specific line index.
         
         Args:
             line_index (int): The 0-based index of the line.
-            
+
         Returns:
             datetime: When the line was imaged.
         """
-        start_time = self.get_acquisition_start_time()
+        start_time = self.get_scan_start_datetime()
         duration = self.get_imaging_duration()
         direction = self.get_scan_direction()
         _, total_lines = self.get_x_y_pixel_counts()

@@ -233,7 +233,7 @@ class MembraneNavigator:
                         deflection = vertex_z_nm - substrate_z_nm
 
                         # Calculate acquisition time for the well's line
-                        well_time = image.get_line_acquisition_time(y_idx)
+                        well_time = image.get_line_acquisition_datetime(y_idx)
 
                         # Point 1 (Substrate) calculations
                         # Find x index closest to substrate height in the row
@@ -314,8 +314,11 @@ sample53_o_5_1_well_coords = [
     (7,3), (7,5), (7,7), (7,9), (7,11),
     (8,6), (8,8), (8,10),
     (9,7), (9,9),
-    (10,6), (10,8), (10,10),
-    (11,9)
+    (10,6), (10,8), (10,10), (10,12), (10,14),
+    (11,9), (11,13), (11,15),
+    (12,8), (12,10), (12,12), (12,14), (12,16),
+    (13,9), (13,11), (13,13), (13,15),
+    (14,12), (14,14)
 ]
 
 # make the well map from the list of well coordinates, using the coordinates as both the well names and the well positions
@@ -323,24 +326,12 @@ sample53_o_5_1_well_map = {
     str((x_idx, y_idx)): (x_idx, y_idx) for (x_idx, y_idx) in sample53_o_5_1_well_coords
 }
 
-sample_53_o_5_1_potential_well_coords = [
-    (10,12), (10,14),
-    (11,11), (11,13), (11,15),
-    (12,8), (12,10), (12,12), (12,14), (12,16),
-    (13,9), (13,11), (13,13), (13,15),
-    (14,12), (14,14)
-]
 
-# plot the sample53 well coordinates as blue 4um diameter circles and the potential well coordinates as red 4um diameter circles
+# plot the sample53 well coordinates as blue 4um diameter circles
 # for (x_idx, y_idx) in sample53_o_5_1_well_coords:
 #     center_x = x_idx * x_spacing
 #     center_y = y_idx * y_spacing
 #     circle = plt.Circle((center_x, center_y), 2, color='blue', fill=True, linewidth=2)
-#     plt.gca().add_artist(circle)
-# for (x_idx, y_idx) in sample_53_o_5_1_potential_well_coords:
-#     center_x = x_idx * x_spacing
-#     center_y = y_idx * y_spacing
-#     circle = plt.Circle((center_x, center_y), 2, color='red', fill=True, linewidth=2)
 #     plt.gca().add_artist(circle)
 # plt.xlim(0, x_spacing*15)
 # plt.ylim(0, y_spacing*17)
@@ -824,7 +815,8 @@ class WellPositionsReviewer:
             )
 
             if os.path.exists(file_path):
-                print(f"Overwriting existing file {file_path}")
+                print(f"Will overwrite existing file {file_path}")
+                input("Press Enter to continue...")
             else:
                 print(f"Saving deflation curve for well '{well}' to {file_path}")
 

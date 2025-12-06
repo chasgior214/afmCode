@@ -6,6 +6,7 @@
 - If there is no point in the data within 5 nm of the vertex, reject it (root sum of squares → need to convert x/y to nm from um)
 - Can check what the fit paraboloid would indicate about the well’s diameter (the circle at the intersection of the paraboloid and the surface). It’s not a perfect paraboloid, but saying it should be at least a 1 or 2 um diameter and less than 10 um diameter could be an amazing way to assess if fit is feasible
 - Assign a min R^2 value (0.2?) for a fit → do this last, would want to play around after all the other stuff and see how bumpy of a near-cratered well I can get away with low R^2 for
+- Well finding could look at if the disruption in the substrate plane is about cirular, and if not and no well expected there, it's debris - could also use in finding algorithm
 
 # Better Finding Algorithm
 - When multiple wells present in the same image, check that they are, within a tight margin (0.5 um to start), found to be within where they’d each predict the others to be
@@ -29,3 +30,7 @@ Don’t hesitate to raise failures. I’ll learn from why they happened and eith
 - Ability to split it up into different days/sessions to save/load, reduces clutter on the absolute positions map
     - Goal to look at all images between which the head hasn't been moved (just piezos move) → if I keep tracking them as separate line items in the Excel tracker, I can get the groups of images to look at at a time from there
     - When 3+ hours between images, tracker starts fresh automatically? Otherwise I can set where to split it up
+
+# Other Improvements
+- Make export only overwrite data points corresponding to the time period between the start and end of the images that it got its points from instead of erasing the whole file and rewriting it
+    - Use get_scan_start_datetime and get_scan_end_datetime, take some of the logic in manual_image_review.py's _build_initial_selections out of it and make it reusable for this and that file

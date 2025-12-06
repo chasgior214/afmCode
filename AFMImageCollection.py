@@ -33,7 +33,7 @@ class AFMImageCollection:
                     afm_image = AFMImage(file_path)
                     
                     # Filter by datetime if specified
-                    img_datetime = afm_image.get_datetime()
+                    img_datetime = afm_image.get_scan_end_datetime()
                     if img_datetime is not None:
                         if start_datetime and img_datetime < start_datetime:
                             continue
@@ -44,7 +44,7 @@ class AFMImageCollection:
                 except Exception as e: 
                     print(f"Error loading file {file_path}: {e}")
         
-        images.sort(key=lambda image: image.get_datetime())
+        images.sort(key=lambda image: image.get_scan_end_datetime())
         return images
 
     def __len__(self): return len(self.images)
@@ -70,7 +70,7 @@ class AFMImageCollection:
                 fig, ax = plt.subplots()
                 ax.imshow(image.get_flat_z_retrace(), cmap='gray', aspect='auto')
                 ax.scatter(max_position[1], max_position[0], color='red', marker='x')  # Mark the max point
-                ax.set_title(f"Image {i+1}: {image.get_datetime()} - Max Value: {max_value}")
+                ax.set_title(f"Image {i+1}: {image.get_scan_end_datetime()} - Max Value: {max_value}")
                 ax.set_xlabel('X Pixels')
                 ax.set_ylabel('Y Pixels')
 
@@ -160,12 +160,12 @@ class AFMImageCollection:
             'Max_deflection_h': [],
             'Max_deflection_z': []
         }
-        t_0 = self[0].get_datetime()
+        t_0 = self[0].get_scan_end_datetime()
         for image in self.images:
             data['File_Name'].append(image.get_filename())
             data['Max_deflection_h'].append(image.get_trimmed_trace_h(length)[2])
             data['Max_deflection_z'].append(image.get_trimmed_trace_z(length)[2])
-            time_diff = image.get_datetime() - t_0
+            time_diff = image.get_scan_end_datetime() - t_0
             data['Time_Delta'].append(time_diff.total_seconds())
         df = pd.DataFrame(data)
         df.to_excel("Time_V_deflection.xlsx", index=False)
@@ -185,13 +185,13 @@ class AFMImageCollection:
         frame = ttk.Frame(root, padding=8)
         frame.pack(fill='both', expand=True)
 
-        cols = ('#', 'Filename', 'Saved At', 'Done', 'Deflection (nm)', 'Offset (μm)')
+        cols = ('#', 'Filename', 'Scan Finished', 'Done', 'Deflection (nm)', 'Offset (μm)')
         tree = ttk.Treeview(frame, columns=cols, show='headings', selectmode='browse')
         for c in cols:
             tree.heading(c, text=c)
         tree.column('#', width=30, anchor='center')
         tree.column('Filename', width=220)
-        tree.column('Saved At', width=140)
+        tree.column('Scan Finished', width=140)
         tree.column('Done', width=60, anchor='center')
         tree.column('Deflection (nm)', width=110, anchor='e')
         tree.column('Offset (μm)', width=130, anchor='e')
@@ -203,7 +203,7 @@ class AFMImageCollection:
 
         # populate
         for idx, img in enumerate(self.images):
-            dt = img.get_datetime().strftime('%Y-%m-%d %H:%M:%S') if img.get_datetime() is not None else ''
+            dt = img.get_scan_end_datetime().strftime('%Y-%m-%d %H:%M:%S') if img.get_scan_end_datetime() is not None else ''
             existing = selections.get(idx)
             done_flag = ''
             deflect = ''

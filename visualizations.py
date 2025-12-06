@@ -227,7 +227,7 @@ class DualHandleSlider:
 def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     # Extract data from the image
     image_bname = str(image.bname)
-    image_save_date_time = image.get_datetime().strftime("%Y-%m-%d %H:%M:%S")
+    scan_end_date_time = image.get_scan_end_datetime().strftime("%Y-%m-%d %H:%M:%S")
 
     scan_size = image.get_scan_size()
     scan_rate = image.get_scan_rate()
@@ -465,8 +465,8 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             y_pixels, key=lambda y_pixel: abs(y_pixel * pixel_size - line_height)
         )
 
-        line_time = image.get_line_acquisition_time(nearest_y_to_plot)
-        time_since_start = (line_time - image.get_acquisition_start_time()).total_seconds()
+        line_datetime = image.get_line_acquisition_datetime(nearest_y_to_plot)
+        time_since_start = (line_datetime - image.get_scan_start_datetime()).total_seconds()
 
         cumulative_adjusted_height = height_map[nearest_y_to_plot, :].copy()
         hline_height.set_ydata([line_height, line_height])
@@ -1495,7 +1495,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         set_mode_height(slot=0, silent=True)
         update_stats_display()
 
-    fig.canvas.manager.set_window_title(image_bname + " - " + image_save_date_time)
+    fig.canvas.manager.set_window_title(image_bname + " - " + scan_end_date_time)
 
     # If initial selections were provided, apply them after the plots are created
     # initial_selected_slots expected as a list like [(h,x,y), (h,x,y)] or None

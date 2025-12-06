@@ -1,7 +1,7 @@
 import numpy as np
 import plotly.graph_objects as go
 
-def make_heightmap_3d_surface(image, view = False, save = False, cmap = 'turbo', points_list = None):
+def make_heightmap_3d_surface(image, view = False, save = False, cmap = 'turbo', points_list = None, paraboloids = None):
     imaging_mode = image.get_imaging_mode()
     scan_size = image.get_scan_size()
     if imaging_mode == 'AC Mode' and image.wave_data.shape[2] > 4:
@@ -13,6 +13,9 @@ def make_heightmap_3d_surface(image, view = False, save = False, cmap = 'turbo',
     else:
         height_map = image.get_height_retrace()
         title_prefix = "Height Map"
+
+    z_min = np.nanmin(height_map)
+    z_max = np.nanmax(height_map) * 1.01 if np.nanmax(height_map) > 0 else np.nanmax(height_map) * 0.99
 
     x_pixel_count, y_pixel_count = image.get_x_y_pixel_counts()
 
@@ -45,7 +48,7 @@ def make_heightmap_3d_surface(image, view = False, save = False, cmap = 'turbo',
         scene=dict(
             xaxis_title="x (μm)",
             yaxis_title="y (μm)",
-            zaxis_title="Height (nm)",
+            zaxis=dict(title="Height (nm)", range=[z_min, z_max]),
             aspectmode='manual',
             aspectratio=dict(x=x_extent,y=y_extent,z=1)
         ),
@@ -66,6 +69,30 @@ def make_heightmap_3d_surface(image, view = False, save = False, cmap = 'turbo',
                         symbol="circle"
                     ),
                     name="points"
+                )
+            )
+
+    if paraboloids:
+        for i, coeffs in enumerate(paraboloids):
+            # z = a*x^2 + b*y^2 + c*x*y + d*x + e*y + f
+            a = coeffs['a']
+            b = coeffs['b']
+            c = coeffs['c']
+            d = coeffs['d']
+            e = coeffs['e']
+            f = coeffs['f']
+            
+            Z_paraboloid = a * X**2 + b * Y**2 + c * X * Y + d * X + e * Y + f
+            
+            fig.add_trace(
+                go.Surface(
+                    z=Z_paraboloid,
+                    x=X,
+                    y=Y,
+                    colorscale='Viridis', 
+                    opacity=0.5,
+                    showscale=False,
+                    name=f"Paraboloid {i+1}"
                 )
             )
 

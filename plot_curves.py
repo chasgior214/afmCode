@@ -113,7 +113,7 @@ if csv_paths and all(any(color in os.path.basename(f) for color in file_colors) 
     colors = [next(color for color in file_colors if color in os.path.basename(f)) for f in csv_paths]
 else:
     # Otherwise, use a default color cycle
-    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    colors = plt.cm.tab10.colors
 
 # Load saved slopes once so they can be reused for each curve
 saved_slopes = _load_saved_slopes()
@@ -124,14 +124,22 @@ _all_y_vals = []
 
 # Plot each CSV as a scatter plot
 markers = ['x', '*', '+', 'o', 's', '^', '>', 'd']
+same_target_single = len(csv_entries) > 10 and len({entry['target_idx'] for entry in csv_entries}) == 1
 
 for idx, entry in enumerate(csv_entries):
     csv_file = entry['path']
     df = pd.read_csv(csv_file)
-    marker = markers[entry['target_idx'] % len(markers)]
     if plot_type == 'scatter':
-        plt.scatter(df['Time (minutes)'], df['Deflection (nm)'],
-                    label=os.path.basename(csv_file), color=colors[idx % len(colors)], s=60, marker=marker)
+        if same_target_single:
+            marker = markers[(idx // 10) % len(markers)]
+        else:
+            marker = markers[entry['target_idx'] % len(markers)]
+        if marker in ['x', '+']:
+            plt.scatter(df['Time (minutes)'], df['Deflection (nm)'],
+                        label=os.path.basename(csv_file), color=colors[idx % len(colors)], s=60, marker=marker)
+        else:
+            plt.scatter(df['Time (minutes)'], df['Deflection (nm)'],
+                        label=os.path.basename(csv_file), color=colors[idx % len(colors)], s=60, marker=marker, facecolors='none')
     elif plot_type == 'line':
         plt.plot(df['Time (minutes)'], df['Deflection (nm)'],
                  label=os.path.basename(csv_file), color=colors[idx % len(colors)], linewidth=1.5)
@@ -146,26 +154,22 @@ for idx, entry in enumerate(csv_entries):
             line_y = [slope * x_min + intercept, slope * x_max + intercept]
             plt.plot(line_x, line_y, linestyle=':', color=colors[idx % len(colors)], linewidth=1.5)
     # accumulate point coordinates for later axis-lim calculation
-    if 'Time (minutes)' in df and 'Deflection (nm)' in df and not df.empty:
+    if not df.empty:
         _all_x_vals.extend(df['Time (minutes)'].tolist())
         _all_y_vals.extend(df['Deflection (nm)'].tolist())
 
 # Determine axis limits from points only (so slope lines don't affect autoscaling)
-if _all_x_vals and _all_y_vals:
-    x_min = min(_all_x_vals)
-    x_max = max(_all_x_vals)
-    y_min = min(_all_y_vals)
-    y_max = max(_all_y_vals)
+x_min = min(_all_x_vals)
+x_max = max(_all_x_vals)
+y_min = min(_all_y_vals)
+y_max = max(_all_y_vals)
 
-    # small padding (5%) or a sensible default when range is zero
-    x_pad = (x_max - x_min) * 0.05 if x_max > x_min else 1.0
-    y_pad = (y_max - y_min) * 0.05 if y_max > y_min else 1.0
+# small padding (5%)
+x_pad = (x_max - x_min) * 0.05
+y_pad = (y_max - y_min) * 0.05
 
-    plt.xlim(x_min - x_pad, x_max + x_pad)
-    plt.ylim(y_min - y_pad, y_max + y_pad)
-else:
-    # no data points found; keep previous behavior
-    plt.xlim(left=0)
+plt.xlim(0, x_max + x_pad)
+plt.ylim(y_min - y_pad, y_max + y_pad)
 
 plt.xlabel('Time since depressurization (minutes)')
 plt.ylabel('Deflection (nm)')

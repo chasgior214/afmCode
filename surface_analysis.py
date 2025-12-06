@@ -15,7 +15,7 @@ def fit_paraboloid(z_data, center_x_idx, center_y_idx, diameter_um, pixel_size, 
         
     Returns:
         dict: Dictionary containing vertex coordinates ('vertex_x_um', 'vertex_y_um', 'vertex_z_nm'),
-              'r2' of the fit, and region info ('center_x_um', 'center_y_um', 'radius_um').
+              'r2' of the fit, region info ('center_x_um', 'center_y_um', 'radius_um'), and the fit coefficients ('coefficients' dict with keys 'a' to 'f').
               Returns None if fitting fails.
     """
     if center_x_idx is None or center_y_idx is None:
@@ -134,6 +134,18 @@ def fit_paraboloid(z_data, center_x_idx, center_y_idx, diameter_um, pixel_size, 
     ss_res = np.sum((Z_flat - pred) ** 2)
     r2 = np.nan if ss_tot == 0 else 1 - (ss_res / ss_tot)
 
+    # Get final coefficients in original coordinates
+    d_orig = d - 2 * a * xc - c * yc
+    e_orig = e - 2 * b * yc - c * xc
+    f_orig = (
+        f_const
+        + a * xc ** 2
+        + b * yc ** 2
+        + c * xc * yc
+        - d * xc
+        - e * yc
+    )
+
     return {
         'vertex_x_um': float(vx),
         'vertex_y_um': float(vy),
@@ -142,6 +154,14 @@ def fit_paraboloid(z_data, center_x_idx, center_y_idx, diameter_um, pixel_size, 
         'center_x_um': float(center_x_um),
         'center_y_um': float(center_y_um),
         'radius_um': float(half_um),
+        'coefficients': {
+            'a': float(a),
+            'b': float(b),
+            'c': float(c),
+            'd': float(d_orig),
+            'e': float(e_orig),
+            'f': float(f_orig),
+        }
     }
 
 def compute_extremum_square_info(z_data, center_x_idx, center_y_idx, pixel_size, scan_size):

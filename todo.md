@@ -1,5 +1,9 @@
+organize this list
+
 general code cleanup/some refactoring, documentation
 - YAML config instead of settings all over the place (or at least keep centralizing in path_loader)
+
+- incorporate well mapping to stitching to account for drift
 
 keep working on Excel integration
 - For chronological plot, let me just give a start date (last week’s ppt) and it automatically takes the ones since then and plots them (would need to do basic Excel access for getting the gas species but mostly could read from the slopeIDs)
