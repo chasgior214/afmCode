@@ -9,8 +9,8 @@ deflation_curve_slope_path = pl.deflation_curve_slope_path
 consensus_slopes = {
     'H2': {
         'green': 2.1,
-        'red': 22,
-        'blue': 34.5,
+        'red': 24,
+        'blue': 34,
         'orange': 2.2,
         'black': 2.3
     },
@@ -159,6 +159,7 @@ def plot_recent_deflation_curve_slopes():
     # }
         '04-Dec	16:01:37': 'H2',
         '05-Dec	15:38:48': 'H2',
+        '06-Dec	19:35:33': 'H2',
     }
 
     # convert date/time to YYYYMMDD_HHMMSS format, including replacing the 3 character month with 2 digit month

@@ -7,12 +7,19 @@ import matplotlib.pyplot as plt
 
 import path_loader as pl
 
-# List of substrings to filter filenames. Empty list = no filtering.
-filter_substrings = [
-    # 'red'
-]
+# Plot options
 plot_type = 'scatter'
 # plot_type = 'line'
+
+show_legend = True
+
+# List of substrings to filter filenames. Empty list = no filtering.
+filter_substrings = [
+    'red'
+]
+# Filter settings
+filter_at_least_n_points = 0  # if positive integer n, only show CSVs with at least n data points
+filter_at_least_n_positive_points = 2  # if positive integer n, only show CSVs with at least n positive deflection points
 
 def _load_saved_slopes():
     """Return a mapping of deflation curve slope IDs to slope/intercept values."""
@@ -91,6 +98,7 @@ depressurization_targets = _get_depressurization_targets()
 
 # Find all CSV files in the folder for specified sample and depressurization date/time
 csv_entries = []
+new_target_idx = 0
 for target_idx, (date, time) in enumerate(depressurization_targets):
     pattern = f"deflation_curve_sample{pl.sample_ID}_depressurized{date}_{time}*.csv"
     for csv_file in glob.glob(os.path.join(folder, pattern)):
@@ -100,7 +108,20 @@ for target_idx, (date, time) in enumerate(depressurization_targets):
             lname = basename.lower()
             if not any(sub.lower() in lname for sub in filter_substrings):
                 continue
-        csv_entries.append({'path': csv_file, 'target_idx': target_idx})
+        df = pd.read_csv(csv_file)
+        if filter_at_least_n_points:
+            if len(df) < filter_at_least_n_points:
+                continue
+        if filter_at_least_n_positive_points:
+            positive_points = df[df['Deflection (nm)'] > 0]
+            if len(positive_points) < filter_at_least_n_positive_points:
+                continue
+        csv_entries.append({'path': csv_file, 'target_idx': new_target_idx})
+    new_target_idx += 1
+
+# Raise error if no files found
+if not csv_entries:
+    raise FileNotFoundError(f"No CSV files found in {folder} for sample {pl.sample_ID} and specified depressurizations.")
 
 # Set up the plot
 plt.figure(figsize=(8, 6))
@@ -109,8 +130,10 @@ plt.figure(figsize=(8, 6))
 file_colors = {'red': 'red', 'blue': 'blue', 'green': 'green', 'orange': 'orange', 'black': 'black'}
 csv_paths = [entry['path'] for entry in csv_entries]
 
+plot_sample37_intercepts = False
 if csv_paths and all(any(color in os.path.basename(f) for color in file_colors) for f in csv_paths):
     colors = [next(color for color in file_colors if color in os.path.basename(f)) for f in csv_paths]
+    plot_sample37_intercepts = True
 else:
     # Otherwise, use a default color cycle
     colors = plt.cm.tab10.colors
@@ -124,14 +147,13 @@ _all_y_vals = []
 
 # Plot each CSV as a scatter plot
 markers = ['x', '*', '+', 'o', 's', '^', '>', 'd']
-same_target_single = len(csv_entries) > 10 and len({entry['target_idx'] for entry in csv_entries}) == 1
 
 for idx, entry in enumerate(csv_entries):
     csv_file = entry['path']
     df = pd.read_csv(csv_file)
     if plot_type == 'scatter':
-        if same_target_single:
-            marker = markers[(idx // 10) % len(markers)]
+        if len({entry['target_idx'] for entry in csv_entries}) == 1: # all same depressurization
+            marker = markers[(idx // 10) % len(markers)] # cycle through markers every 10 files
         else:
             marker = markers[entry['target_idx'] % len(markers)]
         if marker in ['x', '+']:
@@ -150,9 +172,24 @@ for idx, entry in enumerate(csv_entries):
         if not df.empty:
             x_vals = df['Time (minutes)']
             x_min, x_max = x_vals.min(), x_vals.max()
-            line_x = [x_min, x_max]
-            line_y = [slope * x_min + intercept, slope * x_max + intercept]
+            line_x = [0, x_max]
+            line_y = [intercept, slope * x_max + intercept]
             plt.plot(line_x, line_y, linestyle=':', color=colors[idx % len(colors)], linewidth=1.5)
+    
+    if plot_sample37_intercepts:
+        intercepts = {
+            'red': 204,
+            'blue': 163,
+            'green': 134,
+            'black': 133,
+            'orange': 170,
+        }
+        for color_key, intercept_val in intercepts.items():
+            plt.plot(
+                0, intercept_val, marker = '_', markersize=20, color=color_key
+            )
+
+
     # accumulate point coordinates for later axis-lim calculation
     if not df.empty:
         _all_x_vals.extend(df['Time (minutes)'].tolist())
@@ -164,6 +201,12 @@ x_max = max(_all_x_vals)
 y_min = min(_all_y_vals)
 y_max = max(_all_y_vals)
 
+if plot_sample37_intercepts:
+    # ensure all intercepts are visible
+    intercept_values = [204, 163, 134, 133, 170]
+    y_min = min(y_min, min(intercept_values) - 5)
+    y_max = max(y_max, max(intercept_values) + 5)
+
 # small padding (5%)
 x_pad = (x_max - x_min) * 0.05
 y_pad = (y_max - y_min) * 0.05
@@ -173,6 +216,7 @@ plt.ylim(y_min - y_pad, y_max + y_pad)
 
 plt.xlabel('Time since depressurization (minutes)')
 plt.ylabel('Deflection (nm)')
-# plt.legend()
+if show_legend:
+    plt.legend()
 plt.tight_layout()
 plt.show()

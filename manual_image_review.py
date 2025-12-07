@@ -20,6 +20,7 @@ def _get_height_map_for_selection(image):
 
 def _build_initial_selections(collection, csv_path, depressurized_dt):
     if not os.path.exists(csv_path):
+        print(f"No existing CSV at {csv_path} to preload selections from")
         return None
 
     try:
@@ -48,11 +49,11 @@ def _build_initial_selections(collection, csv_path, depressurized_dt):
             scan_rate = float(scan_rate)
         except (TypeError, ValueError):
             continue
-        y_pixels, x_pixels = height_map.shape
+        x_pixels, y_pixels = image.get_x_y_pixel_counts()
         if x_pixels == 0 or y_pixels == 0:
             continue
-        imaging_duration = y_pixels / scan_rate
-        start_dt = end_dt - timedelta(seconds=imaging_duration)
+        imaging_duration = image.get_imaging_duration()
+        start_dt = image.get_scan_start_datetime()
         start_offset = (start_dt - depressurized_dt).total_seconds()
         end_offset = (end_dt - depressurized_dt).total_seconds()
         scan_size = image.get_scan_size()
@@ -62,7 +63,7 @@ def _build_initial_selections(collection, csv_path, depressurized_dt):
             continue
         if scan_size == 0:
             continue
-        pixel_size = scan_size / x_pixels
+        pixel_size = image.get_pixel_size()
         x_coords = np.linspace(0, scan_size, x_pixels)
 
         image_windows.append({
