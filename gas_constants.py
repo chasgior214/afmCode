@@ -39,8 +39,6 @@ molar_masses_kg_per_mol = {gas: mw / 1000 for gas, mw in molecular_weights.items
 # [3] https://pubs.acs.org/doi/10.1021/jp0108263
 
 min_1_dimensions = {
-    'H2': None,
-    'He': None,
     'N2': 2.991, # [1]
     'Ar': 3.51, # [2]
     'CH4': 3.829, # [1]
@@ -53,8 +51,6 @@ min_1_dimensions = {
     'SF6': 4.871 # [1]
 }
 min_2_dimensions = {
-    'H2': None,
-    'He': None,
     'N2': 3.054, # [1]
     'Ar': 3.63, # [2]
     'CH4': 3.942, # [1]

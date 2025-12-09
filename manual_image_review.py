@@ -37,21 +37,15 @@ def _build_initial_selections(collection, csv_path, depressurized_dt):
     image_windows = []
     for idx, image in enumerate(collection):
         end_dt = image.get_scan_end_datetime()
-        if end_dt is None:
-            continue
         height_map = _get_height_map_for_selection(image)
         if height_map is None:
             continue
         scan_rate = image.get_scan_rate()
-        if scan_rate in (None, 0):
-            continue
         try:
             scan_rate = float(scan_rate)
         except (TypeError, ValueError):
             continue
         x_pixels, y_pixels = image.get_x_y_pixel_counts()
-        if x_pixels == 0 or y_pixels == 0:
-            continue
         imaging_duration = image.get_imaging_duration()
         start_dt = image.get_scan_start_datetime()
         start_offset = (start_dt - depressurized_dt).total_seconds()
@@ -60,8 +54,6 @@ def _build_initial_selections(collection, csv_path, depressurized_dt):
         try:
             scan_size = float(scan_size)
         except (TypeError, ValueError):
-            continue
-        if scan_size == 0:
             continue
         pixel_size = image.get_pixel_size()
         x_coords = np.linspace(0, scan_size, x_pixels)

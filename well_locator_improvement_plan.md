@@ -34,3 +34,4 @@ Don’t hesitate to raise failures. I’ll learn from why they happened and eith
 # Other Improvements
 - Make export only overwrite data points corresponding to the time period between the start and end of the images that it got its points from instead of erasing the whole file and rewriting it
     - Use get_scan_start_datetime and get_scan_end_datetime, take some of the logic in manual_image_review.py's _build_initial_selections out of it and make it reusable for this and that file
+- Let it figure out which wells are which for itself. If it can find 5 wells in the first 10 images of sample37, it can figure out which is which based on relative positions and assign them to well IDs itself
