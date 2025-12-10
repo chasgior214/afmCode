@@ -8,7 +8,8 @@ def test_stitching():
     # Load images
     print("Loading images...")
     collection = AFMImageCollection.AFMImageCollection(pl.afm_images_path, pl.depressurized_datetime)
-    images = collection.images[:-10]
+    images = collection.images[-11:-1]
+    print(f"Stitching {images[0].bname} to {images[-1].bname}")
     
     if not images:
         print("No images found.")

@@ -87,13 +87,11 @@ if __name__ == "__main__":
     indices = np.arange(len(gases))
     width = 0.15
 
-    breck_values = [kinetic_diameters_Breck[gas] for gas in gases]
-    min1_values = [min_1_dimensions[gas] if min_1_dimensions[gas] is not None else 0 for gas in gases]
-    min2_values = [min_2_dimensions[gas] if min_2_dimensions[gas] is not None else 0 for gas in gases]
-    svehla_values = [Svehla_LJ_diameters[gas] for gas in gases]
+    min1_values = [min_1_dimensions[gas] if gas in min_1_dimensions else 0 for gas in gases]
+    min2_values = [min_2_dimensions[gas] if gas in min_2_dimensions else 0 for gas in gases]
 
-    plt.bar(indices - 1.5*width, breck_values, width, label='Breck')
-    plt.bar(indices - 0.5*width, svehla_values, width, label='Svehla LJ σ')
+    plt.bar(indices - 1.5*width, [kinetic_diameters_Breck[gas] for gas in gases], width, label='Breck')
+    plt.bar(indices - 0.5*width, [Svehla_LJ_diameters[gas] for gas in gases], width, label='Svehla LJ σ')
     plt.bar(indices + 0.5*width, min1_values, width, label='MIN-1')
     plt.bar(indices + 1.5*width, min2_values, width, label='MIN-2')
 

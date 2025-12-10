@@ -292,7 +292,7 @@ def plot_recent_deflation_curve_slopes():
     plt.tight_layout()
     plt.show()
 
-def plot_slope_vs_diameter(diameter_dict = gc.kinetic_diameters_Breck):
+def plot_slope_vs_diameter(diameter_dict = gc.Svehla_LJ_diameters):
     # plot the slopes versus kinetic diameters. Colour the points by the keys of the slope dictionaries. Make the orange and red point markers unfilled.
     for gas, slopes in [('H2', consensus_slopes['H2']), ('He', consensus_slopes['He']), ('CO2', consensus_slopes['CO2']), ('Ar', consensus_slopes['Ar']), ('CH4', consensus_slopes['CH4']), ('N2', consensus_slopes['N2']), ('C2H4', consensus_slopes['C2H4']), ('C3H8', consensus_slopes['C3H8']), ('C2H6', consensus_slopes['C2H6']), ('O2', consensus_slopes['O2'])]:
         if not gas in diameter_dict:
@@ -336,6 +336,9 @@ def plot_slope_vs_diameter(diameter_dict = gc.kinetic_diameters_Breck):
     if diameter_dict == gc.kinetic_diameters_Breck:
         plt.xlabel('Breck Kinetic Diameter (Å)')
         plt.title('Deflation Curve Slopes vs Gas Kinetic Diameter (Breck, except C2H6)')
+    elif diameter_dict == gc.Svehla_LJ_diameters:
+        plt.xlabel('Svehla LJ Diameter (Å)')
+        plt.title('Deflation Curve Slopes vs Gas Molecular Size (Svehla LJ Diameter)')
     else:
         plt.xlabel('Molecule Size (Å)')
     plt.grid(True)
@@ -409,7 +412,7 @@ def plot_slope_vs_molecular_weight():
     plt.grid(True)
     plt.show()
 
-def plot_normalized_slope_vs_diameter(diameter_dict = gc.kinetic_diameters_Breck):
+def plot_normalized_slope_vs_diameter(diameter_dict = gc.Svehla_LJ_diameters):
     # make a plot with diameter on the x axis and slope normalized by multiplying by the square root of (molar mass * 2 * π * R * T) on the y axis
     plt.figure()
     for gas, slopes in [('H2', consensus_slopes['H2']), ('He', consensus_slopes['He']), ('CO2', consensus_slopes['CO2']), ('Ar', consensus_slopes['Ar']), ('CH4', consensus_slopes['CH4']), ('N2', consensus_slopes['N2']), ('C2H4', consensus_slopes['C2H4']), ('C3H8', consensus_slopes['C3H8']), ('C2H6', consensus_slopes['C2H6']), ('O2', consensus_slopes['O2'])]:
@@ -458,6 +461,9 @@ def plot_normalized_slope_vs_diameter(diameter_dict = gc.kinetic_diameters_Breck
     if diameter_dict == gc.kinetic_diameters_Breck:
         plt.xlabel('Breck Kinetic Diameter (Å)')
         plt.title('Normalized Deflation Curve Slopes vs Gas Kinetic Diameter (Breck, except C2H6)')
+    elif diameter_dict == gc.Svehla_LJ_diameters:
+        plt.xlabel('Svehla LJ Diameter (Å)')
+        plt.title('Normalized Deflation Curve Slopes vs Gas Molecular Size (Svehla LJ Diameter)')
     else:
         plt.xlabel('Molecule Size (Å)')
     plt.grid(True)
