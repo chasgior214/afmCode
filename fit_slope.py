@@ -4,7 +4,7 @@ filter_by_cavity_position = None # set to None to disable filtering
 filter_by_depressurized_date = None # set to None to disable filtering, or 'YYYYMMDD' string
 filter_by_depressurized_time = None # set to None to disable filtering, or 'HHMMSS' string
 filter_at_least_n_points = 2  # if an integer n, only show CSVs with at least n data points
-filter_at_least_n_positive_points = 5  # if an integer n, only show CSVs with at least n positive deflection points
+filter_at_least_n_positive_points = 2  # if an integer n, only show CSVs with at least n positive deflection points
 
 ##############################################################################
 import csv

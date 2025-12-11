@@ -11,15 +11,15 @@ import path_loader as pl
 plot_type = 'scatter'
 # plot_type = 'line'
 
-show_legend = True
+show_legend = 1
 
 # List of substrings to filter filenames. Empty list = no filtering.
 filter_substrings = [
-    'red'
+    'blue', 'red'
 ]
 # Filter settings
 filter_at_least_n_points = 0  # if positive integer n, only show CSVs with at least n data points
-filter_at_least_n_positive_points = 2  # if positive integer n, only show CSVs with at least n positive deflection points
+filter_at_least_n_positive_points = 0  # if positive integer n, only show CSVs with at least n positive deflection points
 
 def _load_saved_slopes():
     """Return a mapping of deflation curve slope IDs to slope/intercept values."""

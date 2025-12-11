@@ -7,9 +7,16 @@ import path_loader as pl
 import visualizations as vis
 import csv
 import os
+from datetime import datetime
 from matplotlib.patches import Circle
 from matplotlib.widgets import Slider, Button
 from matplotlib.colors import is_color_like
+
+# Image Filtering Configuration
+# Set any of these to filter which images are processed:
+filter_start_datetime = None  # datetime object, e.g., datetime(2025, 12, 5, 17, 0, 0)
+filter_end_datetime = None    # datetime object
+filter_image_range = None     # String "AAAA-BBBB" e.g., "0001-0050"
 
 # GOAL: have my system know where the wells are relative to each other, so for any images with multiple wells, I only point out one well, and it figures out where the others are, gets the deflections autonomously, and logs the data
 
@@ -19,15 +26,14 @@ def offset_image_origin_to_absolute_piezo_position(image: AFMImage.AFMImage):
     x_size, y_size = image.get_x_y_size()
     slow_scan_size = image.get_SlowScanSize()
     scan_direction = image.get_scan_direction()
-    image_origin_x_offset_to_image_centre = -0.5 * x_size
+    image_origin_x_offset_from_image_centre = -0.5 * x_size
     if scan_direction:  # scan down
-        image_origin_y_offset_to_image_centre = 0.5 * slow_scan_size - y_size
+        image_origin_y_offset_from_image_centre = 0.5 * slow_scan_size - y_size
     else: # scan up
-        image_origin_y_offset_to_image_centre = 0.5 * slow_scan_size
-
+        image_origin_y_offset_from_image_centre = -0.5 * slow_scan_size
     # adjust for image offsets
-    image_origin_absolute_x = image.get_x_offset() + image_origin_x_offset_to_image_centre
-    image_origin_absolute_y = image.get_y_offset() + image_origin_y_offset_to_image_centre
+    image_origin_absolute_x = image.get_x_offset() + image_origin_x_offset_from_image_centre
+    image_origin_absolute_y = image.get_y_offset() + image_origin_y_offset_from_image_centre
     return (image_origin_absolute_x, image_origin_absolute_y)
 
 def image_bounds_absolute_positions(image: AFMImage.AFMImage):
@@ -314,7 +320,7 @@ sample53_o_5_1_well_coords = [
     (7,3), (7,5), (7,7), (7,9), (7,11),
     (8,6), (8,8), (8,10),
     (9,7), (9,9),
-    (10,6), (10,8), (10,10), (10,12), (10,14),
+    (10,6), (10,8), (10,10), (10,14),
     (11,9), (11,13), (11,15),
     (12,8), (12,10), (12,12), (12,14), (12,16),
     (13,9), (13,11), (13,13), (13,15),
@@ -325,38 +331,6 @@ sample53_o_5_1_well_coords = [
 sample53_o_5_1_well_map = {
     str((x_idx, y_idx)): (x_idx, y_idx) for (x_idx, y_idx) in sample53_o_5_1_well_coords
 }
-
-
-# plot the sample53 well coordinates as blue 4um diameter circles
-# for (x_idx, y_idx) in sample53_o_5_1_well_coords:
-#     center_x = x_idx * x_spacing
-#     center_y = y_idx * y_spacing
-#     circle = plt.Circle((center_x, center_y), 2, color='blue', fill=True, linewidth=2)
-#     plt.gca().add_artist(circle)
-# plt.xlim(0, x_spacing*15)
-# plt.ylim(0, y_spacing*17)
-# plt.gca().set_aspect('equal', adjustable='box')
-# plt.xlabel('X Position (um)')
-# plt.ylabel('Y Position (um)')
-# plt.title('Well Positions for Sample 53')
-# plt.grid()
-# plt.show()
-
-
-# plot a 4um diameter circle at each position in sample37_well_map
-# for color, (x_idx, y_idx) in sample37_well_map.items():
-#     center_x = x_idx * x_spacing
-#     center_y = y_idx * y_spacing
-#     circle = plt.Circle((center_x, center_y), 2, color=color, fill=False, linewidth=2)
-#     plt.gca().add_artist(circle)
-# plt.xlim(-5, 20)
-# plt.ylim(-5, 20)
-# plt.gca().set_aspect('equal', adjustable='box')
-# plt.xlabel('X Position (um)')
-# plt.ylabel('Y Position (um)')
-# plt.title('Well Positions for Sample 37')
-# plt.grid()
-# plt.show()
 
 class WellPositionsReviewer:
     def __init__(self, navigator, image_collection, results, well_map):
@@ -806,6 +780,11 @@ class WellPositionsReviewer:
                 continue
 
             well_entries.sort(key=lambda e: e.get('Time (minutes)', 0))
+            
+            # Calculate time bounds of new results
+            new_min_time = min(e.get('Time (minutes)', 0) for e in well_entries)
+            new_max_time = max(e.get('Time (minutes)', 0) for e in well_entries)
+            
             file_path = pl.get_deflation_curve_path(
                 pl.sample_ID,
                 pl.depressurized_date,
@@ -814,30 +793,53 @@ class WellPositionsReviewer:
                 well
             )
 
+            # Load existing data if file exists
+            existing_entries = []
             if os.path.exists(file_path):
-                print(f"Will overwrite existing file {file_path}")
-                input("Press Enter to continue...")
-            else:
-                print(f"Saving deflation curve for well '{well}' to {file_path}")
+                with open(file_path, mode='r', newline='') as file:
+                    reader = csv.DictReader(file)
+                    for row in reader:
+                        try:
+                            row_time = float(row.get('Time (minutes)', 0))
+                            # Keep rows outside the new data's time window
+                            if row_time < new_min_time or row_time > new_max_time:
+                                existing_entries.append(row)
+                        except (ValueError, TypeError):
+                            # Skip malformed rows
+                            pass
+                print(f"Loaded {len(existing_entries)} existing entries outside time window [{new_min_time:.2f}, {new_max_time:.2f}] min")
+            
+            # Convert new entries to same format as CSV rows
+            new_rows = []
+            for entry in well_entries:
+                new_rows.append({
+                    'Time (minutes)': entry.get('Time (minutes)'),
+                    'Deflection (nm)': entry.get('Deflection (nm)'),
+                    'Point 1 X Pixel': entry.get('Point 1 X Pixel'),
+                    'Point 1 Y Pixel': entry.get('Point 1 Y Pixel'),
+                    'Point 1 X (um)': entry.get('Point 1 X (um)'),
+                    'Point 1 Y (um)': entry.get('Point 1 Y (um)'),
+                    'Point 1 Z (nm)': entry.get('Point 1 Z (nm)'),
+                    'Point 2 X Pixel': entry.get('Point 2 X Pixel'),
+                    'Point 2 Y Pixel': entry.get('Point 2 Y Pixel'),
+                    'Point 2 X (um)': entry.get('Point 2 X (um)'),
+                    'Point 2 Y (um)': entry.get('Point 2 Y (um)'),
+                    'Point 2 Z (nm)': entry.get('Point 2 Z (nm)'),
+                })
+            
+            # Merge and sort
+            all_rows = existing_entries + new_rows
+            all_rows.sort(key=lambda r: float(r.get('Time (minutes)', 0)))
+            
+            action = "Merging with" if existing_entries else "Saving"
+            print(f"{action} deflation curve for well '{well}' to {file_path}")
+            print(f"  Total entries: {len(all_rows)} ({len(new_rows)} new, {len(existing_entries)} preserved)")
 
             with open(file_path, mode='w', newline='') as file:
                 writer = csv.writer(file)
                 writer.writerow(header)
-                for entry in well_entries:
-                    writer.writerow([
-                        entry.get('Time (minutes)'),
-                        entry.get('Deflection (nm)'),
-                        entry.get('Point 1 X Pixel'),
-                        entry.get('Point 1 Y Pixel'),
-                        entry.get('Point 1 X (um)'),
-                        entry.get('Point 1 Y (um)'),
-                        entry.get('Point 1 Z (nm)'),
-                        entry.get('Point 2 X Pixel'),
-                        entry.get('Point 2 Y Pixel'),
-                        entry.get('Point 2 X (um)'),
-                        entry.get('Point 2 Y (um)'),
-                        entry.get('Point 2 Z (nm)'),
-                    ])
+                for row in all_rows:
+                    writer.writerow([row.get(h, '') for h in header])
 
         print("Deflation curve export complete.")
 
@@ -937,21 +939,31 @@ sample_ID_and_location_to_well_map = {
     ('53', 'o(5,1)'): sample53_o_5_1_well_map
 }
 
-# Example Usage / Script
+# Script
 if __name__ == "__main__":
     navigator = MembraneNavigator()
     sample_ID = pl.sample_ID
     location = pl.transfer_location
     well_map = sample_ID_and_location_to_well_map.get((sample_ID, location), None)
 
-    # make a datetime that's delta minutes after the depressurized datetime
-    from datetime import timedelta
-    depressurized_datetime_plus_delta = pl.depressurized_datetime + timedelta(minutes=180)
-
-    image_collection = AFMImageCollection.AFMImageCollection(pl.afm_images_path, pl.depressurized_datetime, end_datetime=depressurized_datetime_plus_delta)
+    image_collection = AFMImageCollection.AFMImageCollection(pl.afm_images_path, pl.depressurized_datetime)
     
-    # Show the first image to pick a well
-    first_image = image_collection.images[0]
+    # Apply image filters
+    original_count = len(image_collection)
+    filtered_collection = image_collection.filter_images(
+        start_datetime=filter_start_datetime,
+        end_datetime=filter_end_datetime,
+        image_range=filter_image_range
+    )
+    
+    if not filtered_collection.images:
+        print("No images matched the filter criteria.")
+        exit(1)
+    
+    print(f"Processing {len(filtered_collection)} images (filtered from {original_count} total)")
+    
+    # Show the first filtered image to pick a well
+    first_image = filtered_collection.images[0]
     first_image_origin_absolute_x, first_image_origin_absolute_y = offset_image_origin_to_absolute_piezo_position(first_image)
     
     print(f"First image origin absolute position: x={first_image_origin_absolute_x:.3f} μm, y={first_image_origin_absolute_y:.3f} μm")
@@ -974,7 +986,7 @@ if __name__ == "__main__":
             print(f"Tracking wells starting from {well_clicked_on} at {initial_pos}")
             
             results = navigator.track_wells(
-                image_collection, 
+                filtered_collection,
                 well_clicked_on, 
                 well_clicked_on_coords, 
                 well_map, 
@@ -983,17 +995,41 @@ if __name__ == "__main__":
                 each_found_well_updates_all_well_positions=True
             )
             
-            # print("Results:")
-            # for entry in results:
-            #     # only print first 5 and last 5 entries to avoid flooding the output
-            #     if results.index(entry) < 5 or results.index(entry) >= len(results) - 5:
-            #         print(entry)
-            
-            # Call WellPositionsReviewer
-            plotter = WellPositionsReviewer(navigator, image_collection, results, well_map)
+            plotter = WellPositionsReviewer(navigator, filtered_collection, results, well_map)
             plotter.plot()
             
         else:
             print(f"Well '{well_clicked_on}' not found in coordinates map.")
     else:
         print("No well selected.")
+
+    # plot the sample53 well coordinates as blue 4um diameter circles
+    # for (x_idx, y_idx) in sample53_o_5_1_well_coords:
+    #     center_x = x_idx * x_spacing
+    #     center_y = y_idx * y_spacing
+    #     circle = plt.Circle((center_x, center_y), 2, color='blue', fill=True, linewidth=2)
+    #     plt.gca().add_artist(circle)
+    # plt.xlim(0, x_spacing*15)
+    # plt.ylim(0, y_spacing*17)
+    # plt.gca().set_aspect('equal', adjustable='box')
+    # plt.xlabel('X Position (um)')
+    # plt.ylabel('Y Position (um)')
+    # plt.title('Well Positions for Sample 53')
+    # plt.grid()
+    # plt.show()
+
+
+    # plot a 4um diameter circle at each position in sample37_well_map
+    # for color, (x_idx, y_idx) in sample37_well_map.items():
+    #     center_x = x_idx * x_spacing
+    #     center_y = y_idx * y_spacing
+    #     circle = plt.Circle((center_x, center_y), 2, color=color, fill=False, linewidth=2)
+    #     plt.gca().add_artist(circle)
+    # plt.xlim(-5, 20)
+    # plt.ylim(-5, 20)
+    # plt.gca().set_aspect('equal', adjustable='box')
+    # plt.xlabel('X Position (um)')
+    # plt.ylabel('Y Position (um)')
+    # plt.title('Well Positions for Sample 37')
+    # plt.grid()
+    # plt.show()

@@ -1,6 +1,7 @@
 from AFMImage import AFMImage
 import matplotlib.pyplot as plt
 import os
+import re
 import numpy as np
 import pandas as pd
 import tkinter as tk
@@ -50,6 +51,52 @@ class AFMImageCollection:
     def __len__(self): return len(self.images)
     def __getitem__(self, index): return self.images[index]
     def __iter__(self): yield from self.images
+
+    def filter_images(self, start_datetime=None, end_datetime=None, image_range=None):
+        """Filter images by datetime range and/or image number range.
+        
+        Args:
+            start_datetime: Only include images that started at or after this time
+            end_datetime: Only include images that finished at or before this time
+            image_range: String "AAAA-BBBB" to filter by filename numbers
+        
+        Returns:
+            New AFMImageCollection containing only the filtered images
+        """
+        filtered = list(self.images)
+        
+        if start_datetime is not None:
+            filtered = [img for img in filtered if img.get_scan_start_datetime() >= start_datetime]
+        
+        if end_datetime is not None:
+            filtered = [img for img in filtered if img.get_scan_end_datetime() <= end_datetime]
+        
+        if image_range is not None:
+            match = re.match(r'^(\d+)-(\d+)$', image_range)
+            if match:
+                range_start = int(match.group(1))
+                range_end = int(match.group(2))
+                
+                def get_image_number(img):
+                    # Extract numeric portion from bname (e.g., "Image0001" -> 1)
+                    bname = img.bname
+                    if isinstance(bname, bytes):
+                        bname = bname.decode('latin-1', errors='ignore')
+                    num_match = re.search(r'(\d+)', bname)
+                    return int(num_match.group(1)) if num_match else None
+                
+                filtered = [
+                    img for img in filtered
+                    if (num := get_image_number(img)) is not None and range_start <= num <= range_end
+                ]
+            else:
+                print(f"Warning: Invalid image_range format '{image_range}'. Expected 'AAAA-BBBB'.")
+        
+        # Create a new collection with filtered images
+        new_collection = object.__new__(AFMImageCollection)
+        new_collection.images = filtered
+        return new_collection
+
 
     def review_maximum_Zpoints(self):
         rejected_images = []

@@ -9,7 +9,7 @@ deflation_curve_slope_path = pl.deflation_curve_slope_path
 consensus_slopes = {
     'H2': {
         'green': 2.1,
-        'red': 22,
+        'red': 21,
         'blue': 34,
         'orange': 2.2,
         'black': 2.3
@@ -51,8 +51,8 @@ consensus_slopes = {
         'green': 0.158,
         'black': 0.156,
         'orange': 0.129,
-        'red': 3.88,
-        'blue': 8.53
+        'red': 2.61,
+        'blue': 7.58
     },
     'C2H4': {
         'red': 3.42,
@@ -135,7 +135,7 @@ def plot_recent_deflation_curve_slopes():
     #     '07-Oct	11:29:29': 'He',
     #     '07-Oct	16:05:25': 'H2',
     #     '08-Oct	14:56:36': 'CO2',
-    # # }
+
     #     '10-Oct	16:00:39': 'H2',
     #     '10-Oct	19:32:20': 'He',
     #     '10-Oct	20:59:18': 'He',
@@ -145,29 +145,32 @@ def plot_recent_deflation_curve_slopes():
     #     '15-Oct	14:41:10': 'H2',
     #     '16-Oct	15:03:31': 'Ar',
     #     '17-Oct	15:54:29': 'H2',
-    # }
+
         # '23-Oct	13:41:06': 'CH4',
         # '27-Oct	19:57:29': 'H2',
         # '28-Oct	00:36:28': 'He',
         # '28-Oct	16:57:19': 'N2',
-    # }
+
         # '30-Oct	15:26:29': 'H2',
         # '31-Oct	13:47:46': 'H2',
         # '02-Nov	21:31:34': 'C2H4',
         # '05-Nov	19:36:49': 'H2',
         # '06-Nov	17:00:36': 'C3H8',
-    # }
+
         # '09-Nov	18:58:36': 'C3H8',
         # '17-Nov	15:24:00': 'H2',
-    # }
+
         # '19-Nov	21:32:46': 'H2',
         # '26-Nov	14:07:40': 'C2H6',
         # '01-Dec	14:15:20': 'C2H6',
-    # }
-        '04-Dec	16:01:37': 'H2',
-        '05-Dec	15:38:48': 'H2',
-        '06-Dec	19:35:33': 'H2',
-        '08-Dec	16:16:10': 'O2',
+
+        # '04-Dec	16:01:37': 'H2',
+        # '05-Dec	15:38:48': 'H2',
+        # '06-Dec	19:35:33': 'H2',
+        # '08-Dec	16:16:10': 'O2',
+
+        '10-Dec	19:23:49': 'H2',
+        '10-Dec	22:18:47': 'O2',
     }
 
     # convert date/time to YYYYMMDD_HHMMSS format, including replacing the 3 character month with 2 digit month
