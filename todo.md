@@ -32,7 +32,7 @@ Make it able to plot the deflection vs time points from multiple depressurizatio
 
 Have it make a map, then I select the regions that a well is in over the whole imaging session given drift, and it automatically shows me the same well over and over instead of navigating through images to find them (and could also have it automatically output a curve of using the highest point for that well, which I could compare to mine, and maybe if I get a denoising model to work well enough it could do basically everything automatically. Could also have it make timelapses of a 3d image of a single well changing over time given it would know how to center it)
 
-Now that I'm saving pixel coordinates, try to have it read those back in and use them to get the deflection from the z-sensor data to compare to the height data. Can also make comparisons to curves made from max height within a few microns of the selected point (or the min of the 8 pixels surrounding it) vs the mode for the y value cross section that the max sits on. Could also have it make a map, I can pick a location, and it can give the curve from that location in all images containing it
+Now that I'm saving pixel coordinates, try to have it read those back in and use them to get the deflection from the z-sensor data to compare to the height data. Can also make comparisons to curves made from max height within a few microns of the selected point (or the min of the 8 pixels surrounding it) vs the mode for the y value cross section that the max sits on
 
 Clean up buttons?
 
@@ -50,4 +50,4 @@ Clean up buttons?
     - Initial drive amplitude in for now, but make sure to have it take the one for the line later
     - Maybe imaging parameters on the right of the panel, separate from other data
 
-- add a button "View 3D Heightmap", which renders a 3d heightmap in a new window. The heightmap should maintain the data's aspect ratio. Use the Viridis colour scale. Can select points on the 3d heightmap which get added as selected points in the main window.
+- add a button "View 3D Heightmap", which renders a 3d heightmap in a new window. Can select points on the 3d heightmap which get added as selected points in the main window.

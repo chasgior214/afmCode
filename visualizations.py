@@ -229,23 +229,17 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     image_bname = str(image.bname)
     scan_end_date_time = image.get_scan_end_datetime().strftime("%Y-%m-%d %H:%M:%S")
 
-    scan_size = image.get_scan_size()
     scan_rate = image.get_scan_rate()
 
     # Determine which height data to use. If flattened data is available use it
     # and update the title prefix accordingly.
-    imaging_mode = image.get_imaging_mode()
-    if imaging_mode == 'AC Mode' and image.wave_data.shape[2] > 4:
-        height_map = image.get_flat_height_retrace()
-        title_prefix = "Flattened Height"
-    elif imaging_mode == 'Contact' and image.wave_data.shape[2] > 3:
-        height_map = image.get_flat_height_retrace()
-        title_prefix = "Flattened Height"
-    else:
+    height_map = image.get_flat_height_retrace()
+    title_prefix = "Flattened Height"
+    if height_map is None:
         height_map = image.get_height_retrace()
         title_prefix = "Raw Height"
     contrast_map = image.get_contrast_map()
-    if imaging_mode == 'AC Mode':
+    if image.get_imaging_mode() == 'AC Mode':
         phase_map = image.get_phase_retrace()
     else:
         phase_map = None
@@ -256,11 +250,10 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
 
     imaging_duration = image.get_imaging_duration()
 
-    x = np.linspace(0, scan_size, x_pixel_count)  # x-coordinates in microns
-    y = np.linspace(0, scan_size, y_pixel_count)  # y-coordinates in microns
-    # True y dimension in microns (keeps pixels square in physical units)
-    y_dimension = scan_size * y_pixel_count / x_pixel_count
-    extent = (0, scan_size, 0, y_dimension)
+    x_dimension, y_dimension = image.get_x_y_size() # x, y dimensions in microns
+    extent = (0, x_dimension, 0, y_dimension)
+
+    x = np.linspace(0, x_dimension, x_pixel_count)  # x-coordinates in microns
 
     line_height = initial_line_height
     y_pixels = np.arange(0, y_pixel_count)
@@ -382,7 +375,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         slot_tuple = (slot_info[0], x_val, y_val, x_idx, y_idx)
         selected_slots[1] = slot_tuple
         result = fit_paraboloid(
-            height_map, x_idx, y_idx, paraboloid_window_um, pixel_size, scan_size
+            height_map, x_idx, y_idx, paraboloid_window_um, pixel_size, x_dimension
         )
         paraboloid_fit_info = result
         _update_paraboloid_panel(result)
@@ -556,7 +549,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             return None
 
         return compute_extremum_square_info(
-            height_map, x_idx, y_idx, pixel_size, scan_size
+            height_map, x_idx, y_idx, pixel_size, x_dimension
         )
 
     def update_stats_display():
@@ -747,7 +740,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         0.05, 0.75, "Paraboloid fit R^2: --", transform=ax_placeholder.transAxes
     )
     slider_min = max(pixel_size, 0.1)
-    slider_max_candidate = max(scan_size, y_dimension)
+    slider_max_candidate = max(x_dimension, y_dimension)
     if slider_max_candidate <= 0:
         slider_max_candidate = slider_min
     slider_max = max(slider_min, slider_max_candidate)
@@ -814,7 +807,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
 
 
     cross_line, = ax2.plot(x, height_map[nearest_y_to_plot, :])
-    ax2.set_xlim(0, scan_size)  # Ensure x-axis matches upper plot
+    ax2.set_xlim(0, x_dimension)  # Ensure x-axis matches upper plot
     ax2.set_title(f"{title_prefix} at y = {line_height} μm")
     ax2.set_xlabel("x (μm)")
     ax2.set_ylabel("Height (nm)")
@@ -1018,7 +1011,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
                         start = max(0.0, end - desired)
             return start, end
 
-        xmin, xmax = _calc_limits(center_x, scan_size)
+        xmin, xmax = _calc_limits(center_x, x_dimension)
         ymin, ymax = _calc_limits(center_y, y_dimension)
         if xmin >= xmax or ymin >= ymax:
             return False
@@ -1034,7 +1027,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         if not image_axes:
             return False
         ref_ax = image_axes[0]
-        ref_ax.set_xlim(0, scan_size)
+        ref_ax.set_xlim(0, x_dimension)
         ref_ax.set_ylim(0, y_dimension)
         _sync_zoom(ref_ax)
         return True
@@ -1229,7 +1222,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             current_x,
             current_y,
             pixel_size,
-            scan_size,
+            x_dimension,
             paraboloid_window_um
         )
 
@@ -1475,7 +1468,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
 
             toolbar.home = _home
         # Only auto-enter zoom mode for sufficiently large scans in both axes
-        if (scan_size >= 8 and y_dimension >= 5) and hasattr(toolbar, "zoom"):
+        if (x_dimension >= 8 and y_dimension >= 5) and hasattr(toolbar, "zoom"):
             toolbar.zoom()
 
     # Determine whether there are selections to restore before running
@@ -1488,7 +1481,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
 
     # Auto-select when x < 8 μm OR y < 5 μm unless restoring previously
     # saved selections.
-    if ((scan_size < 8) or (y_dimension < 5)) and not has_initial_preload:
+    if ((x_dimension < 8) or (y_dimension < 5)) and not has_initial_preload:
         # Global max in slot 1 (orange), mode in slot 0 (purple)
         set_global_max(slot=1, silent=True)
         _refine_extremum_with_paraboloid()

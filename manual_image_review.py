@@ -8,16 +8,6 @@ import os
 import path_loader as pl
 
 
-def _get_height_map_for_selection(image):
-    mode = image.get_imaging_mode()
-    depth = image.wave_data.shape[2] if getattr(image, 'wave_data', None) is not None else 0
-    if mode == 'AC Mode' and depth > 4:
-        return image.get_flat_height_retrace()
-    if mode == 'Contact' and depth > 3:
-        return image.get_flat_height_retrace()
-    return image.get_height_retrace()
-
-
 def _build_initial_selections(collection, csv_path, depressurized_dt):
     if not os.path.exists(csv_path):
         print(f"No existing CSV at {csv_path} to preload selections from")
@@ -37,7 +27,9 @@ def _build_initial_selections(collection, csv_path, depressurized_dt):
     image_windows = []
     for idx, image in enumerate(collection):
         end_dt = image.get_scan_end_datetime()
-        height_map = _get_height_map_for_selection(image)
+        height_map = image.get_flat_height_retrace()
+        if height_map is None:
+            height_map = image.get_height_retrace()
         if height_map is None:
             continue
         scan_rate = image.get_scan_rate()

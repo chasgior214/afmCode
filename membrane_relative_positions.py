@@ -125,13 +125,9 @@ class MembraneNavigator:
             print(f"Image bounds: {absolute_image_bounds}")
 
             # Determine height map once per image
-            imaging_mode = image.get_imaging_mode()
-            if imaging_mode == 'AC Mode' and image.wave_data.shape[2] > 4:
-                height_map = image.get_flat_height_retrace()
-            elif imaging_mode == 'Contact' and image.wave_data.shape[2] > 3:
-                height_map = image.get_flat_height_retrace()
-            else:
-                height_map = image.get_height_retrace() # Fallback
+            height_map = image.get_flat_height_retrace()
+            if height_map is None:
+                height_map = image.get_height_retrace()
 
             scan_direction = image.get_scan_direction()
 
@@ -719,7 +715,8 @@ class WellPositionsReviewer:
                 if entry:
                     self.handle_retrack(entry)
             elif event.key == 'e':
-                self.export_deflation_curves()
+                current_cut = self.slider.val if self.slider is not None else None
+                self.export_deflation_curves(time_cut=current_cut)
 
         self.fig.canvas.mpl_connect('key_press_event', on_key)
 
@@ -744,7 +741,7 @@ class WellPositionsReviewer:
         if selected_entry:
             self.handle_retrack(selected_entry)
 
-    def export_deflation_curves(self):
+    def export_deflation_curves(self, time_cut=None):
         print("Exporting deflation curves...")
         print(self.results)
 
@@ -752,8 +749,14 @@ class WellPositionsReviewer:
             print("Editing mode is disabled (pl.editing_mode == False); skipping CSV export.")
             return
 
-        if not self.results:
-            print("No results available to export.")
+        results_to_export = (
+            self.results if time_cut is None else [
+                entry for entry in self.results if entry['Time (minutes)'] <= time_cut
+            ]
+        )
+
+        if not results_to_export:
+            print("No results available within the selected time cut to export.")
             return
 
         os.makedirs(pl.deflation_curves_path, exist_ok=True)
@@ -773,9 +776,9 @@ class WellPositionsReviewer:
             'Point 2 Z (nm)'
         ]
 
-        wells = sorted(set(entry['Well'] for entry in self.results))
+        wells = sorted(set(entry['Well'] for entry in results_to_export))
         for well in wells:
-            well_entries = [entry for entry in self.results if entry['Well'] == well]
+            well_entries = [entry for entry in results_to_export if entry['Well'] == well]
             if not well_entries:
                 continue
 

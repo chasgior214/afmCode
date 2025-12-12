@@ -1,16 +1,11 @@
 import numpy as np
 import plotly.graph_objects as go
 
-def make_heightmap_3d_surface(image, view = False, save = False, cmap = 'turbo', points_list = None, paraboloids = None):
-    imaging_mode = image.get_imaging_mode()
+def make_heightmap_3d_surface(image, view = False, save = False, save_filename = '3d_plot.html', cmap = 'turbo', points_list = None, paraboloids = None):
     scan_size = image.get_scan_size()
-    if imaging_mode == 'AC Mode' and image.wave_data.shape[2] > 4:
-        height_map = image.get_flat_height_retrace()
-        title_prefix = "Flattened Height"
-    elif imaging_mode == 'Contact' and image.wave_data.shape[2] > 3:
-        height_map = image.get_flat_height_retrace()
-        title_prefix = "Flattened Height"
-    else:
+    height_map = image.get_flat_height_retrace()
+    title_prefix = "Flattened Height"
+    if height_map is None:
         height_map = image.get_height_retrace()
         title_prefix = "Height Map"
 
@@ -97,6 +92,6 @@ def make_heightmap_3d_surface(image, view = False, save = False, cmap = 'turbo',
             )
 
     if save:
-        fig.write_html("3d_plot.html")
+        fig.write_html(save_filename)
     if view:
         fig.show()

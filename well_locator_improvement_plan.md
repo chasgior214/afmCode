@@ -27,11 +27,6 @@ Don’t hesitate to raise failures. I’ll learn from why they happened and eith
 - If it wanders more than (2um?) from its starting estimated point, have it have the user pick where it is → maybe showing other recently anchored points and the estimated position (and paraboloid fit path) on a stitched map to help me see where it should be
 - Better visualizations to see why things go wrong: height map with predicted location, fit point, max and min within 3 um of each of those, maybe the path of iterative paraboloid fitting all marked on it, and any of the above that are relevant
 - Overall, need to pick when it asks for user input
-- Ability to split it up into different days/sessions to save/load, reduces clutter on the absolute positions map
-    - Goal to look at all images between which the head hasn't been moved (just piezos move) → if I keep tracking them as separate line items in the Excel tracker, I can get the groups of images to look at at a time from there
-    - When 3+ hours between images, tracker starts fresh automatically? Otherwise I can set where to split it up
 
 # Other Improvements
-- Make export only overwrite data points corresponding to the time period between the start and end of the images that it got its points from instead of erasing the whole file and rewriting it
-    - Use get_scan_start_datetime and get_scan_end_datetime, take some of the logic in manual_image_review.py's _build_initial_selections out of it and make it reusable for this and that file
 - Let it figure out which wells are which for itself. If it can find 5 wells in the first 10 images of sample37, it can figure out which is which based on relative positions and assign them to well IDs itself
