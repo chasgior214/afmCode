@@ -33,20 +33,12 @@ def _build_initial_selections(collection, csv_path, depressurized_dt):
         if height_map is None:
             continue
         scan_rate = image.get_scan_rate()
-        try:
-            scan_rate = float(scan_rate)
-        except (TypeError, ValueError):
-            continue
         x_pixels, y_pixels = image.get_x_y_pixel_counts()
         imaging_duration = image.get_imaging_duration()
         start_dt = image.get_scan_start_datetime()
         start_offset = (start_dt - depressurized_dt).total_seconds()
         end_offset = (end_dt - depressurized_dt).total_seconds()
         scan_size = image.get_scan_size()
-        try:
-            scan_size = float(scan_size)
-        except (TypeError, ValueError):
-            continue
         pixel_size = image.get_pixel_size()
         x_coords = np.linspace(0, scan_size, x_pixels)
 
