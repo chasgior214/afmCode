@@ -449,8 +449,6 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             fig.canvas.draw_idle()
             return
 
-
-
         if event.inaxes in image_axes and event.button == 1:  # Left-click drag to change y
             dragging = True
             _update_cross_section(event.ydata)

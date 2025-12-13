@@ -35,9 +35,10 @@ plot_depressurizations = [
 
     ]
 
-
 ##############################################################################
 import os
+import csv
+import re
 from datetime import datetime
 depressurized_time = depressurized_time.replace(':', '')  # 'HHMMSS' format
 depressurized_datetime = datetime.strptime(depressurized_date + depressurized_time, '%Y%m%d%H%M%S')
@@ -62,6 +63,25 @@ def get_deflation_curve_slope_id(sample_ID, depressurized_date, depressurized_ti
     depressurized_time = depressurized_time.replace(':', '')  # 'HHMMSS' format
     return f'slope_sample{sample_ID}_depressurized{depressurized_date}_{depressurized_time}_loc{transfer_location}_cav{cavity_position}'
 
+def get_slope_id_from_filename(csv_path):
+    """Infer the slope ID for a CSV file based on its filename."""
+    filename = os.path.basename(csv_path)
+    pattern = (
+        r"deflation_curve_sample(?P<sample>[^_]+)"
+        r"_depressurized(?P<date>\d{8})_(?P<time>\d+)"
+        r"_loc(?P<loc>.+?)_cav(?P<cav>.+?)\.csv$"
+    )
+    match = re.match(pattern, filename)
+    if not match:
+        return None
+    return get_deflation_curve_slope_id(
+        match.group('sample'),
+        match.group('date'),
+        match.group('time'),
+        match.group('loc'),
+        match.group('cav'),
+    )
+
 deflation_curve_slope_path = experiment_data_path + '\\data_processing\\deflation_curve_slopes.csv'
 
 def get_all_deflation_curve_paths():
@@ -70,3 +90,26 @@ def get_all_deflation_curve_paths():
         if file.endswith('.csv') and file.startswith('deflation_curve_'):
             paths.append(os.path.join(deflation_curves_path, file))
     return paths
+
+def load_saved_slopes_intercepts():
+    """Return a mapping of deflation curve slope IDs to slope/intercept values."""
+    slope_file = deflation_curve_slope_path
+    if not os.path.exists(slope_file):
+        return {}
+
+    slopes = {}
+    with open(slope_file, newline='') as fh:
+        reader = csv.DictReader(fh)
+        for row in reader:
+            slope_id = row.get('id')
+            if not slope_id:
+                continue
+            slope_val = row.get('slope_nm_per_min')
+            intercept_val = row.get('y_intercept_nm')
+            try:
+                slope_float = float(slope_val)
+                intercept_float = float(intercept_val)
+            except (TypeError, ValueError):
+                continue
+            slopes[slope_id] = (slope_float, intercept_float)
+    return slopes

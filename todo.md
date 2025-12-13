@@ -8,8 +8,6 @@ general code cleanup/some refactoring, documentation
 keep working on Excel integration
 - For chronological plot, let me just give a start date (last week’s ppt) and it automatically takes the ones since then and plots them (would need to do basic Excel access for getting the gas species but mostly could read from the slopeIDs)
 
-make a 3D map of the image data with the paraboloid superimposed
-
 when looking for the "substrate" (what I really mean is the graphene height outside the well), if it's bimodal/multimodal, can have it pick the one that's closest to the paraboloid vertex. Fixes edge cases where more of the image line off the well is either on the substrate or on a different step height of graphene
 
 make right click zoom and left click selections? Then can do away with button to enter/exit zoom mode and auto entering zoom mode on startup. Right drag could be box zoom and right click to zoom to 4x4 um square centred on cursor
@@ -28,7 +26,7 @@ Try using a denoising model to smooth images before paraboloid fitting?
 
 Add filters to the list of images, could show only ones within a certain range of offsets to pick specific wells
 
-Make it able to plot the deflection vs time points from multiple depressurizations on the same plot to compare them, potentially to use points from multiple depressurizations to get a better slope estimate
+could try to use points from multiple depressurizations to get a better slope estimate
 
 Have it make a map, then I select the regions that a well is in over the whole imaging session given drift, and it automatically shows me the same well over and over instead of navigating through images to find them (and could also have it automatically output a curve of using the highest point for that well, which I could compare to mine, and maybe if I get a denoising model to work well enough it could do basically everything automatically. Could also have it make timelapses of a 3d image of a single well changing over time given it would know how to center it)
 

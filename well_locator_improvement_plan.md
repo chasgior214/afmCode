@@ -3,7 +3,7 @@
 # Inadmissible solutions
 - Set limits to what a deflection could possibly be (never more than +/- 350 nm)
 - Check if the fitted vertex is within the x/y bounds of the image. If not, reject
-- If there is no point in the data within 5 nm of the vertex, reject it (root sum of squares → need to convert x/y to nm from um)
+- If there is no point in the image data within 5 nm of the vertex, reject it (root sum of squares → need to convert x/y to nm from um)
 - Can check what the fit paraboloid would indicate about the well’s diameter (the circle at the intersection of the paraboloid and the surface). It’s not a perfect paraboloid, but saying it should be at least a 1 or 2 um diameter and less than 10 um diameter could be an amazing way to assess if fit is feasible
 - Assign a min R^2 value (0.2?) for a fit → do this last, would want to play around after all the other stuff and see how bumpy of a near-cratered well I can get away with low R^2 for
 - Well finding could look at if the disruption in the substrate plane is about cirular, and if not and no well expected there, it's debris - could also use in finding algorithm

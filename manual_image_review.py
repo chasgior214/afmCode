@@ -32,7 +32,6 @@ def _build_initial_selections(collection, csv_path, depressurized_dt):
             height_map = image.get_height_retrace()
         if height_map is None:
             continue
-        scan_rate = image.get_scan_rate()
         x_pixels, y_pixels = image.get_x_y_pixel_counts()
         imaging_duration = image.get_imaging_duration()
         start_dt = image.get_scan_start_datetime()

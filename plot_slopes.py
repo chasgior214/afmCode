@@ -214,7 +214,7 @@ def plot_recent_deflation_curve_slopes():
         # dtstr is "YYYYMMDD_HHMMSS"
         return datetime.strptime(dtstr, "%Y%m%d_%H%M%S")
 
-    sdf["color"] = sdf["id"].map(lambda _id: id_to_meta.get(_id, {}).get("color", "black"))
+    sdf["color"] = sdf["id"].map(lambda _id: id_to_meta.get(_id, {}).get("color", "Unknown"))
     sdf["gas"]   = sdf["id"].map(lambda _id: id_to_meta.get(_id, {}).get("gas", "Unknown"))
     sdf["dtstr"] = sdf["id"].map(lambda _id: id_to_meta.get(_id, {}).get("dtstr", None))
     sdf["dt"]    = sdf["dtstr"].map(lambda s: parse_dt(s) if isinstance(s, str) else pd.NaT)
