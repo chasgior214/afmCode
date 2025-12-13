@@ -25,7 +25,8 @@ molecular_weights = {
     'C2H6': 30.070,
     'n-C4H10': 58.124,
     'O2': 31.998,
-    'SF6': 146.05
+    'SF6': 146.05,
+    'CH3OCH3': 46.069
 }
 T = 22 + 273.15  # 22 C in Kelvin
 R =  8.31446261815324 # J/(mol·K)
@@ -48,7 +49,8 @@ min_1_dimensions = {
     'C2H6': 3.809, # [1]
     'n-C4H10': 4.01, # [2]
     'O2': 2.930, # [1]
-    'SF6': 4.871 # [1]
+    'SF6': 4.871, # [1]
+    'CH3OCH3': 4.083 # [1]
 }
 min_2_dimensions = {
     'N2': 3.054, # [1]
@@ -60,7 +62,8 @@ min_2_dimensions = {
     'C2H6': 4.079, # [1]
     'n-C4H10': 4.52, # [2]
     'O2': 2.985, # [1]
-    'SF6': 5.266 # [1]
+    'SF6': 5.266, # [1]
+    'CH3OCH3': 4.127 # [1]
 }
 
 
@@ -77,20 +80,22 @@ Svehla_LJ_diameters = {
     'C2H6': 4.443,
     'n-C4H10': 4.687,
     'O2': 3.467,
-    'SF6': 5.128
+    'SF6': 5.128,
+    'CH3OCH3': 4.307
 }
 
 if __name__ == "__main__":
     # plot the kinetic diameters from all sources for comparison
     import matplotlib.pyplot as plt
-    gases = ['H2', 'He', 'O2', 'N2', 'Ar', 'CO2', 'CH4', 'C2H4', 'C2H6', 'C3H8']
+    gases = ['H2', 'He', 'O2', 'N2', 'Ar', 'CO2', 'CH4', 'C2H4', 'C2H6', 'C3H8', 'n-C4H10', 'SF6', 'CH3OCH3']
     indices = np.arange(len(gases))
     width = 0.15
 
     min1_values = [min_1_dimensions[gas] if gas in min_1_dimensions else 0 for gas in gases]
     min2_values = [min_2_dimensions[gas] if gas in min_2_dimensions else 0 for gas in gases]
+    Breck_values = [kinetic_diameters_Breck[gas] if gas in kinetic_diameters_Breck else 0 for gas in gases]
 
-    plt.bar(indices - 1.5*width, [kinetic_diameters_Breck[gas] for gas in gases], width, label='Breck')
+    plt.bar(indices - 1.5*width, Breck_values, width, label='Breck')
     plt.bar(indices - 0.5*width, [Svehla_LJ_diameters[gas] for gas in gases], width, label='Svehla LJ σ')
     plt.bar(indices + 0.5*width, min1_values, width, label='MIN-1')
     plt.bar(indices + 1.5*width, min2_values, width, label='MIN-2')
@@ -99,4 +104,16 @@ if __name__ == "__main__":
     plt.ylabel('Kinetic Diameter (Å)')
     plt.title('Comparison of Kinetic Diameters from Different Sources')
     plt.legend()
+    plt.show()
+
+    # plot molecular weights vs Svehla LJ diameters
+    plt.figure()
+    mw_values = [molecular_weights[gas] for gas in gases]
+    sv_values = [Svehla_LJ_diameters[gas] for gas in gases]
+    plt.scatter(mw_values, sv_values)
+    for i, gas in enumerate(gases):
+        plt.annotate(gas, (mw_values[i], sv_values[i]))
+    plt.xlabel('Molecular Weight (g/mol)')
+    plt.ylabel('Svehla LJ Diameter (Å)')
+    plt.title('Molecular Weight vs Svehla LJ Diameter')
     plt.show()

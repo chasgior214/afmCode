@@ -95,3 +95,36 @@ def make_heightmap_3d_surface(image, view = False, save = False, save_filename =
         fig.write_html(save_filename)
     if view:
         fig.show()
+
+
+if __name__ == "__main__":
+    import AFMImage
+    import os
+    import visualizations as vis
+    import surface_analysis as sa
+    current_path = os.path.dirname(os.path.abspath(__file__))
+    image = AFMImage.AFMImage('Image0008.ibw')
+
+    res = vis.select_heights(image)
+    slots = res.get('selected_slots', [None, None])
+    extremum = slots[1]
+    extremum_z = extremum[0]
+    extremum_x = extremum[1]
+    extremum_y = extremum[2]
+    extremum_x_idx = extremum[3]
+    extremum_y_idx = extremum[4]
+
+    paraboloid_fit_result = sa.fit_paraboloid(image.get_flat_height_retrace(), extremum_x_idx, extremum_y_idx, 1, image.get_pixel_size(), image.get_scan_size())
+    coefficients = paraboloid_fit_result['coefficients']
+
+    res2 = vis.select_heights(image)
+    slots2 = res2.get('selected_slots', [None, None])
+    extremum2 = slots2[1]
+    extremum2_z = extremum2[0]
+    extremum2_x = extremum2[1]
+    extremum2_y = extremum2[2]
+
+    paraboloid_fit_result2 = sa.fit_paraboloid(image.get_flat_height_retrace(), extremum2[3], extremum2[4], 1, image.get_pixel_size(), image.get_scan_size())
+    coefficients2 = paraboloid_fit_result2['coefficients']
+
+    make_heightmap_3d_surface(image, view = True, save = False, points_list=[[[extremum_x],[extremum_y],[extremum_z]], [[extremum2_x],[extremum2_y],[extremum2_z]]], paraboloids=[coefficients, coefficients2])
