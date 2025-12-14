@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 import membrane_relative_positions as mrp
-import AFMImage
+from AFMImage import compute_x_pixel_coords, compute_y_pixel_coords
 from datetime import datetime
 
 def stitch_maps(images, pixel_size=None, overlap_mode='average'):
@@ -52,8 +52,8 @@ def stitch_maps(images, pixel_size=None, overlap_mode='average'):
     n_x = int(np.ceil(width_um / pixel_size))
     n_y = int(np.ceil(height_um / pixel_size))
     
-    x_coords = np.linspace(min_x, max_x, n_x)
-    y_coords = np.linspace(min_y, max_y, n_y)
+    x_coords = min_x + compute_x_pixel_coords(n_x, pixel_size)
+    y_coords = min_y + compute_x_pixel_coords(n_y, pixel_size)
     
     # 4. Initialize Canvas
     if overlap_mode == 'average':
@@ -94,10 +94,10 @@ def _stitch_single_channel(img, data, img_bounds, x_coords, y_coords, n_x, n_y, 
     img_pixel_size = img.get_pixel_size()
     
     # Construct local axes for the image
-    img_x_local = np.linspace(0, img.get_scan_size(), img_nx)
+    img_x_local = compute_x_pixel_coords(img_nx, img_pixel_size)
     
     # y axis: index 0 corresponds to max y (top of image), index max to min y (bottom)
-    img_y_local = np.array([(img_ny - (idx + 0.5)) * img_pixel_size for idx in range(img_ny)])
+    img_y_local = compute_y_pixel_coords(img_ny, img_pixel_size)
     
     # RegularGridInterpolator requires strictly increasing coordinates
     if img_y_local[0] > img_y_local[-1]:

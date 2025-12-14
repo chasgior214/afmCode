@@ -18,8 +18,8 @@ def make_heightmap_3d_surface(image, view = False, save = False, save_filename =
     _, y_dimension = image.get_x_y_size()
 
     # Generate x and y coordinates with correct dimensions
-    x = np.linspace(0, scan_size, x_pixel_count)  # x-coordinates in microns
-    y = np.linspace(y_dimension, 0, y_pixel_count)  # y-coordinates in microns
+    x = image.get_x_pixel_coords()  # x-coordinates in microns
+    y = image.get_y_pixel_coords()  # y-coordinates in microns
     X, Y = np.meshgrid(x, y)
 
     # Use Plotly for the interactive 3D plot
@@ -114,8 +114,10 @@ if __name__ == "__main__":
     extremum_x_idx = extremum[3]
     extremum_y_idx = extremum[4]
 
-    paraboloid_fit_result = sa.fit_paraboloid(image.get_flat_height_retrace(), extremum_x_idx, extremum_y_idx, 1, image.get_pixel_size(), image.get_scan_size())
+    paraboloid_fit_result = sa.fit_paraboloid(image.get_flat_height_retrace(), extremum_x_idx, extremum_y_idx, 1, image.get_pixel_size())
     coefficients = paraboloid_fit_result['coefficients']
+
+    print(f"Intersection area: {sa.paraboloid_substrate_intersection_area(coefficients['a'], coefficients['b'], coefficients['c'], coefficients['d'], coefficients['e'], coefficients['f'], slots[0][0])} um^2")
 
     res2 = vis.select_heights(image)
     slots2 = res2.get('selected_slots', [None, None])
@@ -124,7 +126,9 @@ if __name__ == "__main__":
     extremum2_x = extremum2[1]
     extremum2_y = extremum2[2]
 
-    paraboloid_fit_result2 = sa.fit_paraboloid(image.get_flat_height_retrace(), extremum2[3], extremum2[4], 1, image.get_pixel_size(), image.get_scan_size())
+    paraboloid_fit_result2 = sa.fit_paraboloid(image.get_flat_height_retrace(), extremum2[3], extremum2[4], 1, image.get_pixel_size())
     coefficients2 = paraboloid_fit_result2['coefficients']
+
+    print(f"Intersection area: {sa.paraboloid_substrate_intersection_area(coefficients2['a'], coefficients2['b'], coefficients2['c'], coefficients2['d'], coefficients2['e'], coefficients2['f'], slots2[0][0])} um^2")
 
     make_heightmap_3d_surface(image, view = True, save = False, points_list=[[[extremum_x],[extremum_y],[extremum_z]], [[extremum2_x],[extremum2_y],[extremum2_z]]], paraboloids=[coefficients, coefficients2])

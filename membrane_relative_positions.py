@@ -43,7 +43,6 @@ def image_bounds_absolute_positions(image: AFMImage.AFMImage):
     x_size, y_size = image.get_x_y_size()
     return (image_origin_absolute_x, image_origin_absolute_y, image_origin_absolute_x + x_size, image_origin_absolute_y + y_size)
 
-# TODO update x_spacing, y_spacing based on an average over a big image
 x_spacing = 7.63
 y_spacing = 4.6
 class MembraneNavigator:
@@ -121,7 +120,7 @@ class MembraneNavigator:
             pixel_size = image.get_pixel_size()
             scan_size = image.get_scan_size()
             x_pixel_count, y_pixel_count = image.get_x_y_pixel_counts()
-            x_coords = np.linspace(0, scan_size, x_pixel_count)
+            x_coords = image.get_x_pixel_coords()
             print(f"Image bounds: {absolute_image_bounds}")
 
             # Determine height map once per image
@@ -214,11 +213,9 @@ class MembraneNavigator:
                 else:
                     fit_result = sa.iterative_paraboloid_fit(
                     height_map,
-                    x_coords,
                     rel_x,
                     rel_y,
-                    pixel_size,
-                    scan_size
+                    pixel_size
                 )
 
                 if fit_result:

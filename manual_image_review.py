@@ -37,9 +37,8 @@ def _build_initial_selections(collection, csv_path, depressurized_dt):
         start_dt = image.get_scan_start_datetime()
         start_offset = (start_dt - depressurized_dt).total_seconds()
         end_offset = (end_dt - depressurized_dt).total_seconds()
-        scan_size = image.get_scan_size()
         pixel_size = image.get_pixel_size()
-        x_coords = np.linspace(0, scan_size, x_pixels)
+        x_coords = image.get_x_pixel_coords()
 
         image_windows.append({
             'index': idx,
@@ -80,17 +79,6 @@ def _build_initial_selections(collection, csv_path, depressurized_dt):
         except ValueError:
             return None
 
-    def _index_to_y_center(idx, y_pixels, pixel_size):
-        if idx is None:
-            return None
-        idx = int(np.clip(idx, 0, y_pixels - 1))
-        return (y_pixels - (idx + 0.5)) * pixel_size
-
-    def _y_um_to_index(y_um, y_pixels, pixel_size):
-        if y_um is None or pixel_size <= 0:
-            return None
-        idx_float = y_pixels - (y_um / pixel_size) - 0.5
-        return int(np.clip(int(round(idx_float)), 0, y_pixels - 1))
 
     initial = {}
     matched_count = 0
@@ -147,7 +135,7 @@ def _build_initial_selections(collection, csv_path, depressurized_dt):
                     x_idx = int(np.argmin(np.abs(window['x_coords'] - xyz_x)))
                 except ValueError:
                     x_idx = None
-                y_idx = _y_um_to_index(xyz_y, window['y_pixels'], window['pixel_size'])
+                y_idx = window['image'].y_to_nearest_index(xyz_y) if xyz_y is not None else None
                 selected_slots[slot_idx] = (
                     float(xyz_z),
                     float(xyz_x),
@@ -166,7 +154,7 @@ def _build_initial_selections(collection, csv_path, depressurized_dt):
             if h_val is None or not np.isfinite(h_val):
                 continue
             x_val = float(window['x_coords'][px])
-            y_val = _index_to_y_center(py, window['y_pixels'], window['pixel_size'])
+            y_val = window['image'].index_to_y_center(py)
             selected_slots[slot_idx] = (float(h_val), x_val, y_val, int(px), int(py))
             slot_sources[slot_idx] = 'pixel'
 

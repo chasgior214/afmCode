@@ -34,16 +34,12 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     x_dimension, y_dimension = image.get_x_y_size() # x, y dimensions in microns
     extent = (0, x_dimension, 0, y_dimension)
 
-    x = np.linspace(0, x_dimension, x_pixel_count)  # x-coordinates in microns
+    x = image.get_x_pixel_coords()  # x-coordinates of pixel centers in microns
 
     line_height = initial_line_height
     y_pixels = np.arange(0, y_pixel_count)
     nearest_y_to_plot = y_pixel_count - 1 - min(y_pixels, key=lambda y_pixel: abs(y_pixel * pixel_size - line_height))
 
-    def _index_to_y_center(idx):
-        """Convert a row index into the y-value at the center of that pixel."""
-        idx = int(np.clip(idx, 0, y_pixel_count - 1))
-        return (y_pixel_count - (idx + 0.5)) * pixel_size
 
     selected_points = []  # To store the two right-clicked points
     cumulative_adjusted_height = None  # To store the cumulative adjusted height cross-section
@@ -93,9 +89,9 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             paraboloid_vertex_text.set_text("Paraboloid fit vertex: --, --, --")
             paraboloid_r2_text.set_text("Paraboloid fit R^2: --")
         else:
-            vx = info['vertex_x_um']
-            vy = info['vertex_y_um']
-            vz = info['vertex_z_nm']
+            vx = info['vertex_x']
+            vy = info['vertex_y']
+            vz = info['vertex_z']
             paraboloid_vertex_text.set_text(
                 f"Paraboloid fit vertex: {vx:.3f} μm, {vy:.3f} μm, {vz:.3f} nm"
             )
@@ -107,8 +103,8 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             return
         for target_ax in image_axes:
             marker, = target_ax.plot(
-                info['vertex_x_um'],
-                info['vertex_y_um'],
+                info['vertex_x'],
+                info['vertex_y'],
                 marker='+',
                 color='white',
                 markersize=8,
@@ -116,8 +112,8 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             )
             paraboloid_marker_artists.append(marker)
             circle = patches.Circle(
-                (info['center_x_um'], info['center_y_um']),
-                info['radius_um'],
+                (info['center_x'], info['center_y']),
+                info['radius'],
                 linewidth=1.2,
                 edgecolor='white',
                 linestyle='--',
@@ -156,7 +152,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         slot_tuple = (slot_info[0], x_val, y_val, x_idx, y_idx)
         selected_slots[1] = slot_tuple
         result = fit_paraboloid(
-            height_map, x_idx, y_idx, paraboloid_window_um, pixel_size, x_dimension
+            height_map, x_idx, y_idx, paraboloid_window_um, pixel_size
         )
         paraboloid_fit_info = result
         _update_paraboloid_panel(result)
@@ -330,7 +326,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             return None
 
         return compute_extremum_square_info(
-            height_map, x_idx, y_idx, pixel_size, x_dimension
+            height_map, x_idx, y_idx, pixel_size
         )
 
     def update_stats_display():
@@ -914,7 +910,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         ix = xs.start + ix_local
         x_val = x[ix]
         height_val = height_map[iy, ix]
-        y_val = _index_to_y_center(iy)
+        y_val = image.index_to_y_center(iy)
         _update_cross_section(y_val)
         success = _record_selection(
             x_val,
@@ -997,11 +993,9 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
 
         best_result = iterative_paraboloid_fit(
             height_map,
-            x,
             current_x,
             current_y,
             pixel_size,
-            x_dimension,
             paraboloid_window_um
         )
 
@@ -1079,9 +1073,9 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     def set_paraboloid_vertex(event=None, *, slot=None, advance=True, silent=False):
         if paraboloid_fit_info is None:
             return False
-        vx = paraboloid_fit_info['vertex_x_um']
-        vy = paraboloid_fit_info['vertex_y_um']
-        vz = paraboloid_fit_info['vertex_z_nm']
+        vx = paraboloid_fit_info['vertex_x']
+        vy = paraboloid_fit_info['vertex_y']
+        vz = paraboloid_fit_info['vertex_z']
         x_idx = int(np.argmin(np.abs(x - vx)))
         y_idx = _y_to_index(vy)
         _update_cross_section(vy)
@@ -1151,7 +1145,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         elif event.key == 'up':
             # Move up by one pixel (decrease index = increase y-value)
             new_y_idx = max(nearest_y_to_plot - 1, 0)
-            new_y_val = _index_to_y_center(new_y_idx)
+            new_y_val = image.index_to_y_center(new_y_idx)
             _update_cross_section(new_y_val)
             # If Control is held, auto-select max and mode
             if event.key == 'ctrl+up':
@@ -1160,7 +1154,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         elif event.key == 'down':
             # Move down by one pixel (increase index = decrease y-value)
             new_y_idx = min(nearest_y_to_plot + 1, y_pixel_count - 1)
-            new_y_val = _index_to_y_center(new_y_idx)
+            new_y_val = image.index_to_y_center(new_y_idx)
             _update_cross_section(new_y_val)
             # If Control is held, auto-select max and mode
             if event.key == 'ctrl+down':
@@ -1169,14 +1163,14 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         elif event.key == 'ctrl+up':
             # Move up by one pixel and auto-select with a fixed slot order
             new_y_idx = max(nearest_y_to_plot - 1, 0)
-            new_y_val = _index_to_y_center(new_y_idx)
+            new_y_val = image.index_to_y_center(new_y_idx)
             _update_cross_section(new_y_val)
             set_max_height(slot=1, silent=True)
             set_mode_height(slot=0, silent=True)
         elif event.key == 'ctrl+down':
             # Move down by one pixel and auto-select with a fixed slot order
             new_y_idx = min(nearest_y_to_plot + 1, y_pixel_count - 1)
-            new_y_val = _index_to_y_center(new_y_idx)
+            new_y_val = image.index_to_y_center(new_y_idx)
             _update_cross_section(new_y_val)
             set_max_height(slot=1, silent=True)
             set_mode_height(slot=0, silent=True)

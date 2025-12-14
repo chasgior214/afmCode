@@ -1,40 +1,28 @@
 import numpy as np
+from AFMImage import compute_x_pixel_coords, index_to_y_coord, x_to_nearest_index, y_to_nearest_index
 
 
-def fit_paraboloid(z_data, center_x_idx, center_y_idx, diameter_um, pixel_size, scan_size):
+def fit_paraboloid(z_data, center_x_idx, center_y_idx, diameter, pixel_size):
     """
-    Fit a paraboloid to a circular region of the data map.
-    
+    Fit a paraboloid to a circular region of a 2D array of z values.
+
     Args:
         z_data (np.ndarray): 2D array of z values (e.g. height, z-sensor scan).
         center_x_idx (int): X index of the center of the fit region.
         center_y_idx (int): Y index of the center of the fit region.
-        diameter_um (float): Diameter of the fit region in microns.
-        pixel_size (float): Size of one pixel in microns.
-        scan_size (float): Total physical size of the scan in microns (used for coordinate generation).
-        
+        diameter (float): Diameter of the circular fit region (same units as pixel_size).
+        pixel_size (float): Size of one pixel (same units as diameter).
+
     Returns:
-        dict: Dictionary containing vertex coordinates ('vertex_x_um', 'vertex_y_um', 'vertex_z_nm'),
-              'r2' of the fit, region info ('center_x_um', 'center_y_um', 'radius_um'), and the fit coefficients ('coefficients' dict with keys 'a' to 'f').
-              Returns None if fitting fails.
-    """
-    if center_x_idx is None or center_y_idx is None:
-        return None
-    if diameter_um is None or diameter_um <= 0:
-        return None
-    
+        dict: Dictionary containing vertex coordinates ('vertex_x', 'vertex_y', 'vertex_z'),
+            'r2' of the fit, region info ('center_x', 'center_y', 'radius'), and fit coefficients
+            ('coefficients' dict with keys 'a' to 'f'). Units are consistent with input.
+            Returns None if fitting fails.
+    """    
     y_pixel_count, x_pixel_count = z_data.shape
     
-    # Helper to convert index to y-center (matching visualizations.py logic)
-    # Note: This assumes y-axis is inverted relative to array index (standard image coordinates)
-    def _index_to_y_center(idx):
-        idx = int(np.clip(idx, 0, y_pixel_count - 1))
-        return (y_pixel_count - (idx + 0.5)) * pixel_size
-
-    half_um = diameter_um / 2.0
-    if pixel_size <= 0:
-        return None
-    half_px = max(1, int(round(half_um / pixel_size)))
+    radius = diameter / 2.0
+    half_px = max(1, int(round(radius / pixel_size)))
     
     x_start = max(0, center_x_idx - half_px)
     x_end = min(x_pixel_count, center_x_idx + half_px + 1)
@@ -47,18 +35,18 @@ def fit_paraboloid(z_data, center_x_idx, center_y_idx, diameter_um, pixel_size, 
     sub_heights = z_data[y_start:y_end, x_start:x_end]
 
     # Generate coordinates for the subregion
-    x_coords = np.linspace(0, scan_size, x_pixel_count)
+    x_coords = compute_x_pixel_coords(x_pixel_count, pixel_size)
     xs = x_coords[x_start:x_end]
     ys_idx = np.arange(y_start, y_end)
-    ys = np.array([_index_to_y_center(idx) for idx in ys_idx])
+    ys = np.array([index_to_y_coord(idx, y_pixel_count, pixel_size) for idx in ys_idx])
     
     X_grid, Y_grid = np.meshgrid(xs, ys)
     
-    center_x_um = x_coords[center_x_idx]
-    center_y_um = _index_to_y_center(center_y_idx)
+    center_x = x_coords[center_x_idx]
+    center_y = index_to_y_coord(center_y_idx, y_pixel_count, pixel_size)
     
-    distance_sq = (X_grid - center_x_um) ** 2 + (Y_grid - center_y_um) ** 2
-    circle_mask = distance_sq <= (half_um ** 2)
+    distance_sq = (X_grid - center_x) ** 2 + (Y_grid - center_y) ** 2
+    circle_mask = distance_sq <= (radius ** 2)
     
     if not circle_mask.any():
         return None
@@ -147,13 +135,13 @@ def fit_paraboloid(z_data, center_x_idx, center_y_idx, diameter_um, pixel_size, 
     )
 
     return {
-        'vertex_x_um': float(vx),
-        'vertex_y_um': float(vy),
-        'vertex_z_nm': float(vz),
+        'vertex_x': float(vx),
+        'vertex_y': float(vy),
+        'vertex_z': float(vz),
         'r2': float(r2),
-        'center_x_um': float(center_x_um),
-        'center_y_um': float(center_y_um),
-        'radius_um': float(half_um),
+        'center_x': float(center_x),
+        'center_y': float(center_y),
+        'radius': float(radius),
         'coefficients': {
             'a': float(a),
             'b': float(b),
@@ -164,7 +152,7 @@ def fit_paraboloid(z_data, center_x_idx, center_y_idx, diameter_um, pixel_size, 
         }
     }
 
-def compute_extremum_square_info(z_data, center_x_idx, center_y_idx, pixel_size, scan_size):
+def compute_extremum_square_info(z_data, center_x_idx, center_y_idx, pixel_size):
     """
     Calculate statistics for a 4um square region around a selected point.
     
@@ -173,7 +161,6 @@ def compute_extremum_square_info(z_data, center_x_idx, center_y_idx, pixel_size,
         center_x_idx (int): X index of the center point.
         center_y_idx (int): Y index of the center point.
         pixel_size (float): Size of one pixel in microns.
-        scan_size (float): Total physical size of the scan in microns.
         
     Returns:
         dict: Dictionary containing 'delta_nm', 'x_um', 'y_um', 'x_idx', 'y_idx'.
@@ -183,10 +170,6 @@ def compute_extremum_square_info(z_data, center_x_idx, center_y_idx, pixel_size,
         return None
         
     y_pixel_count, x_pixel_count = z_data.shape
-    
-    def _index_to_y_center(idx):
-        idx = int(np.clip(idx, 0, y_pixel_count - 1))
-        return (y_pixel_count - (idx + 0.5)) * pixel_size
 
     # Determine pixel span corresponding to a 4 μm square (±2 μm from center).
     half_span_um = 2.0
@@ -216,7 +199,7 @@ def compute_extremum_square_info(z_data, center_x_idx, center_y_idx, pixel_size,
     max_y_idx = y_start + local_y
     max_x_idx = x_start + local_x
     
-    x_coords = np.linspace(0, scan_size, x_pixel_count)
+    x_coords = compute_x_pixel_coords(x_pixel_count, pixel_size)
 
     # Compute the mode of the cross section at the y value of the max point.
     row_data = z_data[max_y_idx, :]
@@ -226,7 +209,7 @@ def compute_extremum_square_info(z_data, center_x_idx, center_y_idx, pixel_size,
 
     delta_nm = float(sub_max_height - mode_height)
     x_coord_um = float(x_coords[max_x_idx])
-    y_coord_um = _index_to_y_center(max_y_idx)
+    y_coord_um = index_to_y_coord(max_y_idx, y_pixel_count, pixel_size)
 
     return {
         'delta_nm': delta_nm,
@@ -238,12 +221,10 @@ def compute_extremum_square_info(z_data, center_x_idx, center_y_idx, pixel_size,
 
 def iterative_paraboloid_fit(
     height_map,
-    x_coords,
-    start_x_um,
-    start_y_um,
+    start_x,
+    start_y,
     pixel_size,
-    scan_size,
-    paraboloid_window_um=1,
+    fit_window_diameter=1,
     max_iterations=10,
     convergence_tol=1e-5
 ):
@@ -252,14 +233,16 @@ def iterative_paraboloid_fit(
     Updates the center to the fitted vertex and repeats until convergence
     or a maximum number of iterations is reached.
 
+    Input x and y dimensions (start_x, start_y, fit_window_diameter, 
+    pixel_size) should be in the same units. Values in height_map may be in the
+    same or different units.
+
     Args:
         height_map (np.ndarray): 2D array of height values.
-        x_coords (np.ndarray): 1D array of x coordinates in microns.
-        start_x_um (float): Initial x coordinate of the center in microns.
-        start_y_um (float): Initial y coordinate of the center in microns.
-        paraboloid_window_um (float): Diameter of the fit region in microns.
-        pixel_size (float): Size of one pixel in microns.
-        scan_size (float): Total physical size of the scan in microns.
+        start_x (float): Initial x coordinate of the center.
+        start_y (float): Initial y coordinate of the center.
+        fit_window_diameter (float): Diameter of the fit region.
+        pixel_size (float): Size of one pixel.
         max_iterations (int): Maximum number of iterations.
         convergence_tol (float): Tolerance for convergence check.
 
@@ -268,39 +251,30 @@ def iterative_paraboloid_fit(
               'vx', 'vy', 'vz', 'r2', 'fit_result'.
               Returns None if fitting fails or no history is generated.
     """
-    y_pixel_count = height_map.shape[0]
+    y_pixel_count, x_pixel_count = height_map.shape
 
-    def _y_to_index(y_val):
-        # Convert y-value (microns) to row index, matching visualizations.py logic
-        # _index_to_y_center(idx) = (y_pixel_count - (idx + 0.5)) * pixel_size
-        idx = int(np.clip(round(y_pixel_count - 0.5 - y_val / pixel_size), 0, y_pixel_count - 1))
-        return idx
-
-    current_x = start_x_um
-    current_y = start_y_um
+    current_x = start_x
+    current_y = start_y
     
     history = []
     converged = False
 
     for _ in range(max_iterations):
         # Find indices for the current center coordinates
-        c_x_idx = int(np.argmin(np.abs(x_coords - current_x)))
-        try:
-            c_y_idx = _y_to_index(current_y)
-        except Exception:
-            break
+        c_x_idx = x_to_nearest_index(current_x, x_pixel_count, pixel_size)
+        c_y_idx = y_to_nearest_index(current_y, y_pixel_count, pixel_size)
 
         # Fit paraboloid
         fit_result = fit_paraboloid(
-            height_map, c_x_idx, c_y_idx, paraboloid_window_um, pixel_size, scan_size
+            height_map, c_x_idx, c_y_idx, fit_window_diameter, pixel_size
         )
 
         if fit_result is None:
             break
 
-        vx = fit_result['vertex_x_um']
-        vy = fit_result['vertex_y_um']
-        vz = fit_result['vertex_z_nm']
+        vx = fit_result['vertex_x']
+        vy = fit_result['vertex_y']
+        vz = fit_result['vertex_z']
         r2 = fit_result['r2']
 
         history.append({
@@ -336,7 +310,7 @@ def calculate_substrate_height(row_data, bin_size=0.5):
     
     Args:
         row_data (np.ndarray): 1D array of height values.
-        bin_size (float): Size of the bin for histogramming. Units same as row_data.
+        bin_size (float): Size of the bin for histogramming. Units same as row_data. Default is 0.5.
         
     Returns:
         float: The calculated substrate height, or None if calculation fails.
@@ -360,7 +334,7 @@ def calculate_substrate_height(row_data, bin_size=0.5):
     nearest_idx = finite_row_indices[np.argmin(np.abs(row_values - mode_center))]
     return float(row_data[nearest_idx])
 
-def paraboloid_substrate_intersection_area(a, b, c, d, e, f_const, row_data, bin_size=0.5):
+def paraboloid_substrate_intersection_area(a, b, c, d, e, f_const, substrate_height):
     """
     Calculate the area of the intersection between a paraboloid and the substrate.
 
@@ -368,8 +342,8 @@ def paraboloid_substrate_intersection_area(a, b, c, d, e, f_const, row_data, bin
 
         z = a*x^2 + b*y^2 + c*x*y + d*x + e*y + f
 
-    The substrate height is estimated from row_data using calculate_substrate_height. The intersection of the paraboloid and
-    the substrate (a plane) forms an ellipse when it exists; this function returns the area of that ellipse.
+    The intersection of the paraboloid and the substrate (a plane parallel to the xy-plane) 
+    forms an ellipse. This function returns the area of that ellipse.
 
     Args:
         a (float): Coefficient for x^2.
@@ -378,17 +352,13 @@ def paraboloid_substrate_intersection_area(a, b, c, d, e, f_const, row_data, bin
         d (float): Coefficient for x.
         e (float): Coefficient for y.
         f_const (float): Constant term of the paraboloid.
-        row_data (np.ndarray): 1D array of height values used to estimate the substrate.
-        bin_size (float, optional): Bin size passed to calculate_substrate_height.
+        substrate_height (float): Substrate height (same units as coefficients).
 
     Returns:
-        float: Area of the intersection ellipse, or None if it cannot be determined
-        (e.g., substrate height cannot be estimated or the intersection is not an ellipse).
+        float: Area of the intersection ellipse, or None if it cannot be determined.
+               Units are the square of the x/y coordinate units used in the paraboloid
+               fit (e.g., μm² if x and y were in μm).
     """
-    substrate_height = calculate_substrate_height(row_data, bin_size=bin_size)
-    if substrate_height is None:
-        return None
-
     A = np.array([[a, c / 2.0], [c / 2.0, b]], dtype=float)
     B = np.array([d, e], dtype=float)
     F = float(f_const - substrate_height)

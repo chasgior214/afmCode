@@ -2,6 +2,54 @@ import igor.binarywave
 import numpy as np
 from datetime import datetime, timedelta
 
+
+# Pixel Coordinate Functions (module-level for reuse without AFMImage object)
+
+def compute_x_pixel_coords(x_pixel_count, pixel_size):
+    """
+    Compute x-coordinates of pixel centers in microns.
+    
+    Pixel edges span (0, x_size). Centers are offset by half a pixel.
+    """
+    return (np.arange(x_pixel_count) + 0.5) * pixel_size
+
+
+def compute_y_pixel_coords(y_pixel_count, pixel_size):
+    """
+    Compute y-coordinates of pixel centers in microns.
+    
+    Pixel edges span (0, y_size). Centers are offset by half a pixel.
+    Row index 0 is at the TOP of the image (highest y-value).
+    """
+    return (y_pixel_count - np.arange(y_pixel_count) - 0.5) * pixel_size
+
+
+def index_to_x_coord(x_index, x_pixel_count, pixel_size):
+    """Convert a column index to the x-coordinate at the center of that pixel."""
+    x_index = int(np.clip(x_index, 0, x_pixel_count - 1))
+    return (x_index + 0.5) * pixel_size
+
+
+def x_to_nearest_index(x_um, x_pixel_count, pixel_size):
+    """Convert an x-coordinate (in microns) to the nearest column index."""
+    idx_float = (x_um / pixel_size) - 0.5
+    return int(np.clip(int(round(idx_float)), 0, x_pixel_count - 1))
+
+
+def index_to_y_coord(y_index, y_pixel_count, pixel_size):
+    """Convert a row index to the y-coordinate at the center of that pixel."""
+    y_index = int(np.clip(y_index, 0, y_pixel_count - 1))
+    return (y_pixel_count - (y_index + 0.5)) * pixel_size
+
+
+def y_to_nearest_index(y_um, y_pixel_count, pixel_size):
+    """Convert a y-coordinate (in microns) to the nearest row index."""
+    idx_float = y_pixel_count - (y_um / pixel_size) - 0.5
+    return int(np.clip(int(round(idx_float)), 0, y_pixel_count - 1))
+
+
+# AFMImage Class
+
 class AFMImage:
     """
     The AFMImage class represents an AFM image as numpy arrays and metadata.
@@ -204,6 +252,30 @@ class AFMImage:
             raise ValueError(f"Non-square pixels: X size ({pixel_size_x:.3e}) != Y size ({pixel_size_y:.3e})")
 
         return pixel_size_x
+
+    def get_x_pixel_coords(self):
+        """Get the x-coordinates of pixel centers in microns."""
+        return compute_x_pixel_coords(self.get_x_y_pixel_counts()[0], self.get_pixel_size())
+
+    def get_y_pixel_coords(self):
+        """Get the y-coordinates of pixel centers in microns."""
+        return compute_y_pixel_coords(self.get_x_y_pixel_counts()[1], self.get_pixel_size())
+
+    def index_to_x_center(self, x_index):
+        """Convert a column index to the x-coordinate at the center of that pixel."""
+        return index_to_x_coord(x_index, self.get_x_y_pixel_counts()[0], self.get_pixel_size())
+
+    def x_to_nearest_index(self, x_um):
+        """Convert an x-coordinate (in microns) to the nearest column index."""
+        return x_to_nearest_index(x_um, self.get_x_y_pixel_counts()[0], self.get_pixel_size())
+
+    def index_to_y_center(self, y_index):
+        """Convert a row index to the y-coordinate at the center of that pixel."""
+        return index_to_y_coord(y_index, self.get_x_y_pixel_counts()[1], self.get_pixel_size())
+
+    def y_to_nearest_index(self, y_um):
+        """Convert a y-coordinate (in microns) to the nearest row index."""
+        return y_to_nearest_index(y_um, self.get_x_y_pixel_counts()[1], self.get_pixel_size())
 
     ## Date and Time Methods
     def get_scan_end_datetime(self):
