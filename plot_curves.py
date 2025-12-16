@@ -10,10 +10,12 @@ plot_type = 'scatter'
 # plot_type = 'line'
 
 show_legend = 1
+x_scale = 'hours'
+# x_scale = 'minutes'
 
 # List of substrings to filter filenames. Empty list = no filtering.
 filter_substrings = [
-    'blue', 'red'
+    # 'blue', 'red'
 ]
 # Filter settings
 filter_at_least_n_points = 0  # if positive integer n, only show CSVs with at least n data points
@@ -104,26 +106,32 @@ markers = ['x', '*', '+', 'o', 's', '^', '>', 'd']
 for idx, entry in enumerate(csv_entries):
     csv_file = entry['path']
     df = pd.read_csv(csv_file)
+    # Set x-axis to hours if specified
+    df['Time to plot'] = df['Time (minutes)']
+    if x_scale == 'hours':
+        df['Time to plot'] = df['Time (minutes)'] / 60.0
     if plot_type == 'scatter':
         if len({entry['target_idx'] for entry in csv_entries}) == 1: # all same depressurization
             marker = markers[(idx // 10) % len(markers)] # cycle through markers every 10 files
         else:
             marker = markers[entry['target_idx'] % len(markers)]
         if marker in ['x', '+']:
-            plt.scatter(df['Time (minutes)'], df['Deflection (nm)'],
+            plt.scatter(df['Time to plot'], df['Deflection (nm)'],
                         label=os.path.basename(csv_file), color=colors[idx % len(colors)], s=60, marker=marker)
         else:
-            plt.scatter(df['Time (minutes)'], df['Deflection (nm)'],
+            plt.scatter(df['Time to plot'], df['Deflection (nm)'],
                         label=os.path.basename(csv_file), color=colors[idx % len(colors)], s=60, marker=marker, facecolors='none')
     elif plot_type == 'line':
-        plt.plot(df['Time (minutes)'], df['Deflection (nm)'],
+        plt.plot(df['Time to plot'], df['Deflection (nm)'],
                  label=os.path.basename(csv_file), color=colors[idx % len(colors)], linewidth=1.5)
 
     slope_id = pl.get_slope_id_from_filename(csv_file)
     if slope_id and slope_id in saved_slopes:
         slope, intercept = saved_slopes[slope_id]
+        if x_scale == 'hours':
+            slope /= 60.0  # convert nm/min to nm/hour
         if not df.empty:
-            x_vals = df['Time (minutes)']
+            x_vals = df['Time to plot']
             x_min, x_max = x_vals.min(), x_vals.max()
             line_x = [0, x_max]
             line_y = [intercept, slope * x_max + intercept]
@@ -144,7 +152,7 @@ for idx, entry in enumerate(csv_entries):
 
     # accumulate point coordinates for later axis-lim calculation
     if not df.empty:
-        _all_x_vals.extend(df['Time (minutes)'].tolist())
+        _all_x_vals.extend(df['Time to plot'].tolist())
         _all_y_vals.extend(df['Deflection (nm)'].tolist())
 
 # Determine axis limits from points only (so slope lines don't affect autoscaling)
@@ -166,7 +174,7 @@ y_pad = (y_max - y_min) * 0.05
 plt.xlim(0, x_max + x_pad)
 plt.ylim(y_min - y_pad, y_max + y_pad)
 
-plt.xlabel('Time since depressurization (minutes)')
+plt.xlabel(f'Time since depressurization ({x_scale})')
 plt.ylabel('Deflection (nm)')
 if show_legend:
     plt.legend()

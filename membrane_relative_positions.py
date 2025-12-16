@@ -8,7 +8,7 @@ import visualizations as vis
 import csv
 import os
 from datetime import datetime
-from matplotlib.patches import Circle
+from matplotlib.patches import Circle, Rectangle
 from matplotlib.widgets import Slider, Button
 from matplotlib.colors import is_color_like
 
@@ -517,6 +517,27 @@ class WellPositionsReviewer:
         self.ax2.set_aspect('equal', adjustable='box')
         self.ax2.set_xlim(self.initial_xlim)
         self.ax2.set_ylim(self.initial_ylim)
+        anchor_point = self.get_last_displayed_point(time_cut)
+
+        # Outline the bounds of the image associated with the last displayed point
+        if anchor_point:
+            entry = anchor_point.get('entry') if isinstance(anchor_point, dict) else None
+            image_name = entry.get('Image Name') if entry else None
+            image = self.image_map.get(image_name) if image_name else None
+            if image is not None:
+                x_min, y_min, x_max, y_max = image_bounds_absolute_positions(image)
+                self.ax2.add_patch(
+                    Rectangle(
+                        (x_min, y_min),
+                        x_max - x_min,
+                        y_max - y_min,
+                        fill=False,
+                        edgecolor='red',
+                        linestyle='--',
+                        linewidth=1.5,
+                        alpha=0.9,
+                    )
+                )
         # Move the absolute position axes to the top and right
         self.ax2.xaxis.set_label_position('top')
         self.ax2.xaxis.tick_top()
@@ -526,7 +547,6 @@ class WellPositionsReviewer:
         self.ax2.tick_params(axis='y', labelleft=False)
 
         # Add bottom/left axes showing well map coordinates anchored on the last displayed point
-        anchor_point = self.get_last_displayed_point(time_cut)
         if anchor_point and anchor_point['well'] in self.well_map:
             anchor_abs_x = anchor_point['x']
             anchor_abs_y = anchor_point['y']
