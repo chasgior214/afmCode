@@ -937,7 +937,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         ix = xs.start + ix_local
         x_val = x[ix]
         height_val = height_map[iy, ix]
-        y_val = _index_to_y_center(iy)
+        y_val = image.index_to_y_center(iy)
         _update_cross_section(y_val)
         success = _record_selection(
             x_val,

@@ -58,7 +58,7 @@ class AFMImageCollection:
         Args:
             start_datetime: Only include images that started at or after this time
             end_datetime: Only include images that finished at or before this time
-            image_range: String "AAAA-BBBB" to filter by filename numbers
+            image_range: String "AAAA-BBBB" to filter by filename numbers. E.g., "0001-0050", or 'AAAA-' for all from AAAA onward, or '-BBBB' for all up to BBBB. Can use AAAA for single image.
         
         Returns:
             New AFMImageCollection containing only the filtered images
@@ -72,11 +72,23 @@ class AFMImageCollection:
             filtered = [img for img in filtered if img.get_scan_end_datetime() <= end_datetime]
         
         if image_range is not None:
-            match = re.match(r'^(\d+)-(\d+)$', image_range)
-            if match:
-                range_start = int(match.group(1))
-                range_end = int(match.group(2))
-                
+            cleaned = image_range.strip()
+            start_part, sep, end_part = cleaned.partition('-')
+            if not sep:
+                if cleaned.isdigit():
+                    range_start = range_end = int(cleaned)
+                else:
+                    print(f"Warning: Invalid image_range format '{image_range}'. Expected 'AAAA-BBBB', 'AAAA-', '-BBBB', or 'AAAA'.")
+                    range_start = range_end = None
+            else:
+                if (start_part and not start_part.isdigit()) or (end_part and not end_part.isdigit()) or (not start_part and not end_part):
+                    print(f"Warning: Invalid image_range format '{image_range}'. Expected 'AAAA-BBBB', 'AAAA-', or '-BBBB'.")
+                    range_start = range_end = None
+                else:
+                    range_start = int(start_part) if start_part else None
+                    range_end = int(end_part) if end_part else None
+
+            if range_start is not None or range_end is not None:
                 def get_image_number(img):
                     # Extract numeric portion from bname (e.g., "Image0001" -> 1)
                     bname = img.bname
@@ -87,11 +99,10 @@ class AFMImageCollection:
                 
                 filtered = [
                     img for img in filtered
-                    if (num := get_image_number(img)) is not None and range_start <= num <= range_end
+                    if (num := get_image_number(img)) is not None
+                    and (range_start is None or num >= range_start)
+                    and (range_end is None or num <= range_end)
                 ]
-            else:
-                print(f"Warning: Invalid image_range format '{image_range}'. Expected 'AAAA-BBBB'.")
-        
         # Create a new collection with filtered images
         new_collection = object.__new__(AFMImageCollection)
         new_collection.images = filtered

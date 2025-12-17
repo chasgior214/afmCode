@@ -277,6 +277,40 @@ def iterative_paraboloid_fit(
         vz = fit_result['vertex_z']
         r2 = fit_result['r2']
 
+        # if vertex is outside image bounds, stop
+        if not (0 <= vx < x_pixel_count * pixel_size and 0 <= vy < y_pixel_count * pixel_size):
+            print(f"Vertex {vx}, {vy} out of image bounds {0}-{x_pixel_count * pixel_size}, {0}-{y_pixel_count * pixel_size}, stopping iteration.")
+            break
+
+        # if vertex not within fit window, stop
+        dist = np.sqrt((vx - current_x) ** 2 + (vy - current_y) ** 2)
+        if dist > fit_window_diameter / 2:
+            print(f"Vertex moved {dist} which is outside the fit window radius {fit_window_diameter / 2}, stopping iteration.")
+            break
+
+        # if paraboloid is hyperbolic, stop
+        coeffs = fit_result['coefficients']
+        A = np.array([[coeffs['a'], coeffs['c'] / 2.0], [coeffs['c'] / 2.0, coeffs['b']]], dtype=float)
+        detA = np.linalg.det(A)
+        if detA < 0:
+            print("Paraboloid fit is hyperbolic, stopping iteration.")
+            break
+
+        # if paraboloid does not intersect substrate, stop
+        y_idx = y_to_nearest_index(vy, y_pixel_count, pixel_size)
+        substrate_height = calculate_substrate_height(height_map[y_idx, :])
+        a = coeffs['a']
+        if vz > substrate_height:
+            # if vertex is above substrate, paraboloid must be concave down
+            if a > 0:
+                print("Vertex above substrate but paraboloid is concave up, stopping iteration.")
+                break
+        else:
+        # if vertex is below substrate, paraboloid must be concave up
+            if a < 0:
+                print("Vertex below substrate but paraboloid is concave down, stopping iteration.")
+                break
+
         history.append({
             'vx': vx, 'vy': vy, 'vz': vz, 'r2': r2,
             'fit_result': fit_result
@@ -334,7 +368,7 @@ def calculate_substrate_height(row_data, bin_size=0.5):
     nearest_idx = finite_row_indices[np.argmin(np.abs(row_values - mode_center))]
     return float(row_data[nearest_idx])
 
-def paraboloid_substrate_intersection_area(a, b, c, d, e, f_const, substrate_height):
+def paraboloid_substrate_intersection_area(a, b, c, d, e, f, substrate_height):
     """
     Calculate the area of the intersection between a paraboloid and the substrate.
 
@@ -351,7 +385,7 @@ def paraboloid_substrate_intersection_area(a, b, c, d, e, f_const, substrate_hei
         c (float): Coefficient for x*y.
         d (float): Coefficient for x.
         e (float): Coefficient for y.
-        f_const (float): Constant term of the paraboloid.
+        f (float): Constant term of the paraboloid.
         substrate_height (float): Substrate height (same units as coefficients).
 
     Returns:
@@ -361,7 +395,7 @@ def paraboloid_substrate_intersection_area(a, b, c, d, e, f_const, substrate_hei
     """
     A = np.array([[a, c / 2.0], [c / 2.0, b]], dtype=float)
     B = np.array([d, e], dtype=float)
-    F = float(f_const - substrate_height)
+    F = float(f - substrate_height)
 
     try:
         det_A = float(np.linalg.det(A))

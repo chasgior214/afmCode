@@ -5,11 +5,8 @@ general code cleanup/some refactoring, documentation
 ## Inadmissible solutions
 - Start with just these to get it going
     - Set limits to what a deflection could possibly be (never more than +/- 350 nm)
-    - Check if the fitted vertex is within the x/y bounds of the image. If not, reject
     - If there is no point in the image data within 5 nm of the vertex, reject it (root sum of squares → need to convert x/y to nm from um)
-    - Vertex must be within the paraboloid fit window
     - Can check what the fit paraboloid would indicate about the well’s diameter (the circle at the intersection of the paraboloid and the surface). It’s not a perfect paraboloid, but saying it should be at least a 1 or 2 um diameter and less than 10 um diameter could be an amazing way to assess if fit is feasible
-    - Paraboloid coefficients must describe an elliptic paraboloid (not a hyperbolic one)
 - Can check that the ellipse described by the paraboloid fit is roughly circular
 - Assign a min R^2 value (0.2?) for a fit → do this last, would want to play around after all the other stuff and see how bumpy of a near-cratered well I can get away with low R^2 for
 - Well finding could look at if the disruption in the substrate plane is about cirular, and if not and no well expected there, it's debris - could also use in finding algorithm
@@ -29,6 +26,7 @@ general code cleanup/some refactoring, documentation
     2. See if the vertex is centered in x and y over a non-substrate patch in the image
 - could I do the fourier transform thing that the drift correction algorithm on the AFM uses to align all my images? Could feed it all the images from a depressurization and it could match the wells together even if the head were moved around
 - update x_spacing, y_spacing based on an average over a big image
+- make it do the square thing I do? Could look for both max and min within 3um of expected position, then use the one with the bigger R^2
 - Could train a model to notice strange selections based on combinations of things like deflection and paraboloid-substrate intersection area if it's hard to do with code
 - Eventually, could add accounting for slight tilt of sample relative to x/y piezo in the well finder. Far off
 
@@ -36,6 +34,7 @@ general code cleanup/some refactoring, documentation
 Don’t hesitate to raise failures. I’ll learn from why they happened and either be able to automate it or it’ll just surface the strangest cases to me
 - If it wanders more than (2um?) from its starting estimated point, have it have the user pick where it is → maybe showing other recently anchored points and the estimated position (and paraboloid fit path) on a stitched map to help me see where it should be
 - Better visualizations to see why things go wrong: height map with predicted location, fit point, max and min within 3 um of each of those, maybe the path of iterative paraboloid fitting all marked on it, and any of the above that are relevant
+- can hit a button when viewing well positions in automated tracker to have it stitch together the last 5 images and overlay it on the plot's background
 - Overall, need to pick when it asks for user input
 
 ## Other Improvements

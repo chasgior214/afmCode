@@ -9,13 +9,14 @@ import path_loader as pl
 plot_type = 'scatter'
 # plot_type = 'line'
 
-show_legend = 1
+show_legend = 0
 x_scale = 'hours'
 # x_scale = 'minutes'
 
 # List of substrings to filter filenames. Empty list = no filtering.
 filter_substrings = [
     # 'blue', 'red'
+    # '(6, 2)'
 ]
 # Filter settings
 filter_at_least_n_points = 0  # if positive integer n, only show CSVs with at least n data points

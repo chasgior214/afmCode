@@ -14,9 +14,9 @@ from matplotlib.colors import is_color_like
 
 # Image Filtering Configuration
 # Set any of these to filter which images are processed:
-filter_start_datetime = None  # datetime object, e.g., datetime(2025, 12, 5, 17, 0, 0)
-filter_end_datetime = None    # datetime object
-filter_image_range = None     # String "AAAA-BBBB" e.g., "0001-0050"
+filter_start_datetime = None  # None or datetime object, e.g., datetime(2025, 12, 5, 17, 0, 0)
+filter_end_datetime = None    # None or datetime object
+filter_image_range = '0221-'     # None or String "AAAA-BBBB" e.g., "0001-0050", or 'AAAA-' for all from AAAA onward, or '-BBBB' for all up to BBBB
 
 # GOAL: have my system know where the wells are relative to each other, so for any images with multiple wells, I only point out one well, and it figures out where the others are, gets the deflections autonomously, and logs the data
 
@@ -461,6 +461,28 @@ class WellPositionsReviewer:
         else:
             self.future_span = None
 
+    def _auto_scale_ax2_to_visible_points(self, visible_points):
+        """Scale ax2 limits to only the currently visible markers (plus padding)."""
+        if not visible_points:
+            self.ax2.set_xlim(self.initial_xlim)
+            self.ax2.set_ylim(self.initial_ylim)
+            return
+
+        xs = [p['x'] for p in visible_points]
+        ys = [p['y'] for p in visible_points]
+
+        x_min, x_max = min(xs), max(xs)
+        y_min, y_max = min(ys), max(ys)
+
+        x_range = max(1e-9, x_max - x_min)
+        y_range = max(1e-9, y_max - y_min)
+
+        pad_x = max(1.0, 0.05 * x_range)
+        pad_y = max(1.0, 0.05 * y_range)
+
+        self.ax2.set_xlim(x_min - pad_x, x_max + pad_x)
+        self.ax2.set_ylim(y_min - pad_y, y_max + pad_y)
+
     def draw_absolute_positions(self, time_cut):
         self.ax2.clear()
         if self.secax_map_x:
@@ -473,8 +495,10 @@ class WellPositionsReviewer:
         
         # Group points by well
         points_by_well = {}
+        visible_points = []
         for p in self.abs_points:
             if p['time'] <= time_cut:
+                visible_points.append(p)
                 if p['well'] not in points_by_well:
                     points_by_well[p['well']] = []
                 points_by_well[p['well']].append(p)
@@ -515,8 +539,10 @@ class WellPositionsReviewer:
         self.ax2.set_ylabel('Absolute Y Position (μm)')
         self.ax2.grid(True, alpha=0.3)
         self.ax2.set_aspect('equal', adjustable='box')
-        self.ax2.set_xlim(self.initial_xlim)
-        self.ax2.set_ylim(self.initial_ylim)
+
+        # Scale to only visible markers (+ padding)
+        self._auto_scale_ax2_to_visible_points(visible_points)
+
         anchor_point = self.get_last_displayed_point(time_cut)
 
         # Outline the bounds of the image associated with the last displayed point
@@ -768,7 +794,7 @@ class WellPositionsReviewer:
 
         results_to_export = (
             self.results if time_cut is None else [
-                entry for entry in self.results if entry['Time (minutes)'] <= time_cut
+                entry for entry in self.results if entry['Time (minutes)'] <= time_cut + 0.0001
             ]
         )
 
@@ -982,7 +1008,7 @@ if __name__ == "__main__":
     
     print(f"Processing {len(filtered_collection)} images (filtered from {original_count} total)")
     
-    # Show the first filtered image to pick a well
+    # Show the first filtered image to point out a well
     first_image = filtered_collection.images[0]
     first_image_origin_absolute_x, first_image_origin_absolute_y = offset_image_origin_to_absolute_piezo_position(first_image)
     
