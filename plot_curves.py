@@ -9,13 +9,14 @@ import path_loader as pl
 plot_type = 'scatter'
 # plot_type = 'line'
 
-show_legend = 0
+show_legend = 1
 x_scale = 'hours'
 # x_scale = 'minutes'
 
 # List of substrings to filter filenames. Empty list = no filtering.
 filter_substrings = [
     # 'blue', 'red'
+    'green', 'orange', 'black'
     # '(6, 2)'
 ]
 # Filter settings
@@ -130,7 +131,7 @@ for idx, entry in enumerate(csv_entries):
     if slope_id and slope_id in saved_slopes:
         slope, intercept = saved_slopes[slope_id]
         if x_scale == 'hours':
-            slope /= 60.0  # convert nm/min to nm/hour
+            slope *= 60.0  # convert nm/min to nm/hour
         if not df.empty:
             x_vals = df['Time to plot']
             x_min, x_max = x_vals.min(), x_vals.max()
