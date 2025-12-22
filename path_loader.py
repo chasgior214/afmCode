@@ -5,9 +5,10 @@ depressurized_time = '16:23:22'
 end_hour = None # None to not give end limit (if end_hour given and end_day not given, uses only day of depressurization up to this hour)
 end_day = None # None to not give end limit (use all files in specified folder)
 sample_ID = '53'
-transfer_location = 'o(5,1)' # 'o(3,8)'
+transfer_location = 'o(5,1)'
 if sample_ID == '37': transfer_location = '$(6,3)'
-cavity_position = 'right'
+if sample_ID == '43': transfer_location = 'o(3,8)'
+cavity_position = 'left'
 
 # Additional depressurization date/time combinations can be added to this list to plot multiple datasets at once (see plot_curves.py)
 plot_depressurizations = [

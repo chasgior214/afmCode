@@ -18,7 +18,7 @@ import glob
 import path_loader as pl
 
 
-def load_deflation_curves(folder=None, sample_id=None, depressurized_date=None, depressurized_time=None):
+def load_deflation_curves(folder=None, sample_id=None, depressurized_date=None, depressurized_time=None, cutoff_time=None):
     """
     Load deflation curve data from CSV files.
     
@@ -56,6 +56,9 @@ def load_deflation_curves(folder=None, sample_id=None, depressurized_date=None, 
             well_name = basename.replace('.csv', '')
         
         if 'Time (minutes)' in df.columns and 'Deflection (nm)' in df.columns:
+            # Filter out data after cutoff_time if set
+            if cutoff_time is not None:
+                df = df[df['Time (minutes)'] <= cutoff_time]
             curves[well_name] = df[['Time (minutes)', 'Deflection (nm)']].copy()
     
     return curves
@@ -129,6 +132,7 @@ class DeflationOverlay:
         y_spacing=4.6,
         time_in_hours=False,
         failure_threshold=None,
+        whiteout_after_last=False,
     ):
         """
         Args:
@@ -145,6 +149,7 @@ class DeflationOverlay:
             y_spacing: Physical y spacing between grid positions (default from membrane_relative_positions)
             time_in_hours: If True, display time in hours; otherwise in minutes
             failure_threshold: If set, wells that fall below this height become black permanently
+            whiteout_after_last: If True, wells show as white after their last data point
         """
         self.image_path = image_path
         self.deflation_curves = deflation_curves
@@ -159,6 +164,14 @@ class DeflationOverlay:
         self.y_spacing = y_spacing
         self.time_in_hours = time_in_hours
         self.failure_threshold = failure_threshold
+        self.whiteout_after_last = whiteout_after_last
+        
+        # Precompute max times for each well if whiteout_after_last is enabled
+        self.well_max_times = {}
+        if whiteout_after_last:
+            for well_name, df in deflation_curves.items():
+                if not df.empty:
+                    self.well_max_times[well_name] = df['Time (minutes)'].max()
         
         # Precompute failure times for each well (time when it first crosses below threshold)
         # Uses linear interpolation between the last point above and first point below
@@ -271,6 +284,13 @@ class DeflationOverlay:
                         patch.set_edgecolor('black')
                         continue
                 
+                # Check if should whiteout after last data point
+                if self.whiteout_after_last and well_name in self.well_max_times:
+                    if time_minutes > self.well_max_times[well_name]:
+                        patch.set_facecolor('white')
+                        patch.set_edgecolor('lightgray')
+                        continue
+
                 height = interpolate_height(self.deflation_curves[well_name], time_minutes)
                 if height is None:
                     # Before data exists: white
@@ -457,6 +477,8 @@ class DeflationOverlay:
             'imgHeight': img_height,
             'failureThreshold': self.failure_threshold,
             'failureTimes': self.failure_times,
+            'whiteoutAfterLast': self.whiteout_after_last,
+            'wellMaxTimes': self.well_max_times,
         }
         
         html_template = '''<!DOCTYPE html>
@@ -609,12 +631,19 @@ class DeflationOverlay:
                 const failureTime = CONFIG.failureTimes ? CONFIG.failureTimes[wellName] : null;
                 const hasFailed = CONFIG.failureThreshold !== null && failureTime !== null && failureTime !== undefined && timeMinutes >= failureTime;
                 
+                // Check if should whiteout (after last data point)
+                const maxTime = CONFIG.wellMaxTimes ? CONFIG.wellMaxTimes[wellName] : null;
+                const isAfterLast = CONFIG.whiteoutAfterLast && maxTime !== null && maxTime !== undefined && timeMinutes > maxTime;
+                
                 const cx = pos.cx * displayScale;
                 const cy = pos.cy * displayScale;
                 
                 if (hasFailed) {
                     ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
                     ctx.strokeStyle = 'black';
+                } else if (isAfterLast) {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                    ctx.strokeStyle = 'rgba(200, 200, 200, 1)';
                 } else {
                     const height = interpolateHeight(curveData, timeMinutes);
                     ctx.fillStyle = heightToColor(height);
@@ -744,7 +773,7 @@ if __name__ == "__main__":
         exit(1)
     
     # Load deflation curves
-    curves = load_deflation_curves()
+    curves = load_deflation_curves(cutoff_time=1000)
     
     if not curves:
         print("No deflation curves found. Please check path_loader configuration.")
@@ -775,7 +804,8 @@ if __name__ == "__main__":
         x_translation_px=x_trans,
         y_translation_px=y_trans,
         time_in_hours=True,
-        failure_threshold=20,
+        # failure_threshold=20,
+        whiteout_after_last=True,
     )
     
     overlay.show()

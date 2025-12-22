@@ -11,12 +11,12 @@ plot_type = 'scatter'
 
 show_legend = 1
 x_scale = 'hours'
-# x_scale = 'minutes'
+x_scale = 'minutes'
 
 # List of substrings to filter filenames. Empty list = no filtering.
 filter_substrings = [
     # 'blue', 'red'
-    'green', 'orange', 'black'
+    # 'green', 'orange', 'black'
     # '(6, 2)'
 ]
 # Filter settings

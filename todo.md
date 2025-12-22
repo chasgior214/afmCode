@@ -26,7 +26,7 @@ general code cleanup/some refactoring, documentation
     2. See if the vertex is centered in x and y over a non-substrate patch in the image
 - could I do the fourier transform thing that the drift correction algorithm on the AFM uses to align all my images? Could feed it all the images from a depressurization and it could match the wells together even if the head were moved around
 - update x_spacing, y_spacing based on an average over a big image
-- make it do the square thing I do? Could look for both max and min within 3um of expected position, then use the one with the bigger R^2
+- make it do the square thing I do? Could look for both max and min within 3um of expected position, then do an iterative paraboloid fit at both positions, and pick the one with paraboloid-substrate area of intersection closest to 4*pi um^2
 - Could train a model to notice strange selections based on combinations of things like deflection and paraboloid-substrate intersection area if it's hard to do with code
 - Eventually, could add accounting for slight tilt of sample relative to x/y piezo in the well finder. Far off
 
