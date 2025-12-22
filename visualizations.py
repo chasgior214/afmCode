@@ -3,7 +3,8 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button
 from matplotlib import patches
 from gui_components import DualHandleSlider
-from surface_analysis import fit_paraboloid, compute_extremum_square_info, iterative_paraboloid_fit, calculate_substrate_height
+import surface_analysis as sa
+from membrane_relative_positions import offset_image_origin_to_absolute_piezo_position
 
 def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     # Extract data from the image
@@ -70,6 +71,8 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     paraboloid_slider = None
     paraboloid_vertex_text = None
     paraboloid_r2_text = None
+    paraboloid_equation_text = None
+    paraboloid_vertex_eq_text = None
     paraboloid_button = None
 
     def _clear_paraboloid_artists():
@@ -88,6 +91,10 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         if info is None:
             paraboloid_vertex_text.set_text("Paraboloid fit vertex: --, --, --")
             paraboloid_r2_text.set_text("Paraboloid fit R^2: --")
+            if paraboloid_equation_text is not None:
+                paraboloid_equation_text.set_text("Equation: --")
+            if paraboloid_vertex_eq_text is not None:
+                paraboloid_vertex_eq_text.set_text("At vertex: --")
         else:
             vx = info['vertex_x']
             vy = info['vertex_y']
@@ -96,6 +103,16 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
                 f"Paraboloid fit vertex: {vx:.3f} μm, {vy:.3f} μm, {vz:.3f} nm"
             )
             paraboloid_r2_text.set_text(f"Paraboloid fit R^2: {info['r2']:.4f}")
+            if paraboloid_equation_text is not None:
+                c = info['coefficients']
+                paraboloid_equation_text.set_text(
+                    f"z = {c['a']:.3f}x² + {c['b']:.3f}y² + {c['c']:.3f}xy + {c['d']:.3f}x + {c['e']:.3f}y + {c['f']:.1f}"
+                )
+            if paraboloid_vertex_eq_text is not None:
+                c = info['coefficients']
+                paraboloid_vertex_eq_text.set_text(
+                    f"At vertex: z = {c['a']:.3f}x'² + {c['b']:.3f}y'² + {c['c']:.3f}x'y' + {vz:.1f}"
+                )
 
     def _update_paraboloid_artists(info):
         _clear_paraboloid_artists()
@@ -151,7 +168,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             return
         slot_tuple = (slot_info[0], x_val, y_val, x_idx, y_idx)
         selected_slots[1] = slot_tuple
-        result = fit_paraboloid(
+        result = sa.fit_paraboloid(
             height_map, x_idx, y_idx, paraboloid_window_um, pixel_size
         )
         paraboloid_fit_info = result
@@ -325,7 +342,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         if x_idx is None or y_idx is None:
             return None
 
-        return compute_extremum_square_info(
+        return sa.compute_extremum_square_info(
             height_map, x_idx, y_idx, pixel_size
         )
 
@@ -367,6 +384,12 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
                 if locked_slot == idx - 1:
                     label += " (locked)"
                 entries.append((label, color))
+                # Show extremum location in absolute piezo coordinates
+                if idx == 2:  # Extremum slot
+                    origin_x, origin_y = offset_image_origin_to_absolute_piezo_position(image)
+                    abs_x = origin_x + xh
+                    abs_y = origin_y + yh
+                    entries.append((f"Extremum abs. piezo: ({abs_x:.3f}, {abs_y:.3f}) μm", color))
 
         if all(info is not None for info in selected_slots):
             diff = selected_slots[1][0] - selected_slots[0][0]
@@ -514,13 +537,19 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     paraboloid_r2_text = ax_placeholder.text(
         0.05, 0.75, "Paraboloid fit R^2: --", transform=ax_placeholder.transAxes
     )
+    paraboloid_equation_text = ax_placeholder.text(
+        0.05, 0.60, "Equation: --", transform=ax_placeholder.transAxes, fontsize=8
+    )
+    paraboloid_vertex_eq_text = ax_placeholder.text(
+        0.05, 0.48, "At vertex: --", transform=ax_placeholder.transAxes, fontsize=8
+    )
     slider_min = max(pixel_size, 0.1)
     slider_max_candidate = max(x_dimension, y_dimension)
     if slider_max_candidate <= 0:
         slider_max_candidate = slider_min
     slider_max = max(slider_min, slider_max_candidate)
     paraboloid_window_um = min(max(paraboloid_window_um, slider_min), slider_max)
-    slider_ax = ax_placeholder.inset_axes([0.15, 0.45, 0.7, 0.12])
+    slider_ax = ax_placeholder.inset_axes([0.15, 0.32, 0.7, 0.12])
     paraboloid_slider = Slider(
         slider_ax,
         'Fit diameter (μm)',
@@ -957,7 +986,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         """Select the mode height from the current cross-section using 0.5 nm bins."""
         ydata = cumulative_adjusted_height if cumulative_adjusted_height is not None else height_map[nearest_y_to_plot, :]
         
-        mode_val = calculate_substrate_height(ydata)
+        mode_val = sa.calculate_substrate_height(ydata)
         if mode_val is None:
             return False
 
@@ -991,7 +1020,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         # Initial center comes from the current extremum
         current_x, current_y = selected_slots[1][1], selected_slots[1][2]
 
-        best_result = iterative_paraboloid_fit(
+        best_result = sa.iterative_paraboloid_fit(
             height_map,
             current_x,
             current_y,

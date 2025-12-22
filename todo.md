@@ -5,7 +5,8 @@ general code cleanup/some refactoring, documentation
 ## Next Steps
 - Pick when to ask for user input. Don't want it to fail silently on skipping wells it should get points for
 - Check that the ellipse described by the paraboloid fit is roughly circular
-- update x_spacing, y_spacing based on an average over a big image
+- Try using c term in paraboloid fit to reject fits with low rotational symmetry
+- Check accuracy by comparing results of both an H2 and a long one to what I got previously
 - look again at if fit window not including the vertex can be used to reject fits. Using it caused problems before
 
 ## Inadmissible solutions
@@ -42,7 +43,6 @@ Don’t hesitate to raise failures. I’ll learn from why they happened and eith
 # Manual Point Selection Improvements
 - In paraboloid fit panel, show area of intersection with substrate
 - In paraboloid fit panel, button to display the paraboloid on the image with make_heightmap_3d_surface
-- another line in stats panel, extremum location relative to neutral piezo in um (take position relative to where the middle of the scan would be, and add offset). Good for comparing positions between images with different offsets
 - Use mouse wheel for something
     - Zoom in/out? Centred on x,y of most recently selected point or centre of FOV or cursor? Maybe both, one active normally, another with shift + scroll, another with ctrl + scroll?
     - use horizontal scroll for something?

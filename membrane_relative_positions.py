@@ -17,7 +17,7 @@ from matplotlib.colors import is_color_like
 # Set any of these to filter which images are processed:
 filter_start_datetime = None  # None or datetime object, e.g., datetime(2025, 12, 5, 17, 0, 0)
 filter_end_datetime = None    # None or datetime object
-filter_image_range = '0002-'     # None or String "AAAA-BBBB" e.g., "0001-0050", or 'AAAA-' for all from AAAA onward, or '-BBBB' for all up to BBBB
+filter_image_range = '0002-'     # None or String "AAAA-BBBB" e.g., "0001-0050", or 'AAAA-' for all from AAAA onward, or '-BBBB' for all up to BBBB. 'AAAA' for a single image
 
 # GOAL: have my system know where the wells are relative to each other, so for any images with multiple wells, I only point out one well, and it figures out where the others are, gets the deflections autonomously, and logs the data
 
@@ -44,8 +44,8 @@ def image_bounds_absolute_positions(image: AFMImage.AFMImage):
     x_size, y_size = image.get_x_y_size()
     return (image_origin_absolute_x, image_origin_absolute_y, image_origin_absolute_x + x_size, image_origin_absolute_y + y_size)
 
-x_spacing = 7.63
-y_spacing = 4.6
+x_spacing = 7.79
+y_spacing = 4.50
 class MembraneNavigator:
     def __init__(self, well_diameter=4, time_between_images_for_safe_minimal_drift=15):
         self.well_diameter = well_diameter

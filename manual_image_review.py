@@ -13,12 +13,8 @@ def _build_initial_selections(collection, csv_path, depressurized_dt):
         print(f"No existing CSV at {csv_path} to preload selections from")
         return None
 
-    try:
-        with open(csv_path, newline='') as handle:
-            rows = list(csv.DictReader(handle))
-    except Exception as exc:
-        print(f"Could not preload selections from {csv_path}: {exc}")
-        return None
+    with open(csv_path, newline='') as handle:
+        rows = list(csv.DictReader(handle))
 
     if not rows:
         print(f"Existing CSV at {csv_path} has no rows to preload")
