@@ -152,18 +152,20 @@ def fit_paraboloid(z_data, center_x_idx, center_y_idx, diameter, pixel_size):
         }
     }
 
-def compute_extremum_square_info(z_data, center_x_idx, center_y_idx, pixel_size):
+def compute_extremum_square_info(z_data, center_x_idx, center_y_idx, pixel_size, square_size=4.0, mode='max'):
     """
-    Calculate statistics for a 4um square region around a selected point.
+    Calculate statistics for a square region around a selected point.
     
     Args:
         z_data (np.ndarray): 2D array of z values.
         center_x_idx (int): X index of the center point.
         center_y_idx (int): Y index of the center point.
-        pixel_size (float): Size of one pixel in microns.
+        pixel_size (float): Size of one pixel.
+        square_size (float): Size of the square region. Default is 4.0 (length units are whatever pixel_size is in).
+        mode (str): 'max' to find maximum height (default), 'min' to find minimum height.
         
     Returns:
-        dict: Dictionary containing 'delta_nm', 'x_um', 'y_um', 'x_idx', 'y_idx'.
+        dict: Dictionary containing 'delta_nm', 'x', 'y', 'x_idx', 'y_idx'.
               Returns None if calculation fails.
     """
     if center_x_idx is None or center_y_idx is None:
@@ -171,11 +173,11 @@ def compute_extremum_square_info(z_data, center_x_idx, center_y_idx, pixel_size)
         
     y_pixel_count, x_pixel_count = z_data.shape
 
-    # Determine pixel span corresponding to a 4 μm square (±2 μm from center).
-    half_span_um = 2.0
+    # Determine pixel span corresponding to a the square (±0.5 * square_size from center).
+    half_span = square_size / 2.0
     if pixel_size == 0:
         return None
-    half_span_px = max(0, int(round(half_span_um / pixel_size)))
+    half_span_px = max(0, int(round(half_span / pixel_size)))
     
     x_start = max(0, center_x_idx - half_span_px)
     x_end = min(x_pixel_count, center_x_idx + half_span_px + 1)
@@ -192,31 +194,36 @@ def compute_extremum_square_info(z_data, center_x_idx, center_y_idx, pixel_size)
     if not finite_sub.any():
         return None
 
-    # Locate the maximum height within the subregion.
-    sub_max_index = np.nanargmax(subregion)
-    sub_max_height = float(np.nanmax(subregion))
-    local_y, local_x = np.unravel_index(sub_max_index, subregion.shape)
-    max_y_idx = y_start + local_y
-    max_x_idx = x_start + local_x
+    # Locate the extremum within the subregion
+    if mode == 'min':
+        extremum_index = np.nanargmin(subregion)
+        extremum_height = np.nanmin(subregion)
+    else:  # default to 'max'
+        extremum_index = np.nanargmax(subregion)
+        extremum_height = np.nanmax(subregion)
+    
+    local_y, local_x = np.unravel_index(extremum_index, subregion.shape)
+    extremum_y_idx = y_start + local_y
+    extremum_x_idx = x_start + local_x
     
     x_coords = compute_x_pixel_coords(x_pixel_count, pixel_size)
 
-    # Compute the mode of the cross section at the y value of the max point.
-    row_data = z_data[max_y_idx, :]
+    # Compute the mode of the cross section at the y value of the extremum point
+    row_data = z_data[extremum_y_idx, :]
     mode_height = calculate_substrate_height(row_data)
     if mode_height is None:
         return None
 
-    delta_nm = float(sub_max_height - mode_height)
-    x_coord_um = float(x_coords[max_x_idx])
-    y_coord_um = index_to_y_coord(max_y_idx, y_pixel_count, pixel_size)
+    delta_nm = extremum_height - mode_height
+    x_coord = x_coords[extremum_x_idx]
+    y_coord = index_to_y_coord(extremum_y_idx, y_pixel_count, pixel_size)
 
     return {
         'delta_nm': delta_nm,
-        'x_um': x_coord_um,
-        'y_um': y_coord_um,
-        'x_idx': int(max_x_idx),
-        'y_idx': int(max_y_idx),
+        'x': x_coord,
+        'y': y_coord,
+        'x_idx': int(extremum_x_idx),
+        'y_idx': int(extremum_y_idx),
     }
 
 def iterative_paraboloid_fit(
@@ -227,7 +234,7 @@ def iterative_paraboloid_fit(
     fit_window_diameter=1,
     max_iterations=10,
     convergence_tol=1e-5
-):
+    ):
     """
     Iteratively fit a paraboloid to the data around a given point.
     Updates the center to the fitted vertex and repeats until convergence
@@ -282,12 +289,6 @@ def iterative_paraboloid_fit(
             print(f"Vertex {vx}, {vy} out of image bounds {0}-{x_pixel_count * pixel_size}, {0}-{y_pixel_count * pixel_size}, stopping iteration.")
             break
 
-        # if vertex not within fit window, stop
-        dist = np.sqrt((vx - current_x) ** 2 + (vy - current_y) ** 2)
-        if dist > fit_window_diameter / 2:
-            print(f"Vertex moved {dist} which is outside the fit window radius {fit_window_diameter / 2}, stopping iteration.")
-            break
-
         # if paraboloid is hyperbolic, stop
         coeffs = fit_result['coefficients']
         A = np.array([[coeffs['a'], coeffs['c'] / 2.0], [coeffs['c'] / 2.0, coeffs['b']]], dtype=float)
@@ -306,10 +307,15 @@ def iterative_paraboloid_fit(
                 print("Vertex above substrate but paraboloid is concave up, stopping iteration.")
                 break
         else:
-        # if vertex is below substrate, paraboloid must be concave up
+            # if vertex is below substrate, paraboloid must be concave up
             if a < 0:
                 print("Vertex below substrate but paraboloid is concave down, stopping iteration.")
                 break
+        
+        # if paraboloid gives an impossible deflection, stop
+        if abs(vz) > 350:
+            print(f"Paraboloid gives an impossible deflection ({vz:.1f} nm), stopping iteration.")
+            break
 
         history.append({
             'vx': vx, 'vy': vy, 'vz': vz, 'r2': r2,
@@ -337,6 +343,88 @@ def iterative_paraboloid_fit(
         
     return best_result
 
+def find_best_paraboloid_fit(height_map, expected_x, expected_y, pixel_size,
+                              search_size_um=6.0,
+                              fit_window_diameter=1, max_iterations=10, convergence_tol=1e-5):
+    """
+    Find the best paraboloid fit by selecting the most prominent extremum within a search region.
+
+    Searches for the maximum and minimum heights within a square region centered on the 
+    expected position, picks whichever has the larger |delta_nm| (more prominent feature),
+    and runs iterative_paraboloid_fit from that position.
+
+    Validates sign consistency: max extremum should yield vertex above substrate,
+    min extremum should yield vertex below. Returns None if validation fails.
+    
+    Args:
+        height_map (np.ndarray): 2D array of height values.
+        expected_x (float): Expected x coordinate of the well center (μm).
+        expected_y (float): Expected y coordinate of the well center (μm).
+        pixel_size (float): Size of one pixel (μm).
+        search_size_um (float): Size of the square search region (μm). Default is 6.0 μm.
+        fit_window_diameter (float): Diameter of the fit region for paraboloid fitting.
+        max_iterations (int): Maximum number of iterations for paraboloid fitting.
+        convergence_tol (float): Tolerance for convergence check in paraboloid fitting.
+
+    Returns:
+        dict: Dictionary containing the best fit result with keys 'vx', 'vy', 'vz', 'r2', 'fit_result'.
+              Returns None if fitting or validation fails.
+    """
+    y_pixel_count, x_pixel_count = height_map.shape
+
+    # Convert expected position to pixel indices
+    expected_x_idx = x_to_nearest_index(expected_x, x_pixel_count, pixel_size)
+    expected_y_idx = y_to_nearest_index(expected_y, y_pixel_count, pixel_size)
+
+    # Get max and min extrema
+    max_info = compute_extremum_square_info(
+        height_map, expected_x_idx, expected_y_idx, pixel_size,
+        square_size=search_size_um, mode='max'
+    )
+    min_info = compute_extremum_square_info(
+        height_map, expected_x_idx, expected_y_idx, pixel_size,
+        square_size=search_size_um, mode='min'
+    )
+
+    # Pick the extremum with larger |delta_nm|
+    if abs(max_info['delta_nm']) >= abs(min_info['delta_nm']):
+        selected_info = max_info
+        selected_mode = 'max'
+    else:
+        selected_info = min_info
+        selected_mode = 'min'
+
+    print(f"  Selected {selected_mode} extremum (delta = {selected_info['delta_nm']:.1f} nm) at ({selected_info['x']:.2f}, {selected_info['y']:.2f}) μm")
+
+    fit_result = iterative_paraboloid_fit(
+        height_map,
+        selected_info['x'],
+        selected_info['y'],
+        pixel_size,
+        fit_window_diameter=fit_window_diameter,
+        max_iterations=max_iterations,
+        convergence_tol=convergence_tol
+    )
+
+    if fit_result is None:
+        return None
+
+    # Sign consistency check
+    y_idx = y_to_nearest_index(fit_result['vy'], y_pixel_count, pixel_size)
+    substrate_height = calculate_substrate_height(height_map[y_idx, :])
+
+    deflection = fit_result['vz'] - substrate_height
+
+    # Max extremum should yield positive deflection (vertex above substrate)
+    # Min extremum should yield negative deflection (vertex below substrate)
+    if selected_mode == 'max' and deflection < 0:
+        print(f"    Sign mismatch: max extremum but deflection = {deflection:.1f} nm (below substrate)")
+        return None
+    elif selected_mode == 'min' and deflection > 0:
+        print(f"    Sign mismatch: min extremum but deflection = {deflection:.1f} nm (above substrate)")
+        return None
+
+    return fit_result
 
 def calculate_substrate_height(row_data, bin_size=0.5):
     """

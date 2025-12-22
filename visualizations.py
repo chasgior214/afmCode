@@ -379,15 +379,15 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             entries.append((
                 "Max Δz within 4 μm square of selected extremum: "
                 f"{square_info['delta_nm']:.3f} nm at "
-                f"({square_info['x_um']:.3f}, {square_info['y_um']:.3f}) μm "
+                f"({square_info['x']:.3f}, {square_info['y']:.3f}) μm "
                 f"[px ({square_info['x_idx']}, {square_info['y_idx']})]",
                 'green'
             ))
 
             for target_ax in image_axes:
                 marker, = target_ax.plot(
-                    square_info['x_um'],
-                    square_info['y_um'],
+                    square_info['x'],
+                    square_info['y'],
                     marker='x',
                     color='green',
                     markersize=8,

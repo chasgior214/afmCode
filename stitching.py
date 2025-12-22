@@ -164,7 +164,7 @@ if __name__ == '__main__':
     # Load images
     print("Loading images...")
     collection = AFMImageCollection.AFMImageCollection(pl.afm_images_path, pl.depressurized_datetime)
-    filtered_collection = collection.filter_images(image_range='0221-0227')
+    filtered_collection = collection.filter_images(image_range='0002-0008')
     images = filtered_collection.images
     print(f"Stitching {images[0].bname} to {images[-1].bname}")
 

@@ -5,6 +5,7 @@ import AFMImageCollection
 import surface_analysis as sa
 import path_loader as pl
 import visualizations as vis
+import stitching
 import csv
 import os
 from datetime import datetime
@@ -16,7 +17,7 @@ from matplotlib.colors import is_color_like
 # Set any of these to filter which images are processed:
 filter_start_datetime = None  # None or datetime object, e.g., datetime(2025, 12, 5, 17, 0, 0)
 filter_end_datetime = None    # None or datetime object
-filter_image_range = '0221-'     # None or String "AAAA-BBBB" e.g., "0001-0050", or 'AAAA-' for all from AAAA onward, or '-BBBB' for all up to BBBB
+filter_image_range = '0002-'     # None or String "AAAA-BBBB" e.g., "0001-0050", or 'AAAA-' for all from AAAA onward, or '-BBBB' for all up to BBBB
 
 # GOAL: have my system know where the wells are relative to each other, so for any images with multiple wells, I only point out one well, and it figures out where the others are, gets the deflections autonomously, and logs the data
 
@@ -211,12 +212,12 @@ class MembraneNavigator:
                     print(f"Using user-supplied position for {well} in {image.bname}")
                     fit_result = {'vx': rel_x, 'vy': rel_y, 'vz': initial_well_fixed_z}
                 else:
-                    fit_result = sa.iterative_paraboloid_fit(
-                    height_map,
-                    rel_x,
-                    rel_y,
-                    pixel_size
-                )
+                    fit_result = sa.find_best_paraboloid_fit(
+                        height_map,
+                        rel_x,
+                        rel_y,
+                        pixel_size
+                    )
 
                 if fit_result:
                     vertex_x_um = fit_result['vx']
@@ -349,6 +350,10 @@ class WellPositionsReviewer:
         self.well_colors = {}
         self.well_markers = {}
         self.future_span = None
+        # Stitch overlay state
+        self.show_stitch_overlay = False
+        self.stitch_image_count = 5
+        self.stitch_overlay_artist = None
 
     def _assign_well_colors(self):
         unique_wells = sorted(list(set(entry['Well'] for entry in self.results)))
@@ -461,18 +466,34 @@ class WellPositionsReviewer:
         else:
             self.future_span = None
 
-    def _auto_scale_ax2_to_visible_points(self, visible_points):
-        """Scale ax2 limits to only the currently visible markers (plus padding)."""
-        if not visible_points:
+    def _auto_scale_ax2_to_visible_points(self, visible_points, stitch_extent=None):
+        """Scale ax2 limits to the biggest extent of visible markers and stitch overlay (plus padding)."""
+        x_min, x_max, y_min, y_max = None, None, None, None
+
+        # Get bounds from visible points
+        if visible_points:
+            xs = [p['x'] for p in visible_points]
+            ys = [p['y'] for p in visible_points]
+            x_min, x_max = min(xs), max(xs)
+            y_min, y_max = min(ys), max(ys)
+
+        # Expand bounds to include stitch extent if provided
+        if stitch_extent is not None:
+            sx_min, sx_max, sy_min, sy_max = stitch_extent
+            if x_min is None:
+                x_min, x_max = sx_min, sx_max
+                y_min, y_max = sy_min, sy_max
+            else:
+                x_min = min(x_min, sx_min)
+                x_max = max(x_max, sx_max)
+                y_min = min(y_min, sy_min)
+                y_max = max(y_max, sy_max)
+
+        # Fallback to initial limits if no data
+        if x_min is None:
             self.ax2.set_xlim(self.initial_xlim)
             self.ax2.set_ylim(self.initial_ylim)
             return
-
-        xs = [p['x'] for p in visible_points]
-        ys = [p['y'] for p in visible_points]
-
-        x_min, x_max = min(xs), max(xs)
-        y_min, y_max = min(ys), max(ys)
 
         x_range = max(1e-9, x_max - x_min)
         y_range = max(1e-9, y_max - y_min)
@@ -483,8 +504,29 @@ class WellPositionsReviewer:
         self.ax2.set_xlim(x_min - pad_x, x_max + pad_x)
         self.ax2.set_ylim(y_min - pad_y, y_max + pad_y)
 
+    def _get_images_for_stitch(self, time_cut):
+        """Get the last N images (up to stitch_image_count) with data up to time_cut."""
+        # Get unique image names in order of first appearance (time order from abs_points)
+        seen = set()
+        image_names = []
+        for p in self.abs_points:
+            if p['time'] <= time_cut:
+                name = p['entry']['Image Name']
+                if name not in seen:
+                    seen.add(name)
+                    image_names.append(name)
+        
+        # Get the last N images
+        n = min(self.stitch_image_count, len(image_names))
+        if n <= 0:
+            return []
+        
+        recent_names = image_names[-n:]
+        return [self.image_map[name] for name in recent_names if name in self.image_map]
+
     def draw_absolute_positions(self, time_cut):
         self.ax2.clear()
+        self.stitch_overlay_artist = None
         if self.secax_map_x:
             self.secax_map_x.remove()
             self.secax_map_x = None
@@ -492,6 +534,27 @@ class WellPositionsReviewer:
             self.secax_map_y.remove()
             self.secax_map_y = None
         self.scatter_map_ax2 = {}
+
+        # Draw stitched overlay if enabled
+        stitch_extent = None
+        if self.show_stitch_overlay:
+            images_to_stitch = self._get_images_for_stitch(time_cut)
+            if images_to_stitch:
+                stitched_data, x_coords, y_coords, extent = stitching.stitch_maps(
+                    images_to_stitch, overlap_mode='latest'
+                )
+                if stitched_data is not None:
+                    self.stitch_overlay_artist = self.ax2.imshow(
+                        stitched_data,
+                        extent=extent,
+                        origin='lower',
+                        cmap='viridis',
+                        alpha=0.7,
+                        zorder=0
+                    )
+                    # extent is (min_x, max_x, min_y, max_y)
+                    stitch_extent = extent
+        
         
         # Group points by well
         points_by_well = {}
@@ -540,8 +603,8 @@ class WellPositionsReviewer:
         self.ax2.grid(True, alpha=0.3)
         self.ax2.set_aspect('equal', adjustable='box')
 
-        # Scale to only visible markers (+ padding)
-        self._auto_scale_ax2_to_visible_points(visible_points)
+        # Scale to visible markers and stitch overlay (+ padding)
+        self._auto_scale_ax2_to_visible_points(visible_points, stitch_extent)
 
         anchor_point = self.get_last_displayed_point(time_cut)
 
@@ -760,6 +823,27 @@ class WellPositionsReviewer:
             elif event.key == 'e':
                 current_cut = self.slider.val if self.slider is not None else None
                 self.export_deflation_curves(time_cut=current_cut)
+            elif event.key == 'b':
+                # Toggle stitch overlay
+                self.show_stitch_overlay = not self.show_stitch_overlay
+                if self.show_stitch_overlay:
+                    print(f"Stitch overlay ON ({self.stitch_image_count} images)")
+                else:
+                    print("Stitch overlay OFF")
+                self.draw_absolute_positions(self.slider.val)
+            elif event.key == 'n':
+                # Decrement stitch image count
+                if self.stitch_image_count > 1:
+                    self.stitch_image_count -= 1
+                    print(f"Stitch image count: {self.stitch_image_count}")
+                    if self.show_stitch_overlay:
+                        self.draw_absolute_positions(self.slider.val)
+            elif event.key == 'm':
+                # Increment stitch image count
+                self.stitch_image_count += 1
+                print(f"Stitch image count: {self.stitch_image_count}")
+                if self.show_stitch_overlay:
+                    self.draw_absolute_positions(self.slider.val)
 
         self.fig.canvas.mpl_connect('key_press_event', on_key)
 
