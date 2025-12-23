@@ -1,6 +1,5 @@
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
-import membrane_relative_positions as mrp
 from AFMImage import compute_x_pixel_coords, compute_y_pixel_coords
 from datetime import datetime
 
@@ -32,7 +31,7 @@ def stitch_maps(images, pixel_size=None, overlap_mode='average'):
 
     image_bounds = []
     for img in images:
-        bounds = mrp.image_bounds_absolute_positions(img)
+        bounds = img.image_bounds_absolute_positions()
         image_bounds.append(bounds)
         min_x = min(min_x, bounds[0])
         min_y = min(min_y, bounds[1])
@@ -105,7 +104,7 @@ def _stitch_single_channel(img, data, img_bounds, x_coords, y_coords, n_x, n_y, 
         data = data[::-1, :] # Flip rows to match increasing y
         
     # Add absolute offsets to match global coordinate system
-    origin_x, origin_y = mrp.offset_image_origin_to_absolute_piezo_position(img)
+    origin_x, origin_y = img.offset_image_origin_to_absolute_piezo_position()
     
     img_x_abs = img_x_local + origin_x
     img_y_abs = img_y_local + origin_y

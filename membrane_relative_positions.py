@@ -21,29 +21,6 @@ filter_image_range = '0002-'     # None or String "AAAA-BBBB" e.g., "0001-0050",
 
 # GOAL: have my system know where the wells are relative to each other, so for any images with multiple wells, I only point out one well, and it figures out where the others are, gets the deflections autonomously, and logs the data
 
-# Functions for relating absolute piezo positions to map coordinates
-def offset_image_origin_to_absolute_piezo_position(image: AFMImage.AFMImage):
-    """Get the offset to translate the image origin (the bottom left corner of the image) to absolute piezo position."""
-    x_size, y_size = image.get_x_y_size()
-    slow_scan_size = image.get_SlowScanSize()
-    scan_direction = image.get_scan_direction()
-    image_origin_x_offset_from_image_centre = -0.5 * x_size
-    if scan_direction:  # scan down
-        image_origin_y_offset_from_image_centre = 0.5 * slow_scan_size - y_size
-    else: # scan up
-        image_origin_y_offset_from_image_centre = -0.5 * slow_scan_size
-    # adjust for image offsets
-    image_origin_absolute_x = image.get_x_offset() + image_origin_x_offset_from_image_centre
-    image_origin_absolute_y = image.get_y_offset() + image_origin_y_offset_from_image_centre
-    return (image_origin_absolute_x, image_origin_absolute_y)
-
-def image_bounds_absolute_positions(image: AFMImage.AFMImage):
-    """Get the bounds of the image in absolute piezo positions.
-    Returns (x_min, y_min, x_max, y_max)"""
-    image_origin_absolute_x, image_origin_absolute_y = offset_image_origin_to_absolute_piezo_position(image)
-    x_size, y_size = image.get_x_y_size()
-    return (image_origin_absolute_x, image_origin_absolute_y, image_origin_absolute_x + x_size, image_origin_absolute_y + y_size)
-
 x_spacing = 7.79
 y_spacing = 4.50
 class MembraneNavigator:
@@ -117,7 +94,7 @@ class MembraneNavigator:
 
         for image in images:
             print(f"Processing image {image.bname}")
-            absolute_image_bounds = image_bounds_absolute_positions(image)
+            absolute_image_bounds = image.image_bounds_absolute_positions()
             pixel_size = image.get_pixel_size()
             scan_size = image.get_scan_size()
             x_pixel_count, y_pixel_count = image.get_x_y_pixel_counts()
@@ -405,7 +382,7 @@ class WellPositionsReviewer:
             img = self.image_map.get(entry['Image Name'])
             if img is None:
                 continue
-            ox, oy = offset_image_origin_to_absolute_piezo_position(img)
+            ox, oy = img.offset_image_origin_to_absolute_piezo_position()
             abs_x = ox + entry['Point 2 X (um)']
             abs_y = oy + entry['Point 2 Y (um)']
             # Store full entry for retrieval
@@ -614,7 +591,7 @@ class WellPositionsReviewer:
             image_name = entry.get('Image Name') if entry else None
             image = self.image_map.get(image_name) if image_name else None
             if image is not None:
-                x_min, y_min, x_max, y_max = image_bounds_absolute_positions(image)
+                x_min, y_min, x_max, y_max = image.image_bounds_absolute_positions()
                 self.ax2.add_patch(
                     Rectangle(
                         (x_min, y_min),
@@ -1014,7 +991,7 @@ class WellPositionsReviewer:
                 new_well_name = well_name
             
             # Calculate absolute position
-            ox, oy = offset_image_origin_to_absolute_piezo_position(image)
+            ox, oy = image.offset_image_origin_to_absolute_piezo_position()
             abs_x = extremum[1] + ox
             abs_y = extremum[2] + oy
             initial_pos = (abs_x, abs_y)
@@ -1094,7 +1071,7 @@ if __name__ == "__main__":
     
     # Show the first filtered image to point out a well
     first_image = filtered_collection.images[0]
-    first_image_origin_absolute_x, first_image_origin_absolute_y = offset_image_origin_to_absolute_piezo_position(first_image)
+    first_image_origin_absolute_x, first_image_origin_absolute_y = first_image.offset_image_origin_to_absolute_piezo_position()
     
     print(f"First image origin absolute position: x={first_image_origin_absolute_x:.3f} μm, y={first_image_origin_absolute_y:.3f} μm")
     

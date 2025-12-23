@@ -6,7 +6,9 @@ general code cleanup/some refactoring, documentation
 - Pick when to ask for user input. Don't want it to fail silently on skipping wells it should get points for
 - Check that the ellipse described by the paraboloid fit is roughly circular
 - Try using c term in paraboloid fit to reject fits with low rotational symmetry
+- Play with fit window size
 - Check accuracy by comparing results of both an H2 and a long one to what I got previously
+- Add test for finding algorithm across a large series of images with known well locations, should find them all with tight tolerance
 - look again at if fit window not including the vertex can be used to reject fits. Using it caused problems before
 
 ## Inadmissible solutions
@@ -58,14 +60,14 @@ Don’t hesitate to raise failures. I’ll learn from why they happened and eith
 - add a button "View 3D Heightmap", which renders a 3d heightmap in a new window. Can select points on the 3d heightmap which get added as selected points in the main window.
 - cross section shows dotted lines of the line above and below the selected line?
 
+# Excel Integration
+- For chronological plot, let me just give a start date (last week’s ppt) and it automatically takes the ones since then and plots them (would need to do basic Excel access for getting the gas species but mostly could read from the slopeIDs)
+
 
 # To Organize
 - incorporate well mapping to stitching to account for drift
 
 - ability to show movie of deflation over time (with both interpolated and just raw data as options)
-
-keep working on Excel integration
-- For chronological plot, let me just give a start date (last week’s ppt) and it automatically takes the ones since then and plots them (would need to do basic Excel access for getting the gas species but mostly could read from the slopeIDs)
 
 when looking for the "substrate" (what I really mean is the graphene height outside the well), if it's bimodal/multimodal, can have it pick the one that's closest to the paraboloid vertex. Fixes edge cases where more of the image line off the well is either on the substrate or on a different step height of graphene
 
@@ -74,8 +76,6 @@ Try using a denoising model to smooth images before paraboloid fitting?
     - likely use either an algorithm of single images or pairs of images
     - give it cleaner photos only (not when the drive amplitude is too low, maybe only ones with good phase maps)
     - test on some particularly noisy deflations (ex H2 deflation images from Oct 17th), see how much the fits change
-
-Add filters to the list of images, could show only ones within a certain range of offsets to pick specific wells
 
 could try to use points from multiple depressurizations to get a better slope estimate
 

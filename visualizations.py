@@ -4,7 +4,6 @@ from matplotlib.widgets import Slider, Button
 from matplotlib import patches
 from gui_components import DualHandleSlider
 import surface_analysis as sa
-from membrane_relative_positions import offset_image_origin_to_absolute_piezo_position
 
 def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     # Extract data from the image
@@ -386,7 +385,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
                 entries.append((label, color))
                 # Show extremum location in absolute piezo coordinates
                 if idx == 2:  # Extremum slot
-                    origin_x, origin_y = offset_image_origin_to_absolute_piezo_position(image)
+                    origin_x, origin_y = image.offset_image_origin_to_absolute_piezo_position()
                     abs_x = origin_x + xh
                     abs_y = origin_y + yh
                     entries.append((f"Extremum abs. piezo: ({abs_x:.3f}, {abs_y:.3f}) μm", color))

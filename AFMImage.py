@@ -277,6 +277,38 @@ class AFMImage:
         """Convert a y-coordinate (in microns) to the nearest row index."""
         return y_to_nearest_index(y_um, self.get_x_y_pixel_counts()[1], self.get_pixel_size())
 
+    def offset_image_origin_to_absolute_piezo_position(self):
+        """
+        Get the offset to translate the image origin (the bottom left corner 
+        of the image) to absolute piezo position.
+        
+        Returns:
+            tuple: (x, y) absolute position of the image origin in μm.
+        """
+        x_size, y_size = self.get_x_y_size()
+        slow_scan_size = self.get_SlowScanSize()
+        scan_direction = self.get_scan_direction()
+        image_origin_x_offset_from_image_centre = -0.5 * x_size
+        if scan_direction:  # scan down
+            image_origin_y_offset_from_image_centre = 0.5 * slow_scan_size - y_size
+        else:  # scan up
+            image_origin_y_offset_from_image_centre = -0.5 * slow_scan_size
+        # adjust for image offsets
+        image_origin_absolute_x = self.get_x_offset() + image_origin_x_offset_from_image_centre
+        image_origin_absolute_y = self.get_y_offset() + image_origin_y_offset_from_image_centre
+        return (image_origin_absolute_x, image_origin_absolute_y)
+
+    def image_bounds_absolute_positions(self):
+        """
+        Get the bounds of the image in absolute piezo positions.
+        
+        Returns:
+            tuple: (x_min, y_min, x_max, y_max) in μm.
+        """
+        image_origin_x, image_origin_y = self.offset_image_origin_to_absolute_piezo_position()
+        x_size, y_size = self.get_x_y_size()
+        return (image_origin_x, image_origin_y, image_origin_x + x_size, image_origin_y + y_size)
+
     ## Date and Time Methods
     def get_scan_end_datetime(self):
         """Get when the image scan finished as a datetime object."""
