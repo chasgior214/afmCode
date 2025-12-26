@@ -9,7 +9,7 @@ deflation_curve_slope_path = pl.deflation_curve_slope_path
 consensus_slopes = {
     'H2': {
         'green': 2.1,
-        'red': 21,
+        'red': 21.5,
         'blue': 34,
         'orange': 2.2,
         'black': 2.3
@@ -24,7 +24,9 @@ consensus_slopes = {
     'CO2': {
         'green': 0.86,
         'orange': 0.67,
-        'black': 0.83
+        'black': 0.83,
+        'red': 22,
+        'blue': 50 # a bit of an extrapolation. Measured slope is 59, decreases with earlier times closer to depressurization
     },
     'Ar': {
         'red': 0.95,
@@ -169,8 +171,16 @@ def plot_recent_deflation_curve_slopes():
         # '06-Dec	19:35:33': 'H2',
         # '08-Dec	16:16:10': 'O2',
 
-        '10-Dec	19:23:49': 'H2',
-        '10-Dec	22:18:47': 'O2',
+        # '10-Dec	19:23:49': 'H2',
+        # '10-Dec	22:18:47': 'O2',
+
+        '23-Dec	13:54:19': 'H2',
+        '23-Dec	16:26:48': 'CO2',
+        '23-Dec	17:28:34': 'CO2',
+        '23-Dec	19:32:13': 'CO2',
+        '23-Dec	22:00:19': 'CO2',
+        '23-Dec	22:55:36': 'CO2',
+        '23-Dec	23:47:42': 'He'
     }
 
     # convert date/time to YYYYMMDD_HHMMSS format, including replacing the 3 character month with 2 digit month
@@ -407,7 +417,7 @@ def plot_slope_vs_molecular_weight():
     plt.plot([], [], color='red', linestyle='--', label='1/sqrt(MW) through Red H2')
     plt.plot([], [], color='green', linestyle='--', label='1/sqrt(MW) through Green H2')
 
-    plt.legend(loc='upper right')
+    plt.legend(loc='upper center')
     plt.xlabel('Molecular Weight (amu)')
     plt.xlim(left=0)
     plt.ylabel('Deflation Curve Slope (nm/min)')

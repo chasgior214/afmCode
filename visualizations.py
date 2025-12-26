@@ -461,7 +461,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             _record_selection(x[idx], h_val, x_idx=idx, y_idx=nearest_y_to_plot, slot_override=1, advance=False)
 
             # 3) Put mode for this line into slot 0
-            set_mode_height(slot=0, advance=False, silent=True)
+            set_mode_height(slot=0, advance=False)
 
             update_stats_display()
             fig.canvas.draw_idle()
@@ -981,13 +981,11 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             update_stats_display()
         return success
 
-    def set_mode_height(event=None, *, slot=None, advance=True, silent=False):
+    def set_mode_height(event=None, *, slot=None, advance=True):
         """Select the mode height from the current cross-section using 0.5 nm bins."""
         ydata = cumulative_adjusted_height if cumulative_adjusted_height is not None else height_map[nearest_y_to_plot, :]
         
         mode_val = sa.calculate_substrate_height(ydata)
-        if mode_val is None:
-            return False
 
         idx = int(np.argmin(np.abs(ydata - mode_val)))
         success = _record_selection(
@@ -999,10 +997,6 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             advance=advance,
         )
         if success:
-            if not silent:
-                print(
-                    f"Mode height ~{mode_val:.3f} nm at x = {x[idx]:.3f} μm (Set by button)"
-                )
             update_stats_display()
         return success
 
@@ -1080,7 +1074,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         if locked_slot == 0:
             return
         # Update substrate to be the mode on the y-line of the (possibly moved) extremum
-        set_mode_height(slot=0, silent=True)
+        set_mode_height(slot=0)
 
     def toggle_lock(event=None):
         """Lock or unlock selections. Double 'w' locks the opposite slot."""
@@ -1117,7 +1111,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             advance=advance,
         )
         if success and target_slot == 1:
-            set_mode_height(slot=0, advance=False, silent=True)
+            set_mode_height(slot=0, advance=False)
             if not silent:
                 print(
                     f"Paraboloid vertex height {vz:.3f} nm at ({vx:.3f}, {vy:.3f}) μm "
@@ -1194,14 +1188,14 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             new_y_val = image.index_to_y_center(new_y_idx)
             _update_cross_section(new_y_val)
             set_max_height(slot=1, silent=True)
-            set_mode_height(slot=0, silent=True)
+            set_mode_height(slot=0)
         elif event.key == 'ctrl+down':
             # Move down by one pixel and auto-select with a fixed slot order
             new_y_idx = min(nearest_y_to_plot + 1, y_pixel_count - 1)
             new_y_val = image.index_to_y_center(new_y_idx)
             _update_cross_section(new_y_val)
             set_max_height(slot=1, silent=True)
-            set_mode_height(slot=0, silent=True)
+            set_mode_height(slot=0)
         elif event.key == 'tab':  # abort and close
             aborted = True
             plt.close(fig)
@@ -1286,7 +1280,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
         # Global max in slot 1 (orange), mode in slot 0 (purple)
         set_global_max(slot=1, silent=True)
         _refine_extremum_with_paraboloid()
-        set_mode_height(slot=0, silent=True)
+        set_mode_height(slot=0)
         update_stats_display()
 
     fig.canvas.manager.set_window_title(image_bname + " - " + scan_end_date_time)

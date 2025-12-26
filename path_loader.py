@@ -1,18 +1,25 @@
 editing_mode = True
 
-depressurized_date = '20251215'
-depressurized_time = '16:23:22'
+depressurized_date = '20251223'
+depressurized_time = '23:47:42'
 end_hour = None # None to not give end limit (if end_hour given and end_day not given, uses only day of depressurization up to this hour)
 end_day = None # None to not give end limit (use all files in specified folder)
-sample_ID = '53'
+sample_ID = '37'
 transfer_location = 'o(5,1)'
 if sample_ID == '37': transfer_location = '$(6,3)'
 if sample_ID == '43': transfer_location = 'o(3,8)'
-cavity_position = 'left'
+cavity_position = 'blue'
 
 # Additional depressurization date/time combinations can be added to this list to plot multiple datasets at once (see plot_curves.py)
 plot_depressurizations = [
     (depressurized_date, depressurized_time), # Plotted by default when no others specified
+
+    # He curves
+    # ('20251007', '11:29:29'),
+    # ('20251010', '19:32:20'),
+    # ('20251010', '20:59:18'),
+    # ('20251010', '22:23:34'),
+    # ('20251010', '23:55:25'),
 
     # Red/blue H2
     # ('20250729', '17:18:16'),

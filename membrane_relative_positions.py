@@ -17,7 +17,7 @@ from matplotlib.colors import is_color_like
 # Set any of these to filter which images are processed:
 filter_start_datetime = None  # None or datetime object, e.g., datetime(2025, 12, 5, 17, 0, 0)
 filter_end_datetime = None    # None or datetime object
-filter_image_range = '0002-'     # None or String "AAAA-BBBB" e.g., "0001-0050", or 'AAAA-' for all from AAAA onward, or '-BBBB' for all up to BBBB. 'AAAA' for a single image
+filter_image_range = None     # None or String "AAAA-BBBB" e.g., "0001-0050", or 'AAAA-' for all from AAAA onward, or '-BBBB' for all up to BBBB. 'AAAA' for a single image
 
 # GOAL: have my system know where the wells are relative to each other, so for any images with multiple wells, I only point out one well, and it figures out where the others are, gets the deflections autonomously, and logs the data
 
@@ -206,65 +206,62 @@ class MembraneNavigator:
                     row_data = height_map[y_idx, :]
                     substrate_z_nm = sa.calculate_substrate_height(row_data)
 
-                    if substrate_z_nm is not None:
-                        deflection = vertex_z_nm - substrate_z_nm
+                    deflection = vertex_z_nm - substrate_z_nm
 
-                        # Calculate acquisition time for the well's line
-                        well_time = image.get_line_acquisition_datetime(y_idx)
+                    # Calculate acquisition time for the well's line
+                    well_time = image.get_line_acquisition_datetime(y_idx)
 
-                        # Point 1 (Substrate) calculations
-                        # Find x index closest to substrate height in the row
-                        finite_indices = np.where(np.isfinite(row_data))[0]
-                        closest_idx_in_finite = np.argmin(np.abs(row_data[finite_indices] - substrate_z_nm))
-                        p1_x_pixel = int(finite_indices[closest_idx_in_finite])
+                    # Point 1 (Substrate) calculations
+                    # Find x index closest to substrate height in the row
+                    finite_indices = np.where(np.isfinite(row_data))[0]
+                    closest_idx_in_finite = np.argmin(np.abs(row_data[finite_indices] - substrate_z_nm))
+                    p1_x_pixel = int(finite_indices[closest_idx_in_finite])
 
-                        p1_x_um = float(x_coords[p1_x_pixel])
-                        p1_y_pixel = int(y_idx)
-                        p1_y_um = float((y_pixel_count - (y_idx + 0.5)) * pixel_size)
-                        p1_z_nm = float(substrate_z_nm)
+                    p1_x_um = float(x_coords[p1_x_pixel])
+                    p1_y_pixel = int(y_idx)
+                    p1_y_um = float((y_pixel_count - (y_idx + 0.5)) * pixel_size)
+                    p1_z_nm = float(substrate_z_nm)
 
-                        # Point 2 (Extremum) calculations
-                        p2_x_um = float(vertex_x_um)
-                        p2_y_um = float(vertex_y_um)
-                        p2_z_nm = float(vertex_z_nm)
-                        p2_x_pixel = int(np.argmin(np.abs(x_coords - vertex_x_um)))
-                        p2_y_pixel = int(np.clip(round(y_pixel_count - 0.5 - vertex_y_um / pixel_size), 0, y_pixel_count - 1))
+                    # Point 2 (Extremum) calculations
+                    p2_x_um = float(vertex_x_um)
+                    p2_y_um = float(vertex_y_um)
+                    p2_z_nm = float(vertex_z_nm)
+                    p2_x_pixel = int(np.argmin(np.abs(x_coords - vertex_x_um)))
+                    p2_y_pixel = int(np.clip(round(y_pixel_count - 0.5 - vertex_y_um / pixel_size), 0, y_pixel_count - 1))
 
-                        result_entry = {
-                            'Well': well,
-                            'Image Name': image.bname,
-                            'Time (minutes)': (well_time - pl.depressurized_datetime).total_seconds() / 60.0,
-                            'Deflection (nm)': float(deflection),
-                            'Point 1 X Pixel': p1_x_pixel,
-                            'Point 1 Y Pixel': p1_y_pixel,
-                            'Point 1 X (um)': p1_x_um,
-                            'Point 1 Y (um)': p1_y_um,
-                            'Point 1 Z (nm)': p1_z_nm,
-                            'Point 2 X Pixel': p2_x_pixel,
-                            'Point 2 Y Pixel': p2_y_pixel,
-                            'Point 2 X (um)': p2_x_um,
-                            'Point 2 Y (um)': p2_y_um,
-                            'Point 2 Z (nm)': p2_z_nm,
-                        }
+                    result_entry = {
+                        'Well': well,
+                        'Image Name': image.bname,
+                        'Time (minutes)': (well_time - pl.depressurized_datetime).total_seconds() / 60.0,
+                        'Deflection (nm)': float(deflection),
+                        'Point 1 X Pixel': p1_x_pixel,
+                        'Point 1 Y Pixel': p1_y_pixel,
+                        'Point 1 X (um)': p1_x_um,
+                        'Point 1 Y (um)': p1_y_um,
+                        'Point 1 Z (nm)': p1_z_nm,
+                        'Point 2 X Pixel': p2_x_pixel,
+                        'Point 2 Y Pixel': p2_y_pixel,
+                        'Point 2 X (um)': p2_x_um,
+                        'Point 2 Y (um)': p2_y_um,
+                        'Point 2 Z (nm)': p2_z_nm,
+                    }
 
-                        results.append(result_entry)
+                    results.append(result_entry)
 
-                        # Update position to account for drift
-                        absolute_vertex_x = vertex_x_um + absolute_image_bounds[0]
-                        absolute_vertex_y = vertex_y_um + absolute_image_bounds[1]
-                        well_positions[well] = (absolute_vertex_x, absolute_vertex_y)
+                    # Update position to account for drift
+                    absolute_vertex_x = vertex_x_um + absolute_image_bounds[0]
+                    absolute_vertex_y = vertex_y_um + absolute_image_bounds[1]
+                    well_positions[well] = (absolute_vertex_x, absolute_vertex_y)
 
-                        if each_found_well_updates_all_well_positions or expect_multiple_in_image:
-                            # Update predictions for remaining wells based on the newly found position
-                            for other_well in well_map:
-                                if other_well != well:
-                                    well_positions[other_well] = self.predict_position_from_change_in_coordinates(
-                                        well_positions[well], well_map[well], well_map[other_well]
-                                    )
-                        else:
-                            print(f"Failed to calculate substrate height for {well}")
-                    else:
-                        print(f"Fit failed for {well}")
+                    if each_found_well_updates_all_well_positions or expect_multiple_in_image:
+                        # Update predictions for remaining wells based on the newly found position
+                        for other_well in well_map:
+                            if other_well != well:
+                                well_positions[other_well] = self.predict_position_from_change_in_coordinates(
+                                    well_positions[well], well_map[well], well_map[other_well]
+                                )
+                else:
+                    print(f"Fit failed for {well}")
 
                 remaining_wells.discard(well)
 

@@ -60,6 +60,10 @@ Don’t hesitate to raise failures. I’ll learn from why they happened and eith
 - add a button "View 3D Heightmap", which renders a 3d heightmap in a new window. Can select points on the 3d heightmap which get added as selected points in the main window.
 - cross section shows dotted lines of the line above and below the selected line?
 
+# Substrate Detection Improvements
+- Switch to using the mean of the heights in the mode bin instead of picking a data point closest to the mode bin center to reduce noise
+- When looking for the "substrate" (what I really mean is the graphene height outside the well), if it's bimodal/multimodal, can have it pick the one that's closest to the paraboloid vertex. Fixes edge cases where more of the image line off the well is either on the substrate or on a different step height of graphene
+
 # Excel Integration
 - For chronological plot, let me just give a start date (last week’s ppt) and it automatically takes the ones since then and plots them (would need to do basic Excel access for getting the gas species but mostly could read from the slopeIDs)
 
@@ -68,8 +72,6 @@ Don’t hesitate to raise failures. I’ll learn from why they happened and eith
 - incorporate well mapping to stitching to account for drift
 
 - ability to show movie of deflation over time (with both interpolated and just raw data as options)
-
-when looking for the "substrate" (what I really mean is the graphene height outside the well), if it's bimodal/multimodal, can have it pick the one that's closest to the paraboloid vertex. Fixes edge cases where more of the image line off the well is either on the substrate or on a different step height of graphene
 
 Try using a denoising model to smooth images before paraboloid fitting?
     - https://careamics.github.io/0.1/
