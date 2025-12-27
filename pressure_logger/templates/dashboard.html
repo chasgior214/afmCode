@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pressure Monitor Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@3.6.0/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .status {
+            font-size: 0.9em;
+            color: #888;
+        }
+
+        .status.connected {
+            color: #4caf50;
+        }
+
+        .current-readings {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .reading-card {
+            flex: 1;
+            min-width: 200px;
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+
+        .reading-card h3 {
+            font-size: 0.9em;
+            color: #888;
+            margin-bottom: 10px;
+        }
+
+        .pressure-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .timestamp {
+            font-size: 0.8em;
+            color: #666;
+        }
+
+        .charts-section {
+            margin-bottom: 30px;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .chart-container {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+
+        .chart-container h3 {
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 300px;
+        }
+
+        .files-section {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+
+        .files-section h2 {
+            margin-bottom: 15px;
+        }
+
+        .file-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #333;
+        }
+
+        .file-item:last-child {
+            border-bottom: none;
+        }
+
+        .file-info {
+            flex: 1;
+        }
+
+        .file-name {
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+
+        .file-meta {
+            font-size: 0.85em;
+            color: #888;
+        }
+
+        .download-btn {
+            background: #4caf50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+
+        .download-btn:hover {
+            background: #45a049;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Pressure Monitor Dashboard</h1>
+        <div class="status" id="status">Connecting...</div>
+    </div>
+
+    <div class="current-readings" id="currentReadings">
+        <div class="no-data">Waiting for data...</div>
+    </div>
+
+    <div class="charts-section" id="chartsSection" style="display: none;">
+        <h2>Pressure History</h2>
+        <div class="charts-grid">
+            <div class="chart-container">
+                <h3>Last Hour</h3>
+                <div class="chart-wrapper">
+                    <canvas id="chart1hr"></canvas>
+                </div>
+            </div>
+            <div class="chart-container">
+                <h3>Last 6 Hours</h3>
+                <div class="chart-wrapper">
+                    <canvas id="chart6hr"></canvas>
+                </div>
+            </div>
+            <div class="chart-container">
+                <h3>Last 24 Hours</h3>
+                <div class="chart-wrapper">
+                    <canvas id="chart24hr"></canvas>
+                </div>
+            </div>
+            <div class="chart-container">
+                <h3>Last Week</h3>
+                <div class="chart-wrapper">
+                    <canvas id="chart1week"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="files-section">
+        <h2>Finished Files</h2>
+        <div class="file-list" id="fileList">
+            <div class="no-data">Loading...</div>
+        </div>
+    </div>
+
+    <script>
+        // Chart.js default configuration
+        Chart.defaults.color = '#e0e0e0';
+        Chart.defaults.borderColor = '#333';
+
+        let charts = {};
+        let sampleNames = [];
+
+        function initCharts() {
+            const chartConfigs = [
+                { id: 'chart1hr', hours: 1 },
+                { id: 'chart6hr', hours: 6 },
+                { id: 'chart24hr', hours: 24 },
+                { id: 'chart1week', hours: 168 }
+            ];
+
+            chartConfigs.forEach(config => {
+                const ctx = document.getElementById(config.id).getContext('2d');
+                charts[config.id] = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        datasets: []
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: {
+                                    unit: config.hours <= 1 ? 'minute' : config.hours <= 24 ? 'hour' : 'day'
+                                },
+                                grid: {
+                                    color: '#333'
+                                }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Pressure (kPa)'
+                                },
+                                grid: {
+                                    color: '#333'
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: true
+                            }
+                        }
+                    }
+                });
+            });
+        }
+
+        function updateCurrentReadings(data) {
+            const container = document.getElementById('currentReadings');
+            
+            if (Object.keys(data).length === 0) {
+                container.innerHTML = '<div class="no-data">No active samples</div>';
+                return;
+            }
+
+            sampleNames = Object.keys(data);
+            let html = '';
+            
+            for (const [sample, reading] of Object.entries(data)) {
+                html += `
+                    <div class="reading-card">
+                        <h3>Sample ${sample}</h3>
+                        <div class="pressure-value">${reading.pressure.toFixed(2)} kPa</div>
+                        <div class="timestamp">${reading.datetime}</div>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+            
+            // Show charts section if we have data
+            document.getElementById('chartsSection').style.display = 'block';
+        }
+
+        async function updateCharts() {
+            if (sampleNames.length === 0) return;
+
+            const colors = ['#4caf50', '#2196f3', '#ff9800', '#e91e63', '#9c27b0'];
+            const chartConfigs = [
+                { id: 'chart1hr', hours: 1 },
+                { id: 'chart6hr', hours: 6 },
+                { id: 'chart24hr', hours: 24 },
+                { id: 'chart1week', hours: 168 }
+            ];
+
+            for (const config of chartConfigs) {
+                const datasets = [];
+                
+                for (let i = 0; i < sampleNames.length; i++) {
+                    const sample = sampleNames[i];
+                    const response = await fetch(`/api/history/${sample}/${config.hours}`);
+                    const data = await response.json();
+                    
+                    datasets.push({
+                        label: `Sample ${sample}`,
+                        data: data.map(point => ({
+                            x: point.timestamp * 1000,
+                            y: point.pressure
+                        })),
+                        borderColor: colors[i % colors.length],
+                        backgroundColor: colors[i % colors.length] + '20',
+                        tension: 0.1
+                    });
+                }
+                
+                charts[config.id].data.datasets = datasets;
+                charts[config.id].update();
+            }
+        }
+
+        async function updateFileList() {
+            const response = await fetch('/api/files');
+            const files = await response.json();
+            const container = document.getElementById('fileList');
+            
+            if (files.length === 0) {
+                container.innerHTML = '<div class="no-data">No finished files yet</div>';
+                return;
+            }
+
+            let html = '';
+            files.forEach(file => {
+                html += `
+                    <div class="file-item">
+                        <div class="file-info">
+                            <div class="file-name">${file.filename}</div>
+                            <div class="file-meta">${file.size_kb} KB • Modified: ${file.modified}</div>
+                        </div>
+                        <button class="download-btn" onclick="downloadFile('${file.filename}')">Download</button>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        function downloadFile(filename) {
+            window.location.href = `/download/${filename}`;
+        }
+
+        // Server-Sent Events for real-time updates
+        function connectSSE() {
+            const eventSource = new EventSource('/stream');
+            
+            eventSource.onopen = () => {
+                document.getElementById('status').textContent = 'Connected';
+                document.getElementById('status').classList.add('connected');
+            };
+            
+            eventSource.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                updateCurrentReadings(data);
+            };
+            
+            eventSource.onerror = () => {
+                document.getElementById('status').textContent = 'Disconnected - Reconnecting...';
+                document.getElementById('status').classList.remove('connected');
+                eventSource.close();
+                setTimeout(connectSSE, 5000);
+            };
+        }
+
+        // Initialize
+        initCharts();
+        connectSSE();
+        updateFileList();
+
+        // Update charts every 30 seconds
+        setInterval(updateCharts, 30000);
+        // Update file list every minute
+        setInterval(updateFileList, 60000);
+        
+        // Initial chart update after 2 seconds
+        setTimeout(updateCharts, 2000);
+    </script>
+</body>
+</html>

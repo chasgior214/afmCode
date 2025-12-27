@@ -3,6 +3,7 @@ import csv
 from datetime import datetime
 import os
 import shutil
+import threading
 
 PORT = "/dev/ttyACM0"
 BAUD = 115200
@@ -96,9 +97,29 @@ def main():
                 default
             )
 
+    enable_web = prompt_yn("Enable web dashboard?", default=False)
+
     csv_files = {}
     csv_writers = {}
     csv_filepaths = {}
+
+    # Start web server if enabled
+    if enable_web:
+        try:
+            from web_server import run_server
+            web_thread = threading.Thread(
+                target=run_server,
+                kwargs={"host": "0.0.0.0", "port": 5000, "debug": False},
+                daemon=True
+            )
+            web_thread.start()
+            print("✓ Web dashboard started on http://0.0.0.0:5000")
+            print("  Access locally: http://localhost:5000")
+        except ImportError:
+            print("⚠ Warning: Flask not installed. Web dashboard disabled.")
+            print("  Install with: pip install flask")
+        except Exception as e:
+            print(f"⚠ Warning: Failed to start web server: {e}")
 
     # Track file "segment" start time and day for daily rotation
     current_day = datetime.now().date()
