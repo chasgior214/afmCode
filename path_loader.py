@@ -55,10 +55,15 @@ plot_depressurizations = [(date, time.replace(':', '')) for date, time in plot_d
 
 experiment_data_path = 'C:\\Users\\chasg\\OneDrive - The University of Western Ontario\\MESc\\Research\\Experiments\\expt005_250403_gas_inflations'
 
+# raw data
 excel_action_tracker_path = experiment_data_path + '\\action_tracker.xlsx'
 
 afm_images_path = experiment_data_path + '\\raw_data\\'+depressurized_date+'\\FlattenedData'
 
+pressure_logs_path = experiment_data_path + '\\raw_data\\pressure_logs\\'
+# add function(s) to point to specific pressure log files
+
+# processed data - deflation curves
 deflation_curves_path = experiment_data_path + '\\data_processing\\deflation_curves'
 
 def get_deflation_curve_path(sample_ID, depressurized_date, depressurized_time, transfer_location, cavity_position):
@@ -66,6 +71,16 @@ def get_deflation_curve_path(sample_ID, depressurized_date, depressurized_time, 
     return deflation_curves_path + f'\\{deflation_curve_filename}'
 
 deflation_curve_path = get_deflation_curve_path(sample_ID, depressurized_date, depressurized_time, transfer_location, cavity_position)
+
+def get_all_deflation_curve_paths():
+    paths = []
+    for file in os.listdir(deflation_curves_path):
+        if file.endswith('.csv') and file.startswith('deflation_curve_'):
+            paths.append(os.path.join(deflation_curves_path, file))
+    return paths
+
+# processed data - deflation curve slopes
+deflation_curve_slope_path = experiment_data_path + '\\data_processing\\deflation_curve_slopes.csv'
 
 def get_deflation_curve_slope_id(sample_ID, depressurized_date, depressurized_time, transfer_location, cavity_position):
     depressurized_time = depressurized_time.replace(':', '')  # 'HHMMSS' format
@@ -89,15 +104,6 @@ def get_slope_id_from_filename(csv_path):
         match.group('loc'),
         match.group('cav'),
     )
-
-deflation_curve_slope_path = experiment_data_path + '\\data_processing\\deflation_curve_slopes.csv'
-
-def get_all_deflation_curve_paths():
-    paths = []
-    for file in os.listdir(deflation_curves_path):
-        if file.endswith('.csv') and file.startswith('deflation_curve_'):
-            paths.append(os.path.join(deflation_curves_path, file))
-    return paths
 
 def load_saved_slopes_intercepts():
     """Return a mapping of deflation curve slope IDs to slope/intercept values."""

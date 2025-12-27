@@ -1,5 +1,10 @@
 general code cleanup/some refactoring, documentation
 - YAML config instead of settings all over the place (or at least keep centralizing in path_loader)
+- make it simpler to find all the depressurizations, sorted/filtered by sample, gas, time, wells captured, etc
+
+# New Pressure Logger
+- Make functions to look at data from multiple pressure csvs and combine them in Python containers, and also to plot the pressures over time
+- Test what happens if the Arduino is unplugged while logging
 
 # Well Locator Improvement Plan
 ## Next Steps
