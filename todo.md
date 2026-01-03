@@ -1,10 +1,12 @@
 general code cleanup/some refactoring, documentation
 - YAML config instead of settings all over the place (or at least keep centralizing in path_loader)
 - make it simpler to find all the depressurizations, sorted/filtered by sample, gas, time, wells captured, etc
+    - implement it into plot_recent_deflation_curve_slopes instead of the current workaround
 
 # New Pressure Logger
 - Make functions to look at data from multiple pressure csvs and combine them in Python containers, and also to plot the pressures over time
 - Test what happens if the Arduino is unplugged while logging
+- predictions for what pressure will level off to when cell left attached to gas tank
 
 # Well Locator Improvement Plan
 ## Next Steps

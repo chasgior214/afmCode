@@ -187,8 +187,11 @@ def plot_recent_deflation_curve_slopes():
     def convert_to_YYYYMMDD_HHMMSS(date_str, time_str):
         # Parse the date and time
         dt = datetime.strptime(f"{date_str} {time_str}", "%d-%b %H:%M:%S")
-        # Format as YYYYMMDD_HHMMSS, put 2025 as the year
-        dt = dt.replace(year=2025)
+        # Format as YYYYMMDD_HHMMSS, put 2025 as the year if the month is April or later, otherwise 2026
+        if dt.month >= 4:
+            dt = dt.replace(year=2025)
+        else:
+            dt = dt.replace(year=2026)
         return dt.strftime("%Y%m%d_%H%M%S")
 
     to_plot_converted = {}
