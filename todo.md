@@ -4,7 +4,8 @@ general code cleanup/some refactoring, documentation
     - implement it into plot_recent_deflation_curve_slopes instead of the current workaround
 
 # New Pressure Logger
-- Make functions to look at data from multiple pressure csvs and combine them in Python containers, and also to plot the pressures over time
+- Make PressureSeries hold more metadata (what time period it was in which cell, gas, etc)
+- Make functions to plot the pressures in a PressureSeries over time
 - Test what happens if the Arduino is unplugged while logging
 - predictions for what pressure will level off to when cell left attached to gas tank
 
