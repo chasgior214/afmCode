@@ -44,16 +44,12 @@ def load_deflation_curves(folder=None, sample_id=None, depressurized_date=None, 
         # Extract well name from filename
         # Pattern: deflation_curve_sample{}_depressurized{}_{}_{}_loc{}_{well}.csv
         basename = os.path.basename(csv_file)
-        # The well name is typically encoded in the filename
-        # For sample37 style: ...cav{well}.csv
-        # For sample53 style: ...cav{coords}.csv
         
-        # Try to extract well identifier - it's the last segment before .csv after 'cav'
+        # Extract well identifier encoded in the filename: ...cav{well}.csv
         if '_cav' in basename:
             well_name = basename.split('_cav')[-1].replace('.csv', '')
         else:
-            # Fallback: use filename without extension
-            well_name = basename.replace('.csv', '')
+            raise ValueError(f"Could not extract well name from filename: {basename}")
         
         if 'Time (minutes)' in df.columns and 'Deflection (nm)' in df.columns:
             # Filter out data after cutoff_time if set
@@ -776,7 +772,7 @@ if __name__ == "__main__":
     curves = load_deflation_curves(cutoff_time=1000)
     
     if not curves:
-        print("No deflation curves found. Please check path_loader configuration.")
+        print("No deflation curves found. Check path_loader configuration.")
         exit(1)
     
     print(f"Loaded {len(curves)} deflation curves: {list(curves.keys())}")

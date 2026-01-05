@@ -7,9 +7,12 @@ filter_at_least_n_points = 2  # if an integer n, only show CSVs with at least n 
 filter_at_least_n_positive_points = 2  # if an integer n, only show CSVs with at least n positive deflection points
 
 ##############################################################################
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 import csv
 import os
-import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime
