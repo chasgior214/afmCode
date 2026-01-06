@@ -231,7 +231,8 @@ def iterative_paraboloid_fit(
     pixel_size,
     fit_window_diameter=1,
     max_iterations=10,
-    convergence_tol=1e-5
+    convergence_tol=1e-5,
+    allow_outside_image_tol=0
     ):
     """
     Iteratively fit a paraboloid to the data around a given point.
@@ -282,9 +283,9 @@ def iterative_paraboloid_fit(
         vz = fit_result['vertex_z']
         r2 = fit_result['r2']
 
-        # if vertex is outside image bounds, stop
-        if not (0 <= vx < x_pixel_count * pixel_size and 0 <= vy < y_pixel_count * pixel_size):
-            print(f"Vertex {vx}, {vy} out of image bounds {0}-{x_pixel_count * pixel_size}, {0}-{y_pixel_count * pixel_size}, stopping iteration.")
+        # if vertex is outside image bounds plus a tolerance, stop
+        if not (-allow_outside_image_tol <= vx <= x_pixel_count * pixel_size + allow_outside_image_tol and -allow_outside_image_tol <= vy <= y_pixel_count * pixel_size + allow_outside_image_tol):
+            print(f"Vertex {vx}, {vy} out of image bounds beyond tolerance of {allow_outside_image_tol}:\n\t{allow_outside_image_tol}-{x_pixel_count * pixel_size + allow_outside_image_tol}, {allow_outside_image_tol}-{y_pixel_count * pixel_size + allow_outside_image_tol}\nStopping iteration.")
             break
 
         # if paraboloid is hyperbolic, stop

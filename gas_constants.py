@@ -8,7 +8,7 @@ kinetic_diameters_Breck = {
     'CO2': 3.30,
     'C2H4': 3.90,
     'C3H8': 4.30,
-    'C2H6': 4.44, # Breck did not give a value for C2H6
+    'C2H6': 4.44, # Breck did not give a value for C2H6, but this value is widely used alongside his values
     'n-C4H10': 4.3,
     'O2': 3.46,
     'SF6': 5.50

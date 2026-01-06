@@ -1018,7 +1018,8 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             current_x,
             current_y,
             pixel_size,
-            paraboloid_window_um
+            paraboloid_window_um,
+            allow_outside_image_tol=paraboloid_window_um/2
         )
 
         if best_result is None:

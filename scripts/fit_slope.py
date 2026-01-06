@@ -660,7 +660,23 @@ def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 			update_plots()
 
 	def on_key(event):
-		"""Handle key press events. Space bar saves the currently selected slope."""
+		"""Handle key press events. Space bar saves the currently selected slope. Arrow keys navigate points."""
+		# Arrow key navigation
+		if event.key == 'left':
+			if selected_idx[0] is None:
+				selected_idx[0] = len(times) - 1  # Start at last point
+			else:
+				selected_idx[0] = max(0, selected_idx[0] - 1)
+			show_point_info(selected_idx[0])
+			return
+		elif event.key == 'right':
+			if selected_idx[0] is None:
+				selected_idx[0] = 0  # Start at first point
+			else:
+				selected_idx[0] = min(len(times) - 1, selected_idx[0] + 1)
+			show_point_info(selected_idx[0])
+			return
+		
 		if event.key == ' ' and selected_idx[0] is not None:
 			idx = selected_idx[0]
 			if idx < 0 or idx >= len(times):

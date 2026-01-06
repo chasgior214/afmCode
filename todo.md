@@ -44,6 +44,12 @@ general code cleanup/some refactoring, documentation
 - could I do the fourier transform thing that the drift correction algorithm on the AFM uses to align all my images? Could feed it all the images from a depressurization and it could match the wells together even if the head were moved around
 - Could train a model to notice strange selections based on combinations of things like deflection and paraboloid-substrate intersection area if it's hard to do with code
 - Eventually, could add accounting for slight tilt of sample relative to x/y piezo in the well finder. Far off
+- Try using a denoising model to smooth images before paraboloid fitting?
+    - https://careamics.github.io/0.1/
+    - likely use either an algorithm of single images or pairs of images
+    - give it cleaner photos only (not when the drive amplitude is too low, maybe only ones with good phase maps)
+    - test on some particularly noisy deflations (ex H2 deflation images from Oct 17th), see how much the fits change
+    - Would it make much of a difference? Either way, very far down the list
 
 ## Better Feedback to User
 Don’t hesitate to raise failures. I’ll learn from why they happened and either be able to automate it or it’ll just surface the strangest cases to me
@@ -79,20 +85,17 @@ Don’t hesitate to raise failures. I’ll learn from why they happened and eith
 # Excel Integration
 - For chronological plot, let me just give a start date (last week’s ppt) and it automatically takes the ones since then and plots them (would need to do basic Excel access for getting the gas species but mostly could read from the slopeIDs)
 
+# Slope Fitting
+- could try to use points from multiple depressurizations to get a better slope estimate
+- Let the user select a point from the slope fitting interface and it opens that AFM image with the points that give that deflection (might be able to recover more outliers if it was the automated vertex finding algorithm that made an error)
+- Ability to lower the upper bound of the lower two plots similar to how I do the lower with a right click (how to specify? middle click?)
 
-# To Organize
+# Other Improvements
 - incorporate well mapping to stitching to account for drift
-
 - ability to show movie of deflation over time (with both interpolated and just raw data as options)
 
-Try using a denoising model to smooth images before paraboloid fitting?
-    - https://careamics.github.io/0.1/
-    - likely use either an algorithm of single images or pairs of images
-    - give it cleaner photos only (not when the drive amplitude is too low, maybe only ones with good phase maps)
-    - test on some particularly noisy deflations (ex H2 deflation images from Oct 17th), see how much the fits change
+# To Organize
 
-could try to use points from multiple depressurizations to get a better slope estimate
-
-Have it make a map, then I select the regions that a well is in over the whole imaging session given drift, and it automatically shows me the same well over and over instead of navigating through images to find them (and could also have it automatically output a curve of using the highest point for that well, which I could compare to mine, and maybe if I get a denoising model to work well enough it could do basically everything automatically. Could also have it make timelapses of a 3d image of a single well changing over time given it would know how to center it)
+Select the region a well is in over the whole imaging session given drift, and it navigates through images to find them (and could also have it automatically output a curve of using the highest point for that well, which I could compare to mine, and maybe if I get a denoising model to work well enough it could do basically everything automatically. Could also have it make timelapses of a 3d image of a single well changing over time given it would know how to center it)
 
 Now that I'm saving pixel coordinates, try to have it read those back in and use them to get the deflection from the z-sensor data to compare to the height data. Can also make comparisons to curves made from max height within a few microns of the selected point (or the min of the 8 pixels surrounding it) vs the mode for the y value cross section that the max sits on
