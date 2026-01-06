@@ -1,10 +1,10 @@
 editing_mode = True
 
-depressurized_date = '20251223'
-depressurized_time = '23:47:42'
+depressurized_date = '20251215'
+depressurized_time = '16:23:22'
 end_hour = None # None to not give end limit (if end_hour given and end_day not given, uses only day of depressurization up to this hour)
 end_day = None # None to not give end limit (use all files in specified folder)
-sample_ID = '37'
+sample_ID = '53'
 transfer_location = 'o(5,1)'
 if sample_ID == '37': transfer_location = '$(6,3)'
 if sample_ID == '43': transfer_location = 'o(3,8)'
@@ -62,6 +62,9 @@ afm_images_path = experiment_data_path + '\\raw_data\\'+depressurized_date+'\\Fl
 
 pressure_logs_path = experiment_data_path + '\\raw_data\\pressure_logs\\'
 # add function(s) to point to specific pressure log files
+
+# well maps
+well_maps_path = experiment_data_path + '\\well_maps\\'
 
 # processed data - deflation curves
 deflation_curves_path = experiment_data_path + '\\data_processing\\deflation_curves'

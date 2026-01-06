@@ -1,10 +1,14 @@
 general code cleanup/some refactoring, documentation
 - YAML config instead of settings all over the place (or at least keep centralizing in path_loader)
+- keep modularizing
+    - membrane_relative_positions is a good next target
+        - UI should be in a separate module from the automated tracking algorithm
 - make it simpler to find all the depressurizations, sorted/filtered by sample, gas, time, wells captured, etc
     - implement it into plot_recent_deflation_curve_slopes instead of the current workaround
 
 # New Pressure Logger
 - Make PressureSeries hold more metadata (what time period it was in which cell, gas, etc)
+    - Connect it to Excel integration
 - Make functions to plot the pressures in a PressureSeries over time
 - Test what happens if the Arduino is unplugged while logging
 - predictions for what pressure will level off to when cell left attached to gas tank
@@ -25,7 +29,7 @@ general code cleanup/some refactoring, documentation
 - Assign a min R^2 value (0.2?) for a fit → do this last, would want to play around after all the other stuff and see how bumpy of a near-cratered well I can get away with low R^2 for
 - Well finding could look at if the disruption in the substrate plane is about cirular, and if not and no well expected there, it's debris - could also use in finding algorithm
 
-## Better Finding Algorithm
+## Better Vertex Finding Algorithm
 - When multiple wells present in the same image, check that they are, within a tight margin (0.5 um to start), found to be within where they’d each predict the others to be
     - If not, use the one with the best R^2 to find the others
     - Consider that I can check what the drift is assuming each fit was correct, and compare those drifts. Outliers can indicate if one fit was bad. RANSAC (or just pick the median) to get a good drift vector, and use that from the old image to get the real position of the well that had a bad fit/go off of the ones with middle of the pack drift and map the outlier(s) to predicted positions based on where the other good ones are

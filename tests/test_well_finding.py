@@ -15,13 +15,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import AFMImage
 import membrane_relative_positions as mrp
+import well_mapping as wm
 
 # Path to test images directory (to be populated with actual test images)
 TEST_IMAGES_DIR = os.path.join(os.path.dirname(__file__), 'test_data', 'well_finding')
 
 TEST_IMAGE_CONFIGS = {
     "Image0015.ibw": {
-        "well_map": mrp.sample53_o_5_1_well_map,
+        "well_map": wm.load_well_map("53", "o(5,1)").wells,
         "initial_well": "(1, 5)",
         "initial_well_position": (-51.787, -6.115),  # absolute piezo position (μm)
         "expected_wells": {

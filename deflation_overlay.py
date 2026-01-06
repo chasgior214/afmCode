@@ -16,6 +16,7 @@ import os
 import glob
 
 import path_loader as pl
+import well_mapping as wm
 
 
 def load_deflation_curves(folder=None, sample_id=None, depressurized_date=None, depressurized_time=None, cutoff_time=None):
@@ -763,10 +764,7 @@ if __name__ == "__main__":
     location = pl.transfer_location
     
     # Select well map based on sample/location
-    well_map = mrp.sample_ID_and_location_to_well_map.get((sample_ID, location))
-    if well_map is None:
-        print(f"No well map configured for sample {sample_ID} at location {location}")
-        exit(1)
+    well_map = wm.load_well_map(sample_ID, location).wells
     
     # Load deflation curves
     curves = load_deflation_curves(cutoff_time=1000)
@@ -778,7 +776,7 @@ if __name__ == "__main__":
     print(f"Loaded {len(curves)} deflation curves: {list(curves.keys())}")
     
     # Configuration
-    image_path = 'sample53_optical.jpg'
+    image_path = 'scratch/sample53_optical.jpg'
     
     anchor_well = '(8, 8)'
     anchor_x = 1250
@@ -805,4 +803,4 @@ if __name__ == "__main__":
     )
     
     overlay.show()
-    overlay.export_html('deflation_overlay.html')
+    # overlay.export_html('deflation_overlay.html')

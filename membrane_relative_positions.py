@@ -6,6 +6,7 @@ import surface_analysis as sa
 import path_loader as pl
 import visualizations as vis
 import stitching
+import well_mapping as wm
 import csv
 import os
 from datetime import datetime
@@ -21,30 +22,9 @@ filter_image_range = None     # None or String "AAAA-BBBB" e.g., "0001-0050", or
 
 # GOAL: have my system know where the wells are relative to each other, so for any images with multiple wells, I only point out one well, and it figures out where the others are, gets the deflections autonomously, and logs the data
 
-x_spacing = 7.79
-y_spacing = 4.50
 class MembraneNavigator:
-    def __init__(self, well_diameter=4, time_between_images_for_safe_minimal_drift=15):
-        self.well_diameter = well_diameter
-        self.well_radius = well_diameter / 2
+    def __init__(self, time_between_images_for_safe_minimal_drift=15):
         self.time_between_images_for_safe_minimal_drift = time_between_images_for_safe_minimal_drift
-
-    def well_positions_grid(self, x_coords, y_coords):
-        """Generate a grid of well positions. My dies are made such that if position (0,0) is on a well, other wells are at any combination of movements away from that, where a movement is either (+x_spacing, +y_spacing), (+2*x_spacing, 0), or (0, +2*y_spacing)."""
-        positions = []
-        for i in range(x_coords):
-            for j in range(y_coords):
-                if (i + j) % 2 == 0:
-                    positions.append((i * x_spacing, j * y_spacing))
-        return positions
-
-    def predict_position_from_change_in_coordinates(self, pos, pos_coords, final_coords):
-        """Predict the position of a well based on the position of another well and each well's coordinates."""
-        x_coords_change = final_coords[0] - pos_coords[0]
-        y_coords_change = final_coords[1] - pos_coords[1]
-        predicted_x_pos = pos[0] + x_coords_change * x_spacing
-        predicted_y_pos = pos[1] + y_coords_change * y_spacing
-        return (predicted_x_pos, predicted_y_pos)
 
     def track_wells(self, image_collection, initial_well_name, initial_well_coords, well_map, initial_well_absolute_pos=None, initial_well_fixed_z=None, edge_tolerance=0, each_found_well_updates_all_well_positions=False):
         """
@@ -85,7 +65,7 @@ class MembraneNavigator:
             well_positions[initial_well_name] = initial_well_absolute_pos
             for well in well_positions:
                 if well != initial_well_name:
-                    well_positions[well] = self.predict_position_from_change_in_coordinates(
+                    well_positions[well] = wm.predict_position_from_change_in_coordinates(
                         initial_well_absolute_pos, initial_well_coords, well_map[well]
                     )
         
@@ -257,7 +237,7 @@ class MembraneNavigator:
                         # Update predictions for remaining wells based on the newly found position
                         for other_well in well_map:
                             if other_well != well:
-                                well_positions[other_well] = self.predict_position_from_change_in_coordinates(
+                                well_positions[other_well] = wm.predict_position_from_change_in_coordinates(
                                     well_positions[well], well_map[well], well_map[other_well]
                                 )
                 else:
@@ -267,38 +247,6 @@ class MembraneNavigator:
 
         return results
 
-# sample37 Configuration
-sample37_well_map = {
-    'orange': (0, 0),
-    'blue': (0, 2),
-    'green': (1, 1),
-    'red': (1, 3),
-    'black': (2, 0)
-}
-
-
-# sample53 o(5,1) wells
-sample53_o_5_1_well_coords = [
-    (1,5), (1,7), (1,9),
-    (2,6), (2,8), (2,10),
-    (3,5), (3,7), (3,9), (3,11),
-    (4,4), (4,6), (4,8), (4,10), (4,12),
-    (5,3), (5,5), (5,7), (5,9), (5,11),
-    (6,2), (6,4), (6,6), (6,8), (6,10), (6,12),
-    (7,3), (7,5), (7,7), (7,9), (7,11),
-    (8,6), (8,8), (8,10),
-    (9,7), (9,9),
-    (10,6), (10,8), (10,10), (10,14),
-    (11,9), (11,13), (11,15),
-    (12,8), (12,10), (12,12), (12,14), (12,16),
-    (13,9), (13,11), (13,13), (13,15),
-    (14,12), (14,14)
-]
-
-# make the well map from the list of well coordinates, using the coordinates as both the well names and the well positions
-sample53_o_5_1_well_map = {
-    str((x_idx, y_idx)): (x_idx, y_idx) for (x_idx, y_idx) in sample53_o_5_1_well_coords
-}
 
 class WellPositionsReviewer:
     def __init__(self, navigator, image_collection, results, well_map):
@@ -616,16 +564,16 @@ class WellPositionsReviewer:
             anchor_map_x, anchor_map_y = self.well_map[anchor_point['well']]
 
             def abs_to_map_x(x):
-                return (x - anchor_abs_x) / x_spacing + anchor_map_x
+                return (x - anchor_abs_x) / wm.x_spacing + anchor_map_x
 
             def map_to_abs_x(mx):
-                return (mx - anchor_map_x) * x_spacing + anchor_abs_x
+                return (mx - anchor_map_x) * wm.x_spacing + anchor_abs_x
 
             def abs_to_map_y(y):
-                return (y - anchor_abs_y) / y_spacing + anchor_map_y
+                return (y - anchor_abs_y) / wm.y_spacing + anchor_map_y
 
             def map_to_abs_y(my):
-                return (my - anchor_map_y) * y_spacing + anchor_abs_y
+                return (my - anchor_map_y) * wm.y_spacing + anchor_abs_y
 
             self.secax_map_x = self.ax2.secondary_xaxis('bottom', functions=(abs_to_map_x, map_to_abs_x))
             self.secax_map_x.set_xlabel(f"Well Map X (anchor: {anchor_point['well']})")
@@ -1038,17 +986,12 @@ class WellPositionsReviewer:
             print("No extremum selected. Retracking cancelled.")
 
 
-sample_ID_and_location_to_well_map = {
-    ('37', '$(6,3)'): sample37_well_map,
-    ('53', 'o(5,1)'): sample53_o_5_1_well_map
-}
-
 # Script
 if __name__ == "__main__":
     navigator = MembraneNavigator()
     sample_ID = pl.sample_ID
     location = pl.transfer_location
-    well_map = sample_ID_and_location_to_well_map.get((sample_ID, location), None)
+    well_map = wm.load_well_map(sample_ID, location).wells
 
     image_collection = AFMImageCollection.AFMImageCollection(pl.afm_images_path, pl.depressurized_datetime)
     
@@ -1106,34 +1049,3 @@ if __name__ == "__main__":
             print(f"Well '{well_clicked_on}' not found in coordinates map.")
     else:
         print("No well selected.")
-
-    # plot the sample53 well coordinates as blue 4um diameter circles
-    # for (x_idx, y_idx) in sample53_o_5_1_well_coords:
-    #     center_x = x_idx * x_spacing
-    #     center_y = y_idx * y_spacing
-    #     circle = plt.Circle((center_x, center_y), 2, color='blue', fill=True, linewidth=2)
-    #     plt.gca().add_artist(circle)
-    # plt.xlim(0, x_spacing*15)
-    # plt.ylim(0, y_spacing*17)
-    # plt.gca().set_aspect('equal', adjustable='box')
-    # plt.xlabel('X Position (um)')
-    # plt.ylabel('Y Position (um)')
-    # plt.title('Well Positions for Sample 53')
-    # plt.grid()
-    # plt.show()
-
-
-    # plot a 4um diameter circle at each position in sample37_well_map
-    # for color, (x_idx, y_idx) in sample37_well_map.items():
-    #     center_x = x_idx * x_spacing
-    #     center_y = y_idx * y_spacing
-    #     circle = plt.Circle((center_x, center_y), 2, color=color, fill=False, linewidth=2)
-    #     plt.gca().add_artist(circle)
-    # plt.xlim(-5, 20)
-    # plt.ylim(-5, 20)
-    # plt.gca().set_aspect('equal', adjustable='box')
-    # plt.xlabel('X Position (um)')
-    # plt.ylabel('Y Position (um)')
-    # plt.title('Well Positions for Sample 37')
-    # plt.grid()
-    # plt.show()

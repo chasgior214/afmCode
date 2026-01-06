@@ -103,7 +103,7 @@ if __name__ == "__main__":
     import visualizations as vis
     import surface_analysis as sa
     current_path = os.path.dirname(os.path.abspath(__file__))
-    image = AFMImage.AFMImage('Image0008.ibw')
+    image = AFMImage.AFMImage('scratch/Image0008.ibw')
 
     res = vis.select_heights(image)
     slots = res.get('selected_slots', [None, None])
