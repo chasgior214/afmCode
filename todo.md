@@ -1,5 +1,9 @@
+# Maintenance and Refactoring
 general code cleanup/some refactoring, documentation
 - YAML config instead of settings all over the place (or at least keep centralizing in path_loader)
+- update to igor2?
+    - currently have to change "1:_numpy.complex" to "1:complex" on line 110 on install due to being out of date
+    - ain't broke don't fix it?
 - keep modularizing
     - membrane_relative_positions is a good next target
         - UI should be in a separate module from the automated tracking algorithm
@@ -24,10 +28,18 @@ general code cleanup/some refactoring, documentation
 - look again at if fit window not including the vertex can be used to reject fits. Using it caused problems before
 
 ## Inadmissible solutions
-- If there is no point in the image data within 5 nm of the vertex, reject it (root sum of squares → need to convert x/y to nm from um)
+- If there is no point in the image data within ~5 nm of the vertex (play with the exact number), reject it (root sum of squares → need to convert x/y to nm from um)
 - Can check what the fit paraboloid would indicate about the well’s diameter (the circle at the intersection of the paraboloid and the surface). It’s not a perfect paraboloid, but saying it should be at least a 1 or 2 um diameter and less than 10 um diameter could be an amazing way to assess if fit is feasible
 - Assign a min R^2 value (0.2?) for a fit → do this last, would want to play around after all the other stuff and see how bumpy of a near-cratered well I can get away with low R^2 for
 - Well finding could look at if the disruption in the substrate plane is about cirular, and if not and no well expected there, it's debris - could also use in finding algorithm
+
+### Deeper Validation
+There's many other checks I could add (both to be used on new images and to validate old data):
+- Check the substrate height doesn't change within a very small margin between successive points for a given well
+- For images with multiple wells, check if any are not in a small tolerance of where the others predict they should be
+- Check if a small change to the window size used for the paraboloid fit changes the result by a significant amount
+- Can use some of the things I've implemented in the automated well finding to validate older results
+- A given positive deflection should mean at least a given "volume" is above the substrate (and a negative volume "removed" from the substrate for negative deflections)
 
 ## Better Vertex Finding Algorithm
 - When multiple wells present in the same image, check that they are, within a tight margin (0.5 um to start), found to be within where they’d each predict the others to be
@@ -62,7 +74,6 @@ Don’t hesitate to raise failures. I’ll learn from why they happened and eith
 
 # Manual Point Selection Improvements
 - In paraboloid fit panel, show area of intersection with substrate
-- In paraboloid fit panel, button to display the paraboloid on the image with make_heightmap_3d_surface
 - Use mouse wheel for something
     - Zoom in/out? Centred on x,y of most recently selected point or centre of FOV or cursor? Maybe both, one active normally, another with shift + scroll, another with ctrl + scroll?
     - use horizontal scroll for something?
@@ -76,6 +87,7 @@ Don’t hesitate to raise failures. I’ll learn from why they happened and eith
 - Plot of deflections so far visible? In other window on second screen?
 - Clean up buttons?
 - add a button "View 3D Heightmap", which renders a 3d heightmap in a new window. Can select points on the 3d heightmap which get added as selected points in the main window.
+    - If a paraboloid has been fit, include it in the 3d heightmap
 - cross section shows dotted lines of the line above and below the selected line?
 
 # Substrate Detection Improvements

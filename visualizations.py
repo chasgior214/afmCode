@@ -282,7 +282,6 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             y_idx = int(nearest_y_to_plot)
         else:
             y_idx = int(np.clip(y_idx, 0, y_pixel_count - 1))
-        y_val = float(line_height)
 
         if slot_override is None:
             slot = next_slot if locked_slot is None else 1 - locked_slot
@@ -558,16 +557,6 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     )
     button_ax = ax_placeholder.inset_axes([0.3, 0.15, 0.4, 0.18])
     paraboloid_button = Button(button_ax, 'Paraboloid Vertex (6)')
-
-    # Maximize the window if possible
-    manager = plt.get_current_fig_manager()
-    try:
-        manager.window.showMaximized()
-    except Exception:
-        try:
-            manager.window.state('zoomed')
-        except Exception:
-            pass
 
     # Initial plots
     image_axes[:] = [ax_height, ax1]
@@ -1170,19 +1159,11 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
             new_y_idx = max(nearest_y_to_plot - 1, 0)
             new_y_val = image.index_to_y_center(new_y_idx)
             _update_cross_section(new_y_val)
-            # If Control is held, auto-select max and mode
-            if event.key == 'ctrl+up':
-                set_max_height()
-                set_mode_height()
         elif event.key == 'down':
             # Move down by one pixel (increase index = decrease y-value)
             new_y_idx = min(nearest_y_to_plot + 1, y_pixel_count - 1)
             new_y_val = image.index_to_y_center(new_y_idx)
             _update_cross_section(new_y_val)
-            # If Control is held, auto-select max and mode
-            if event.key == 'ctrl+down':
-                set_max_height()
-                set_mode_height()
         elif event.key == 'ctrl+up':
             # Move up by one pixel and auto-select with a fixed slot order
             new_y_idx = max(nearest_y_to_plot - 1, 0)
@@ -1325,6 +1306,18 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     fig.canvas.mpl_connect('close_event', _on_close)
 
     plt.show(block=False)
+
+    # Maximize the window if possible
+    # Done after show() to ensure the window handle exists
+    plt.pause(0.02)
+    manager = plt.get_current_fig_manager()
+    try:
+        manager.window.showMaximized()
+    except Exception:
+        try:
+            manager.window.state('zoomed')
+        except Exception:
+            pass
     fig.canvas.start_event_loop()
 
     if aborted:
