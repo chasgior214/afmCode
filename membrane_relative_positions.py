@@ -308,7 +308,10 @@ class WellPositionsReviewer:
         
         self.fig.canvas.mpl_connect('pick_event', self.on_pick)
         
-        # Maximize window if possible
+        plt.show(block=False)
+        # Maximize the window if possible
+        # Done after show() to ensure the window handle exists
+        plt.pause(0.02)
         manager = plt.get_current_fig_manager()
         try:
             manager.window.showMaximized()
@@ -317,7 +320,7 @@ class WellPositionsReviewer:
                 manager.window.state('zoomed')
             except Exception:
                 pass
-        plt.show()
+        self.fig.canvas.start_event_loop()
 
     def refresh_data(self):
         # Precompute absolute coordinates

@@ -310,10 +310,10 @@ def iterative_paraboloid_fit(
             if a < 0:
                 print("Vertex below substrate but paraboloid is concave down, stopping iteration.")
                 break
-        
+
         # if paraboloid gives an impossible deflection, stop
-        if abs(vz) > 350:
-            print(f"Paraboloid gives an impossible deflection ({vz:.1f} nm), stopping iteration.")
+        if abs(vz - substrate_height) > 400:
+            print(f"Paraboloid gives an impossible deflection ({vz - substrate_height:.1f} nm), stopping iteration.")
             break
 
         history.append({
