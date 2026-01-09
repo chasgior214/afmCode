@@ -19,9 +19,9 @@ consensus_slopes = {
         'black': 2.3
     },
     'He': {
-        'green': 9,
-        'red': 25.1,
-        'blue': 39.7,
+        'green': 8.5,
+        'red': 29.5,
+        'blue': 55,
         'orange': 8.8,
         'black': 8.6
     },
@@ -29,7 +29,7 @@ consensus_slopes = {
         'green': 0.86,
         'orange': 0.67,
         'black': 0.83,
-        'red': 22,
+        'red': 27,
         'blue': 50 # a bit of an extrapolation. Measured slope is 59, decreases with earlier times closer to depressurization
     },
     'Ar': {
@@ -184,7 +184,10 @@ def plot_recent_deflation_curve_slopes():
         '23-Dec	19:32:13': 'CO2',
         '23-Dec	22:00:19': 'CO2',
         '23-Dec	22:55:36': 'CO2',
-        '23-Dec	23:47:42': 'He'
+        '23-Dec	23:47:42': 'He',
+        '24-Dec	00:22:01': 'He',
+        '24-Dec	00:55:54': 'He',
+        '24-Dec	02:43:31': 'He'
     }
 
     # convert date/time to YYYYMMDD_HHMMSS format, including replacing the 3 character month with 2 digit month
@@ -273,8 +276,8 @@ def plot_recent_deflation_curve_slopes():
 
     x_labels = [f"{fmt_mon_day(t)} — {gas_per_dt[t]}" for t in unique_times]
 
-    # if the gas/colour combination exists in the consensus_slopes dictionary, plot a dotted horizontal line at that slope value that extends twice the width of the markers
-    # compute marker width in data coordinates so horizontal lines are twice that width
+    # if the gas/colour combination exists in the consensus_slopes dictionary, plot a dotted horizontal line
+    # keep each line inside its x-column by clamping to the midpoint between neighbouring categories
     fig = plt.gcf()
     ax = plt.gca()
     marker_s = 100  # same as used for scatter
@@ -289,15 +292,36 @@ def plot_recent_deflation_curve_slopes():
     data1 = ax.transData.inverted().transform(disp1)
     desired_line_dx = data1[0] - data0[0]
 
-    # if the gas/colour combination isn't a first time, plot a horizontal line at the slope value in consensus_slopes
-    for t in unique_times:
+    x_values = [x_pos_map[t] for t in unique_times]
+    padding = 0.05
+
+    def column_bounds(idx):
+        x = x_values[idx]
+        if len(x_values) == 1:
+            return x - 0.5, x + 0.5
+        if idx == 0:
+            right_mid = (x_values[idx] + x_values[idx + 1]) / 2
+            left = x - (right_mid - x)
+            return left, right_mid
+        if idx == len(x_values) - 1:
+            left_mid = (x_values[idx - 1] + x_values[idx]) / 2
+            right = x + (x - left_mid)
+            return left_mid, right
+        left_mid = (x_values[idx - 1] + x_values[idx]) / 2
+        right_mid = (x_values[idx] + x_values[idx + 1]) / 2
+        return left_mid, right_mid
+
+    for idx, t in enumerate(unique_times):
         gas = gas_per_dt[t]
         xcenter = x_pos_map[t]
+        left_bound, right_bound = column_bounds(idx)
+        available_width = max(0, right_bound - left_bound - 2 * padding)
+        half_span = min(desired_line_dx / 2.0, available_width / 2.0)
+        xmin = xcenter - half_span
+        xmax = xcenter + half_span
         for color in ['red', 'blue', 'green', 'orange', 'black']:
             if color in consensus_slopes.get(gas, {}):
                 slope_value = consensus_slopes[gas][color]
-                xmin = xcenter - desired_line_dx / 2.0
-                xmax = xcenter + desired_line_dx / 2.0
                 ax.hlines(y=slope_value, xmin=xmin, xmax=xmax, colors=color, linestyles='dotted', linewidth=2.0, alpha=0.7)
     
     # in the legend, show a dotted line with the label "Consensus Slope" for the horizontal lines

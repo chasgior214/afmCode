@@ -1,18 +1,31 @@
 editing_mode = True
 
-depressurized_date = '20251215'
-depressurized_time = '16:23:22'
+depressurized_date = '20260103'
+depressurized_time = '14:24:35'
 end_hour = None # None to not give end limit (if end_hour given and end_day not given, uses only day of depressurization up to this hour)
 end_day = None # None to not give end limit (use all files in specified folder)
-sample_ID = '53'
+sample_ID = '37'
 transfer_location = 'o(5,1)'
 if sample_ID == '37': transfer_location = '$(6,3)'
 if sample_ID == '43': transfer_location = 'o(3,8)'
-cavity_position = 'blue'
+cavity_position = 'red'
 
 # Additional depressurization date/time combinations can be added to this list to plot multiple datasets at once (see plot_curves.py)
 plot_depressurizations = [
     (depressurized_date, depressurized_time), # Plotted by default when no others specified
+
+    # SF6 Inflations
+    ('20251227', '16:12:52'),
+    # ('20260103', '14:24:35'),
+
+    # CO2 curves
+    # ('20251008', '14:56:36'),
+    # ('20251014', '16:30:34'),
+    # ('20251223', '16:26:48'),
+    # ('20251223', '17:28:34'),
+    # ('20251223', '19:32:13'),
+    # ('20251223', '22:00:19'),
+    # ('20251223', '22:55:36'),
 
     # He curves
     # ('20251007', '11:29:29'),
@@ -20,6 +33,10 @@ plot_depressurizations = [
     # ('20251010', '20:59:18'),
     # ('20251010', '22:23:34'),
     # ('20251010', '23:55:25'),
+    # ('20251223', '23:47:42'),
+    # ('20251224', '00:22:01'),
+    # ('20251224', '00:55:54'),
+    # ('20251224', '02:43:31'),
 
     # Red/blue H2
     # ('20250729', '17:18:16'),
@@ -38,6 +55,7 @@ plot_depressurizations = [
     # ('20251205', '15:38:48'),
     # ('20251206', '19:35:33'),
     # ('20251210', '19:23:49'),
+    # ('20251223', '13:54:19'),
     # End of red/blue H2
 
 

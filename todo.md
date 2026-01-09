@@ -40,6 +40,7 @@ There's many other checks I could add (both to be used on new images and to vali
 - Check if a small change to the window size used for the paraboloid fit changes the result by a significant amount
 - Can use some of the things I've implemented in the automated well finding to validate older results
 - A given positive deflection should mean at least a given "volume" is above the substrate (and a negative volume "removed" from the substrate for negative deflections)
+- No saved points are outside the image xy bounds (or at least within a very small margin of them)
 
 ## Better Vertex Finding Algorithm
 - When multiple wells present in the same image, check that they are, within a tight margin (0.5 um to start), found to be within where they’d each predict the others to be
