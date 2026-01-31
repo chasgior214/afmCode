@@ -10,7 +10,7 @@ import well_mapping as wm
 import csv
 import os
 from datetime import datetime
-from matplotlib.patches import Circle, Rectangle
+from matplotlib.patches import Rectangle
 from matplotlib.widgets import Slider, Button
 from matplotlib.colors import is_color_like
 

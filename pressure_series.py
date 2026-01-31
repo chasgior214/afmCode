@@ -102,8 +102,8 @@ class PressureSeries:
 
 if __name__ == '__main__':
     sample_ID = '53'
-    start_datetime_local = datetime.strptime('2026-01-03 18:00:00', '%Y-%m-%d %H:%M:%S')
-    end_datetime_local = datetime.strptime('2026-01-08 19:59:59', '%Y-%m-%d %H:%M:%S')
+    start_datetime_local = datetime.strptime('2026-01-07 19:59:59', '%Y-%m-%d %H:%M:%S')
+    end_datetime_local = datetime.strptime('2026-01-20 19:59:59', '%Y-%m-%d %H:%M:%S')
     ps = PressureSeries(sample_ID, start_datetime_local, end_datetime_local)
     # plot data
     import matplotlib.pyplot as plt

@@ -9,6 +9,7 @@ general code cleanup/some refactoring, documentation
         - UI should be in a separate module from the automated tracking algorithm
 - make it simpler to find all the depressurizations, sorted/filtered by sample, gas, time, wells captured, etc
     - implement it into plot_recent_deflation_curve_slopes instead of the current workaround
+    - would be nice to just tell it to show me all of the deflations of a certain gas instead of manually looking up the depressurization dates/times in Excel
 
 # New Pressure Logger
 - Make PressureSeries hold more metadata (what time period it was in which cell, gas, etc)
