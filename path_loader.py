@@ -12,12 +12,14 @@ cavity_position = 'red'
 
 # Additional depressurization date/time combinations can be added to this list to plot multiple datasets at once (see plot_curves.py)
 plot_depressurizations = [
-    (depressurized_date, depressurized_time), # Plotted by default when no others specified
+    # (depressurized_date, depressurized_time), # Plotted by default when no others specified
 
     # SF6 Inflations
-    # ('20251227', '16:12:52'),
-    # ('20260103', '14:24:35'),
-    # ('20260108', '21:18:54'),
+    ('20251227', '16:12:52'),
+    ('20260103', '14:24:35'),
+    ('20260108', '21:18:54'),
+    ('20260117', '12:59:23'),
+    ('20260203', '18:36:23'),
 
     # CO2 curves
     # ('20251008', '14:56:36'),

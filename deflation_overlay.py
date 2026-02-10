@@ -797,10 +797,10 @@ if __name__ == "__main__":
         patch_size_px=patch_size,
         x_translation_px=x_trans,
         y_translation_px=y_trans,
-        time_in_hours=True,
+        time_in_hours=False,
         # failure_threshold=20,
-        whiteout_after_last=True,
+        whiteout_after_last=False,
     )
     
     overlay.show()
-    # overlay.export_html('deflation_overlay.html')
+    # overlay.export_html(f'sample{sample_ID}_depressurized{pl.depressurized_date}_{pl.depressurized_time}_deflation_overlay.html')

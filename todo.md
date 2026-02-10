@@ -17,6 +17,7 @@ general code cleanup/some refactoring, documentation
 - Make functions to plot the pressures in a PressureSeries over time
 - Test what happens if the Arduino is unplugged while logging
 - predictions for what pressure will level off to when cell left attached to gas tank
+- dashboard gets slow when there's many days of data in the finished directory. Optimize it
 
 # Well Locator Improvement Plan
 ## Next Steps
