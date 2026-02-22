@@ -14,11 +14,13 @@ def make_csv_writer(sample_name, start_dt, pressure_cell):
     script_dir = os.path.dirname(os.path.abspath(__file__))
     in_progress_dir = os.path.join(script_dir, "in_progress")
     finished_dir = os.path.join(script_dir, "finished")
-    
+    archived_dir = os.path.join(script_dir, "archived")
+
     # Create directories if they don't exist
     os.makedirs(in_progress_dir, exist_ok=True)
     os.makedirs(finished_dir, exist_ok=True)
-    
+    os.makedirs(archived_dir, exist_ok=True)
+
     filename = f"sample{sample_name}_cell{pressure_cell}_pressure_log_start{start_dt}.csv"
     filepath = os.path.join(in_progress_dir, filename)
     f = open(filepath, "w", newline="")
@@ -79,6 +81,30 @@ def close_csvs(csv_files, csv_filepaths):
                 except Exception as e:
                     print(f"⚠ Warning: Failed to move {os.path.basename(src_path)} to finished directory: {e}")
                     print(f"  Data is safe in: {src_path}")
+
+def archive_old_finished_files():
+    """Move old CSV files from finished to archived so web dashboard stays responsive."""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    finished_dir = os.path.join(script_dir, "finished")
+    archived_dir = os.path.join(script_dir, "archived")
+
+    os.makedirs(finished_dir, exist_ok=True)
+    os.makedirs(archived_dir, exist_ok=True)
+
+    cutoff_ts = datetime.now().timestamp() - (7 * 24 * 60 * 60)
+
+    for filename in os.listdir(finished_dir):
+        src_path = os.path.join(finished_dir, filename)
+        if not os.path.isfile(src_path):
+            continue
+
+        try:
+            if os.path.getmtime(src_path) <= cutoff_ts:
+                dest_path = os.path.join(archived_dir, filename)
+                shutil.move(src_path, dest_path)
+                print(f"✓ Archived old finished file: {dest_path}")
+        except Exception as e:
+            print(f"⚠ Warning: Failed to archive {filename}: {e}")
 
 def main():
     sample0 = prompt_with_default("Enter sample on A0", "37")
@@ -152,6 +178,7 @@ def main():
                 # Daily rotation: if date changed, close current files and open new ones
                 if save_csv and now.date() != current_day:
                     close_csvs(csv_files, csv_filepaths)
+                    archive_old_finished_files()
                     current_day = now.date()
                     segment_start_dt = now.strftime("%Y-%m-%d_%H-%M-%S")
                     csv_files, csv_writers, csv_filepaths = open_csvs(active_samples, pressure_cells, segment_start_dt)
