@@ -85,7 +85,7 @@ if not csv_entries:
     raise FileNotFoundError(f"No CSV files found in {folder} for sample {pl.sample_ID} and specified depressurizations.")
 
 # Set up the plot
-plt.figure(figsize=(8, 6))
+plt.figure()
 
 # If the files all contain either 'red', 'blue', 'green', 'orange', or 'black' in their filenames, use those colors for those files
 file_colors = {'red': 'red', 'blue': 'blue', 'green': 'green', 'orange': 'orange', 'black': 'black'}
@@ -183,6 +183,9 @@ plt.ylim(y_min - y_pad, y_max + y_pad)
 plt.xlabel(f'Time since depressurization ({x_scale})')
 plt.ylabel('Deflection (nm)')
 if show_legend:
-    plt.legend()
-plt.tight_layout()
+    if len(csv_entries) > 12:
+        plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
+        plt.subplots_adjust(left=0.08, right=0.68, top=0.95, bottom=0.1)
+    else:
+        plt.legend()
 plt.show()
