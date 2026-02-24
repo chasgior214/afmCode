@@ -11,7 +11,6 @@ This module contains:
 from dataclasses import dataclass
 from typing import Dict, Tuple, List
 import json
-import os
 import path_loader as pl
 
 # Well geometry/spacing constants, all um
@@ -101,12 +100,12 @@ def load_well_map(sample_id: str, location: str) -> WellMap:
         FileNotFoundError: If the well map file does not exist
     """
     filename = f"sample{sample_id}_{location}.json"
-    filepath = os.path.join(pl.well_maps_path, filename)
+    filepath = pl.well_maps_path / filename
     
-    if not os.path.exists(filepath):
+    if not filepath.exists():
         raise FileNotFoundError(f"Well map file {filepath} not found")
     
-    with open(filepath, 'r') as f:
+    with filepath.open('r') as f:
         data = json.load(f)
     
     wells = {k: tuple(v) for k, v in data["wells"].items()}

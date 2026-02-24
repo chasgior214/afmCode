@@ -2,8 +2,6 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import os
-import glob
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -22,6 +20,7 @@ filter_substrings = [
     # 'blue', 'red'
     # 'green', 'orange', 'black'
     # '(6, 2)'
+    '(3, 9)', '(6, 6)', '(5, 5)'
 ]
 # Filter settings
 filter_at_least_n_points = 0  # if positive integer n, only show CSVs with at least n data points
@@ -62,8 +61,8 @@ csv_entries = []
 new_target_idx = 0
 for target_idx, (date, time) in enumerate(depressurization_targets):
     pattern = f"deflation_curve_sample{pl.sample_ID}_depressurized{date}_{time}*.csv"
-    for csv_file in glob.glob(os.path.join(folder, pattern)):
-        basename = os.path.basename(csv_file)
+    for csv_file in folder.glob(pattern):
+        basename = csv_file.name
         if filter_substrings:
             # case-insensitive substring match: include file if any substring matches
             lname = basename.lower()
@@ -92,8 +91,8 @@ file_colors = {'red': 'red', 'blue': 'blue', 'green': 'green', 'orange': 'orange
 csv_paths = [entry['path'] for entry in csv_entries]
 
 plot_sample37_intercepts = False
-if csv_paths and all(any(color in os.path.basename(f) for color in file_colors) for f in csv_paths):
-    colors = [next(color for color in file_colors if color in os.path.basename(f)) for f in csv_paths]
+if csv_paths and all(any(color in Path(f).name for color in file_colors) for f in csv_paths):
+    colors = [next(color for color in file_colors if color in Path(f).name) for f in csv_paths]
     plot_sample37_intercepts = True
 else:
     # Otherwise, use a default color cycle
@@ -123,13 +122,13 @@ for idx, entry in enumerate(csv_entries):
             marker = markers[entry['target_idx'] % len(markers)]
         if marker in ['x', '+']:
             plt.scatter(df['Time to plot'], df['Deflection (nm)'],
-                        label=os.path.basename(csv_file), color=colors[idx % len(colors)], s=60, marker=marker)
+                        label=csv_file.name, color=colors[idx % len(colors)], s=60, marker=marker)
         else:
             plt.scatter(df['Time to plot'], df['Deflection (nm)'],
-                        label=os.path.basename(csv_file), color=colors[idx % len(colors)], s=60, marker=marker, facecolors='none')
+                        label=csv_file.name, color=colors[idx % len(colors)], s=60, marker=marker, facecolors='none')
     elif plot_type == 'line':
         plt.plot(df['Time to plot'], df['Deflection (nm)'],
-                 label=os.path.basename(csv_file), color=colors[idx % len(colors)], linewidth=1.5)
+                 label=csv_file.name, color=colors[idx % len(colors)], linewidth=1.5)
 
     slope_id = pl.get_slope_id_from_filename(csv_file)
     if slope_id and slope_id in saved_slopes:

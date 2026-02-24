@@ -12,7 +12,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import csv
-import os
 import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime
@@ -51,7 +50,7 @@ def get_saved_slope_text(deflation_curve_slope_id):
 	except Exception:
 		target = f"{deflation_curve_slope_id}"
 	deflation_curve_slope_path = pl.deflation_curve_slope_path
-	if not os.path.exists(deflation_curve_slope_path):
+	if not deflation_curve_slope_path.exists():
 		return "No saved slope"
 
 	matches = []
@@ -103,8 +102,8 @@ def get_saved_slope_text(deflation_curve_slope_id):
 
 def get_latest_saved_points_path(deflation_curve_slope_id):
 	"""Find the most recent saved points file for the given slope ID."""
-	slope_points_dir = os.path.join(os.path.dirname(pl.deflation_curve_slope_path), 'slope_points')
-	if not os.path.exists(slope_points_dir):
+	slope_points_dir = pl.deflation_curve_slope_path.parent / 'slope_points'
+	if not slope_points_dir.exists():
 		return None
 
 	# Filename pattern: slope_points_{slope_id}_{timestamp_safe}.csv
@@ -113,16 +112,15 @@ def get_latest_saved_points_path(deflation_curve_slope_id):
 	prefix = f"slope_points_{deflation_curve_slope_id}_"
 	
 	try:
-		for fname in os.listdir(slope_points_dir):
-			if fname.startswith(prefix) and fname.endswith('.csv'):
-				# Extract timestamp part
-				ts_part = fname[len(prefix):-4] # remove prefix and .csv
-				try:
-					# Parse timestamp to compare
-					dt = datetime.strptime(ts_part, '%Y-%m-%d_%H%M%S')
-					candidates.append((dt, os.path.join(slope_points_dir, fname)))
-				except Exception:
-					pass
+		for fpath in slope_points_dir.glob(f"{prefix}*.csv"):
+			# Extract timestamp part
+			ts_part = fpath.name[len(prefix):-4] # remove prefix and .csv
+			try:
+				# Parse timestamp to compare
+				dt = datetime.strptime(ts_part, '%Y-%m-%d_%H%M%S')
+				candidates.append((dt, fpath))
+			except Exception:
+				pass
 	except Exception:
 		pass
 
@@ -694,10 +692,10 @@ def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 			timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 			
 			# Create CSV file with headers if it doesn't exist
-			file_exists = os.path.exists(deflation_curve_slope_path)
+			file_exists = deflation_curve_slope_path.exists()
 			if not file_exists:
 				try:
-					os.makedirs(os.path.dirname(deflation_curve_slope_path), exist_ok=True)
+					deflation_curve_slope_path.parent.mkdir(parents=True, exist_ok=True)
 				except Exception:
 					pass
 			
@@ -713,13 +711,13 @@ def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 				# Save the included points for this slope
 				try:
 					# Create slope_points directory
-					slope_points_dir = os.path.join(os.path.dirname(deflation_curve_slope_path), 'slope_points')
-					os.makedirs(slope_points_dir, exist_ok=True)
+					slope_points_dir = deflation_curve_slope_path.parent / 'slope_points'
+					slope_points_dir.mkdir(parents=True, exist_ok=True)
 					
 					# Filename: slope_points_{slope_id}_{timestamp_safe}.csv
 					ts_safe = timestamp.replace(':', '').replace(' ', '_')
 					points_filename = f"slope_points_{deflation_curve_slope_id}_{ts_safe}.csv"
-					points_path = os.path.join(slope_points_dir, points_filename)
+					points_path = slope_points_dir / points_filename
 					
 					# Get points up to idx that are NOT excluded
 					# Note: cumulative_linear_fit uses points[:i+1]
@@ -849,15 +847,15 @@ def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 csv_paths = pl.get_all_deflation_curve_paths()
 
 if filter_by_sample is not None:
-	csv_paths = [p for p in csv_paths if f"_sample{filter_by_sample}_" in os.path.basename(p)]
+	csv_paths = [p for p in csv_paths if f"_sample{filter_by_sample}_" in p.name]
 if filter_by_transfer_location is not None:
-	csv_paths = [p for p in csv_paths if f"_loc{filter_by_transfer_location}_" in os.path.basename(p)]
+	csv_paths = [p for p in csv_paths if f"_loc{filter_by_transfer_location}_" in p.name]
 if filter_by_cavity_position is not None:
-	csv_paths = [p for p in csv_paths if f"_cav{filter_by_cavity_position}" in os.path.basename(p)]
+	csv_paths = [p for p in csv_paths if f"_cav{filter_by_cavity_position}" in p.name]
 if filter_by_depressurized_date is not None:
-	csv_paths = [p for p in csv_paths if f"_depressurized{filter_by_depressurized_date}_" in os.path.basename(p)]
+	csv_paths = [p for p in csv_paths if f"_depressurized{filter_by_depressurized_date}_" in p.name]
 if filter_by_depressurized_time is not None:
-	csv_paths = [p for p in csv_paths if f"_{filter_by_depressurized_time}_" in os.path.basename(p)]
+	csv_paths = [p for p in csv_paths if f"_{filter_by_depressurized_time}_" in p.name]
 if filter_at_least_n_points:
 	filtered_paths = []
 	for p in csv_paths:
@@ -877,7 +875,7 @@ if filter_at_least_n_positive_points:
 def csv_path_to_slope_id(path):
 	# Expect filenames like:
 	# deflation_curve_sample{sample_ID}_depressurized{depressurized_date}_{depressurized_time}_loc{transfer_location}_cav{cavity_position}.csv
-	base = os.path.basename(path)
+	base = Path(path).name
 
 	# Use regex to robustly capture each component, allowing non-underscore characters for fields.
 	pat = re.compile(
@@ -902,7 +900,7 @@ def csv_path_to_slope_id(path):
 def load_saved_slopes():
 	"""Load all saved slopes into a dictionary keyed by slope_id."""
 	slopes_dict = {}
-	if not os.path.exists(deflation_curve_slope_path):
+	if not deflation_curve_slope_path.exists():
 		return slopes_dict
 	
 	try:
@@ -924,7 +922,7 @@ def load_saved_slopes():
 
 def parse_csv_metadata(path):
 	"""Extract metadata from CSV filename."""
-	base = os.path.basename(path)
+	base = Path(path).name
 	pat = re.compile(
 		r"^deflation_curve_sample(?P<sample>[^_]+)"
 		r"_depressurized(?P<date>[^_]+)_(?P<time>[^_]+)"

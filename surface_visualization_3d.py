@@ -2,7 +2,6 @@ import numpy as np
 import plotly.graph_objects as go
 
 def make_heightmap_3d_surface(image, view = False, save = False, save_filename = '3d_plot.html', cmap = 'turbo', points_list = None, paraboloids = None):
-    scan_size = image.get_scan_size()
     height_map = image.get_flat_height_retrace()
     title_prefix = "Flattened Height"
     if height_map is None:
@@ -11,11 +10,6 @@ def make_heightmap_3d_surface(image, view = False, save = False, save_filename =
 
     z_min = np.nanmin(height_map)
     z_max = np.nanmax(height_map) * 1.01 if np.nanmax(height_map) > 0 else np.nanmax(height_map) * 0.99
-
-    x_pixel_count, y_pixel_count = image.get_x_y_pixel_counts()
-
-    # Calculate y dimension based on aspect ratio
-    _, y_dimension = image.get_x_y_size()
 
     # Generate x and y coordinates with correct dimensions
     x = image.get_x_pixel_coords()  # x-coordinates in microns
@@ -99,36 +93,58 @@ def make_heightmap_3d_surface(image, view = False, save = False, save_filename =
 
 if __name__ == "__main__":
     import AFMImage
-    import os
+    from pathlib import Path
     import visualizations as vis
     import surface_analysis as sa
-    current_path = os.path.dirname(os.path.abspath(__file__))
-    image = AFMImage.AFMImage('scratch/Image0008.ibw')
 
-    res = vis.select_heights(image)
-    slots = res.get('selected_slots', [None, None])
-    extremum = slots[1]
-    extremum_z = extremum[0]
-    extremum_x = extremum[1]
-    extremum_y = extremum[2]
-    extremum_x_idx = extremum[3]
-    extremum_y_idx = extremum[4]
+    if 1:
+        current_path = Path(__file__).parent
+        image = AFMImage.AFMImage('scratch/Image0008.ibw')
 
-    paraboloid_fit_result = sa.fit_paraboloid(image.get_flat_height_retrace(), extremum_x_idx, extremum_y_idx, 1, image.get_pixel_size())
-    coefficients = paraboloid_fit_result['coefficients']
+        res = vis.select_heights(image)
+        slots = res.get('selected_slots', [None, None])
+        extremum = slots[1]
+        extremum_z = extremum[0]
+        extremum_x = extremum[1]
+        extremum_y = extremum[2]
+        extremum_x_idx = extremum[3]
+        extremum_y_idx = extremum[4]
 
-    print(f"Intersection area: {sa.paraboloid_substrate_intersection_area(coefficients['a'], coefficients['b'], coefficients['c'], coefficients['d'], coefficients['e'], coefficients['f'], slots[0][0])} um^2")
+        paraboloid_fit_result = sa.fit_paraboloid(image.get_flat_height_retrace(), extremum_x_idx, extremum_y_idx, 1, image.get_pixel_size())
+        coefficients = paraboloid_fit_result['coefficients']
 
-    res2 = vis.select_heights(image)
-    slots2 = res2.get('selected_slots', [None, None])
-    extremum2 = slots2[1]
-    extremum2_z = extremum2[0]
-    extremum2_x = extremum2[1]
-    extremum2_y = extremum2[2]
+        print(f"Intersection area: {sa.paraboloid_substrate_intersection_area(coefficients['a'], coefficients['b'], coefficients['c'], coefficients['d'], coefficients['e'], coefficients['f'], slots[0][0])} um^2")
 
-    paraboloid_fit_result2 = sa.fit_paraboloid(image.get_flat_height_retrace(), extremum2[3], extremum2[4], 1, image.get_pixel_size())
-    coefficients2 = paraboloid_fit_result2['coefficients']
+        res2 = vis.select_heights(image)
+        slots2 = res2.get('selected_slots', [None, None])
+        extremum2 = slots2[1]
+        extremum2_z = extremum2[0]
+        extremum2_x = extremum2[1]
+        extremum2_y = extremum2[2]
 
-    print(f"Intersection area: {sa.paraboloid_substrate_intersection_area(coefficients2['a'], coefficients2['b'], coefficients2['c'], coefficients2['d'], coefficients2['e'], coefficients2['f'], slots2[0][0])} um^2")
+        paraboloid_fit_result2 = sa.fit_paraboloid(image.get_flat_height_retrace(), extremum2[3], extremum2[4], 1, image.get_pixel_size())
+        coefficients2 = paraboloid_fit_result2['coefficients']
 
-    make_heightmap_3d_surface(image, view = True, save = False, points_list=[[[extremum_x],[extremum_y],[extremum_z]], [[extremum2_x],[extremum2_y],[extremum2_z]]], paraboloids=[coefficients, coefficients2])
+        print(f"Intersection area: {sa.paraboloid_substrate_intersection_area(coefficients2['a'], coefficients2['b'], coefficients2['c'], coefficients2['d'], coefficients2['e'], coefficients2['f'], slots2[0][0])} um^2")
+
+        make_heightmap_3d_surface(image, view = True, save = False, points_list=[[[extremum_x],[extremum_y],[extremum_z]], [[extremum2_x],[extremum2_y],[extremum2_z]]], paraboloids=[coefficients, coefficients2])
+    if 1:
+        from pathlib import Path
+        path_to_image = Path(r"C:\Users\chasg\OneDrive - The University of Western Ontario\MESc\Research\Experiments\expt005_250403_gas_inflations\raw_data\20260221\FlattenedData\Image0038.ibw")
+        image = AFMImage.AFMImage(str(path_to_image))
+
+        res = vis.select_heights(image)
+        slots = res.get('selected_slots', [None, None])
+        extremum = slots[1]
+        extremum_z = extremum[0]
+        extremum_x = extremum[1]
+        extremum_y = extremum[2]
+        extremum_x_idx = extremum[3]
+        extremum_y_idx = extremum[4]
+
+        paraboloid_fit_result = sa.fit_paraboloid(image.get_flat_height_retrace(), extremum_x_idx, extremum_y_idx, 1, image.get_pixel_size())
+        coefficients = paraboloid_fit_result['coefficients']
+
+        print(f"Intersection area: {sa.paraboloid_substrate_intersection_area(coefficients['a'], coefficients['b'], coefficients['c'], coefficients['d'], coefficients['e'], coefficients['f'], slots[0][0])} um^2")
+
+        make_heightmap_3d_surface(image, view = True, save = False, points_list=[[[extremum_x],[extremum_y],[extremum_z]]], paraboloids=[coefficients])

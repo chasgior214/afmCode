@@ -1,7 +1,7 @@
 editing_mode = True
 
-depressurized_date = '20260117'
-depressurized_time = '13:51:30'
+depressurized_date = '20260221'
+depressurized_time = '22:11:57'
 end_hour = None # None to not give end limit (if end_hour given and end_day not given, uses only day of depressurization up to this hour)
 end_day = None # None to not give end limit (use all files in specified folder)
 sample_ID = '53'
@@ -14,12 +14,17 @@ cavity_position = 'red'
 plot_depressurizations = [
     # (depressurized_date, depressurized_time), # Plotted by default when no others specified
 
+    # sample53 calibration curves
+    ('20260117', '13:51:30'),
+    ('20260221', '22:11:57'),
+
     # SF6 Inflations
-    ('20251227', '16:12:52'),
-    ('20260103', '14:24:35'),
-    ('20260108', '21:18:54'),
-    ('20260117', '12:59:23'),
-    ('20260203', '18:36:23'),
+    # ('20251227', '16:12:52'),
+    # ('20260103', '14:24:35'),
+    # ('20260108', '21:18:54'),
+    # ('20260117', '12:59:23'),
+    # ('20260203', '18:36:23'),
+    # ('20260221', '21:03:55'),
 
     # CO2 curves
     # ('20251008', '14:56:36'),
@@ -65,46 +70,46 @@ plot_depressurizations = [
     ]
 
 ##############################################################################
-import os
 import csv
 import re
 from datetime import datetime
+from pathlib import Path
+
 depressurized_time = depressurized_time.replace(':', '')  # 'HHMMSS' format
 depressurized_datetime = datetime.strptime(depressurized_date + depressurized_time, '%Y%m%d%H%M%S')
 
 plot_depressurizations = [(date, time.replace(':', '')) for date, time in plot_depressurizations]
 
-experiment_data_path = 'C:\\Users\\chasg\\OneDrive - The University of Western Ontario\\MESc\\Research\\Experiments\\expt005_250403_gas_inflations'
+experiment_data_path = Path(r'C:\Users\chasg\OneDrive - The University of Western Ontario\MESc\Research\Experiments\expt005_250403_gas_inflations')
 
 # raw data
-excel_action_tracker_path = experiment_data_path + '\\action_tracker.xlsx'
+excel_action_tracker_path = experiment_data_path / 'action_tracker.xlsx'
 
-afm_images_path = experiment_data_path + '\\raw_data\\'+depressurized_date+'\\FlattenedData'
+afm_images_path = experiment_data_path / 'raw_data' / depressurized_date / 'FlattenedData'
 
-pressure_logs_path = experiment_data_path + '\\raw_data\\pressure_logs\\'
+pressure_logs_path = experiment_data_path / 'raw_data' / 'pressure_logs'
 # add function(s) to point to specific pressure log files
 
 # well maps
-well_maps_path = experiment_data_path + '\\well_maps\\'
+well_maps_path = experiment_data_path / 'well_maps'
 
 # processed data - deflation curves
-deflation_curves_path = experiment_data_path + '\\data_processing\\deflation_curves'
+deflation_curves_path = experiment_data_path / 'data_processing' / 'deflation_curves'
 
 def get_deflation_curve_path(sample_ID, depressurized_date, depressurized_time, transfer_location, cavity_position):
     deflation_curve_filename = f'deflation_curve_sample{sample_ID}_depressurized{depressurized_date}_{depressurized_time}_loc{transfer_location}_cav{cavity_position}.csv'
-    return deflation_curves_path + f'\\{deflation_curve_filename}'
+    return deflation_curves_path / deflation_curve_filename
 
 deflation_curve_path = get_deflation_curve_path(sample_ID, depressurized_date, depressurized_time, transfer_location, cavity_position)
 
 def get_all_deflation_curve_paths():
     paths = []
-    for file in os.listdir(deflation_curves_path):
-        if file.endswith('.csv') and file.startswith('deflation_curve_'):
-            paths.append(os.path.join(deflation_curves_path, file))
+    for file_path in deflation_curves_path.glob('deflation_curve_*.csv'):
+        paths.append(file_path)
     return paths
 
 # processed data - deflation curve slopes
-deflation_curve_slope_path = experiment_data_path + '\\data_processing\\deflation_curve_slopes.csv'
+deflation_curve_slope_path = experiment_data_path / 'data_processing' / 'deflation_curve_slopes.csv'
 
 def get_deflation_curve_slope_id(sample_ID, depressurized_date, depressurized_time, transfer_location, cavity_position):
     depressurized_time = depressurized_time.replace(':', '')  # 'HHMMSS' format
@@ -112,7 +117,8 @@ def get_deflation_curve_slope_id(sample_ID, depressurized_date, depressurized_ti
 
 def get_slope_id_from_filename(csv_path):
     """Infer the slope ID for a CSV file based on its filename."""
-    filename = os.path.basename(csv_path)
+    csv_path = Path(csv_path)
+    filename = csv_path.name
     pattern = (
         r"deflation_curve_sample(?P<sample>[^_]+)"
         r"_depressurized(?P<date>\d{8})_(?P<time>\d+)"
@@ -132,7 +138,7 @@ def get_slope_id_from_filename(csv_path):
 def load_saved_slopes_intercepts():
     """Return a mapping of deflation curve slope IDs to slope/intercept values."""
     slope_file = deflation_curve_slope_path
-    if not os.path.exists(slope_file):
+    if not slope_file.exists():
         return {}
 
     slopes = {}

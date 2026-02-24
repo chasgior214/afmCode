@@ -8,7 +8,6 @@ import visualizations as vis
 import stitching
 import well_mapping as wm
 import csv
-import os
 from datetime import datetime
 from matplotlib.patches import Rectangle
 from matplotlib.widgets import Slider, Button
@@ -811,7 +810,7 @@ class WellPositionsReviewer:
             print("No results available within the selected time cut to export.")
             return
 
-        os.makedirs(pl.deflation_curves_path, exist_ok=True)
+        pl.deflation_curves_path.mkdir(exist_ok=True)
 
         header = [
             'Time (minutes)',
@@ -850,7 +849,7 @@ class WellPositionsReviewer:
 
             # Load existing data if file exists
             existing_entries = []
-            if os.path.exists(file_path):
+            if file_path.exists():
                 with open(file_path, mode='r', newline='') as file:
                     reader = csv.DictReader(file)
                     for row in reader:

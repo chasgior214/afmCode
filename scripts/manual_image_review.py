@@ -8,12 +8,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import visualizations as vis
 import csv
-import os
 import path_loader as pl
 
 
-def _build_initial_selections(collection, csv_path, depressurized_dt):
-    if not os.path.exists(csv_path):
+def _build_initial_selections(collection: AFMImageCollection, csv_path: Path, depressurized_dt: datetime):
+    if not csv_path.exists():
         print(f"No existing CSV at {csv_path} to preload selections from")
         return None
 
@@ -305,9 +304,9 @@ if pl.editing_mode:
     else:
         dir_path = pl.deflation_curves_path
         file_path = pl.deflation_curve_path
-        if not os.path.exists(dir_path):
-            os.makedirs(dir_path)
-        if os.path.exists(file_path):
+        if not dir_path.exists():
+            dir_path.mkdir(parents=True, exist_ok=True)
+        if file_path.exists():
             print(f"Will overwrite existing file {file_path}")
             input("Press Enter to continue...")
         with open(file_path, mode='w', newline='') as file:

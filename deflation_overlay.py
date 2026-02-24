@@ -12,8 +12,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from matplotlib.widgets import Slider
 from matplotlib.colors import Normalize
-import os
-import glob
+from pathlib import Path
 
 import path_loader as pl
 import well_mapping as wm
@@ -28,6 +27,7 @@ def load_deflation_curves(folder=None, sample_id=None, depressurized_date=None, 
     """
     if folder is None:
         folder = pl.deflation_curves_path
+    folder = Path(folder)
     if sample_id is None:
         sample_id = pl.sample_ID
     if depressurized_date is None:
@@ -39,12 +39,12 @@ def load_deflation_curves(folder=None, sample_id=None, depressurized_date=None, 
     
     # Find all CSV files matching the pattern
     pattern = f"deflation_curve_sample{sample_id}_depressurized{depressurized_date}_{depressurized_time}*.csv"
-    for csv_file in glob.glob(os.path.join(folder, pattern)):
+    for csv_file in folder.glob(pattern):
         df = pd.read_csv(csv_file)
         
         # Extract well name from filename
         # Pattern: deflation_curve_sample{}_depressurized{}_{}_{}_loc{}_{well}.csv
-        basename = os.path.basename(csv_file)
+        basename = csv_file.name
         
         # Extract well identifier encoded in the filename: ...cav{well}.csv
         if '_cav' in basename:

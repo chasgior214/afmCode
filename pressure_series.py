@@ -1,5 +1,4 @@
 import csv
-import os
 from datetime import datetime
 import path_loader as pl
 
@@ -70,19 +69,19 @@ class PressureSeries:
             end_datetime_local = datetime.max
         # filenames look like sample53_cellB_pressure_log_start2025-12-27_00-00-00.csv
         csvs_for_sample = []
-        for file in os.listdir(self.csvs_path):
+        for file in self.csvs_path.iterdir():
             # check file is csv and is for the correct sample
-            if file.startswith('sample' + self.sample_ID) and file.endswith('.csv'):
+            if file.name.startswith('sample' + self.sample_ID) and file.suffix == '.csv':
                 # extract datetime from filename: find 'start' and remove '.csv'
-                start_idx = file.find('start') + len('start')
-                file_datetime_str = file[start_idx:].replace('.csv', '')
+                start_idx = file.name.find('start') + len('start')
+                file_datetime_str = file.name[start_idx:].replace('.csv', '')
                 file_datetime = datetime.strptime(file_datetime_str, '%Y-%m-%d_%H-%M-%S')
                 # check if file start is before the end datetime
                 if file_datetime < end_datetime_local:
                     csvs_for_sample.append(file)
         pressure_time_data = []
         for csv_file in csvs_for_sample:
-            with open(os.path.join(self.csvs_path, csv_file), 'r') as f:
+            with csv_file.open('r') as f:
                 reader = csv.reader(f)
                 next(reader)  # skip header
                 for row in reader:

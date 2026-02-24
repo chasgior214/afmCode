@@ -7,18 +7,18 @@ MembraneNavigator correctly tracks all wells in a single image within tight tole
 
 import pytest
 import numpy as np
-import os
 import sys
+from pathlib import Path
 
 # Add parent directory to path for imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import AFMImage
 import membrane_relative_positions as mrp
 import well_mapping as wm
 
 # Path to test images directory (to be populated with actual test images)
-TEST_IMAGES_DIR = os.path.join(os.path.dirname(__file__), 'test_data', 'well_finding')
+TEST_IMAGES_DIR = Path(__file__).parent / 'test_data' / 'well_finding'
 
 TEST_IMAGE_CONFIGS = {
     "Image0015.ibw": {
@@ -64,8 +64,8 @@ class TestMembraneNavigatorSingleImage:
         """Load all test images with configurations."""
         images = {}
         for filename in TEST_IMAGE_CONFIGS.keys():
-            filepath = os.path.join(TEST_IMAGES_DIR, filename)
-            if os.path.exists(filepath):
+            filepath = TEST_IMAGES_DIR / filename
+            if filepath.exists():
                 images[filename] = AFMImage.AFMImage(filepath)
         return images
 
