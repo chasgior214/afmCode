@@ -124,14 +124,14 @@ if __name__ == "__main__":
     min2_values = [min_2_dimensions[gas] if gas in min_2_dimensions else 0 for gas in gases]
     Breck_values = [kinetic_diameters_Breck[gas] if gas in kinetic_diameters_Breck else 0 for gas in gases]
 
-    plt.bar(indices - 1.5*width, Breck_values, width, label='Breck')
-    plt.bar(indices - 0.5*width, [Svehla_LJ_diameters[gas] for gas in gases], width, label='Svehla LJ σ')
+    plt.bar(indices - 1.5*width, Breck_values, width, label="Breck's Kinetic Diameter")
+    plt.bar(indices - 0.5*width, [Svehla_LJ_diameters[gas] for gas in gases], width, label="Svehla's LJ σ")
     plt.bar(indices + 0.5*width, min1_values, width, label='MIN-1')
     plt.bar(indices + 1.5*width, min2_values, width, label='MIN-2')
 
     plt.xticks(indices, gases)
-    plt.ylabel('Kinetic Diameter (Å)')
-    plt.title('Comparison of Kinetic Diameters from Different Sources')
+    plt.ylabel('Characteristic Length (Å)')
+    plt.title('Comparison of Characteristic Dimension Definitions')
     plt.legend()
     plt.show()
 
@@ -141,8 +141,8 @@ if __name__ == "__main__":
     svehla_diameters = [Svehla_LJ_diameters[gas] for gas in gases if gas in Svehla_LJ_diameters]
     Breck_mw = [molecular_weights[gas] for gas in gases if gas in kinetic_diameters_Breck]
     Breck_diameters = [kinetic_diameters_Breck[gas] for gas in gases if gas in kinetic_diameters_Breck]
-    plt.scatter(svehla_mw, svehla_diameters, label='Svehla LJ σ', color='blue', marker='x')
-    plt.scatter(Breck_mw, Breck_diameters, label='Breck', color='orange', marker='+')
+    plt.scatter(svehla_mw, svehla_diameters, label="Svehla's LJ σ", color='blue', marker='x')
+    plt.scatter(Breck_mw, Breck_diameters, label="Breck's Kinetic Diameter", color='orange', marker='+')
     ax = plt.gca()
     # Sort gases by molecular weight to handle overlapping labels
     sorted_gases = sorted(gases, key=lambda g: molecular_weights.get(g, 0))
