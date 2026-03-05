@@ -296,51 +296,51 @@ for idx in sorted(selections.keys()):
 print(deflections)
 print(times)
 
+if len(deflections) == 0:
+    print("No deflection data; ending program")
+    quit()
+
 # save to CSV
 if pl.editing_mode:
-    # only save if there is data
-    if len(deflections) == 0:
-        print("No deflection data to save; skipping CSV export")
-    else:
-        dir_path = pl.deflation_curves_path
-        file_path = pl.deflation_curve_path
-        if not dir_path.exists():
-            dir_path.mkdir(parents=True, exist_ok=True)
-        if file_path.exists():
-            print(f"Will overwrite existing file {file_path}")
-            input("Press Enter to continue...")
-        with open(file_path, mode='w', newline='') as file:
-            writer = csv.writer(file)
+    dir_path = pl.deflation_curves_path
+    file_path = pl.deflation_curve_path
+    if not dir_path.exists():
+        dir_path.mkdir(parents=True, exist_ok=True)
+    if file_path.exists():
+        print(f"Will overwrite existing file {file_path}")
+        input("Press Enter to continue...")
+    with open(file_path, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow([
+            'Time (minutes)',
+            'Deflection (nm)',
+            'Point 1 X Pixel',
+            'Point 1 Y Pixel',
+            'Point 1 X (um)',
+            'Point 1 Y (um)',
+            'Point 1 Z (nm)',
+            'Point 2 X Pixel',
+            'Point 2 Y Pixel',
+            'Point 2 X (um)',
+            'Point 2 Y (um)',
+            'Point 2 Z (nm)'
+        ])
+        for (t, d, (p1x, p1y, p2x, p2y),
+                (p1x_um, p1y_um, p1z_nm, p2x_um, p2y_um, p2z_nm)) in zip(times, deflections, pixel_coords, physical_coords):
             writer.writerow([
-                'Time (minutes)',
-                'Deflection (nm)',
-                'Point 1 X Pixel',
-                'Point 1 Y Pixel',
-                'Point 1 X (um)',
-                'Point 1 Y (um)',
-                'Point 1 Z (nm)',
-                'Point 2 X Pixel',
-                'Point 2 Y Pixel',
-                'Point 2 X (um)',
-                'Point 2 Y (um)',
-                'Point 2 Z (nm)'
+                t,
+                d,
+                p1x,
+                p1y,
+                p1x_um,
+                p1y_um,
+                p1z_nm,
+                p2x,
+                p2y,
+                p2x_um,
+                p2y_um,
+                p2z_nm,
             ])
-            for (t, d, (p1x, p1y, p2x, p2y),
-                 (p1x_um, p1y_um, p1z_nm, p2x_um, p2y_um, p2z_nm)) in zip(times, deflections, pixel_coords, physical_coords):
-                writer.writerow([
-                    t,
-                    d,
-                    p1x,
-                    p1y,
-                    p1x_um,
-                    p1y_um,
-                    p1z_nm,
-                    p2x,
-                    p2y,
-                    p2x_um,
-                    p2y_um,
-                    p2z_nm,
-                ])
 
 # plot deflection vs time
 plt.scatter(times, deflections)

@@ -1,7 +1,7 @@
 editing_mode = True
 
-depressurized_date = '20260221'
-depressurized_time = '22:11:57'
+depressurized_date = '20260303'
+depressurized_time = '22:21:14'
 end_hour = None # None to not give end limit (if end_hour given and end_day not given, uses only day of depressurization up to this hour)
 end_day = None # None to not give end limit (use all files in specified folder)
 sample_ID = '53'
@@ -17,6 +17,8 @@ plot_depressurizations = [
     # sample53 calibration curves
     ('20260117', '13:51:30'),
     ('20260221', '22:11:57'),
+    ('20260301', '14:05:11'),
+    ('20260303', '22:21:14'),
 
     # SF6 Inflations
     # ('20251227', '16:12:52'),
