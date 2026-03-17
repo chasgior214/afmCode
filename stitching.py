@@ -205,7 +205,7 @@ if __name__ == '__main__':
             ax.set_title(f"Mode: {mode}")
             continue
             
-        im = ax.imshow(stitched_data, extent=extent, origin='lower', cmap='viridis', vmin=global_min, vmax=global_max)
+        im = ax.imshow(stitched_data, extent=extent, origin='lower', cmap='turbo', vmin=global_min, vmax=global_max)
         ax.set_title(f"Mode: {mode}")
         ax.set_xlabel("X (um)")
         ax.set_ylabel("Y (um)")
@@ -217,7 +217,7 @@ if __name__ == '__main__':
 
     # show just the earliest image
     fig, ax = plt.subplots(1, 1, figsize=(18, 6))
-    ax.imshow(results[2][1], extent=results[2][2], origin='lower', cmap='viridis', vmin=global_min, vmax=global_max)
+    ax.imshow(results[2][1], extent=results[2][2], origin='lower', cmap='turbo', vmin=global_min, vmax=global_max)
     ax.set_title("Mode: earliest")
     ax.set_xlabel("X (um)")
     ax.set_ylabel("Y (um)")

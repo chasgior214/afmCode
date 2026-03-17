@@ -115,6 +115,7 @@ for idx, entry in enumerate(csv_entries):
     df['Time to plot'] = df['Time (minutes)']
     if x_scale == 'hours':
         df['Time to plot'] = df['Time (minutes)'] / 60.0
+    legend_label = csv_file.stem.removeprefix('deflation_curve_')
     if plot_type == 'scatter':
         if len({entry['target_idx'] for entry in csv_entries}) == 1: # all same depressurization
             marker = markers[(idx // 10) % len(markers)] # cycle through markers every 10 files
@@ -122,13 +123,13 @@ for idx, entry in enumerate(csv_entries):
             marker = markers[entry['target_idx'] % len(markers)]
         if marker in ['x', '+']:
             plt.scatter(df['Time to plot'], df['Deflection (nm)'],
-                        label=csv_file.name, color=colors[idx % len(colors)], s=60, marker=marker)
+                        label=legend_label, color=colors[idx % len(colors)], s=60, marker=marker)
         else:
             plt.scatter(df['Time to plot'], df['Deflection (nm)'],
-                        label=csv_file.name, color=colors[idx % len(colors)], s=60, marker=marker, facecolors='none')
+                        label=legend_label, color=colors[idx % len(colors)], s=60, marker=marker, facecolors='none')
     elif plot_type == 'line':
         plt.plot(df['Time to plot'], df['Deflection (nm)'],
-                 label=csv_file.name, color=colors[idx % len(colors)], linewidth=1.5)
+                 label=legend_label, color=colors[idx % len(colors)], linewidth=1.5)
 
     slope_id = pl.get_slope_id_from_filename(csv_file)
     if slope_id and slope_id in saved_slopes:
