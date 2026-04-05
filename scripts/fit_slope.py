@@ -1,10 +1,11 @@
-filter_by_sample = '37' # set to None to disable filtering
-filter_by_transfer_location = '$(6,3)' # set to None to disable filtering
-filter_by_cavity_position = None # set to None to disable filtering
-filter_by_depressurized_date = None # set to None to disable filtering, or 'YYYYMMDD' string
-filter_by_depressurized_time = None # set to None to disable filtering, or 'HHMMSS' string
-filter_at_least_n_points = 2  # if an integer n, only show CSVs with at least n data points
-filter_at_least_n_positive_points = 2  # if an integer n, only show CSVs with at least n positive deflection points
+# Set any filter to None to disable it
+filter_by_sample = '37'
+filter_by_transfer_location = '$(6,3)'
+filter_by_cavity_position = None
+filter_by_depressurized_date = None # 'YYYYMMDD' string
+filter_by_depressurized_time = None # 'HHMMSS' string
+filter_at_least_n_points = None  # integer n, only show CSVs with at least n data points
+filter_at_least_n_positive_points = 2  # integer n, only show CSVs with at least n positive deflection points
 
 ##############################################################################
 import sys
@@ -20,9 +21,7 @@ import tkinter as tk
 from tkinter import ttk
 
 import path_loader as pl
-csv_path = pl.deflation_curve_path
 deflation_curve_slope_path = pl.deflation_curve_slope_path
-from path_loader import get_deflation_curve_slope_id
 
 def load_csv(path):
 	times = []
@@ -895,7 +894,7 @@ def csv_path_to_slope_id(path):
 	cavity_position = m.group('cav')
 
 	# call existing helper to get slope id
-	return get_deflation_curve_slope_id(sample_ID, depressurized_date, depressurized_time, transfer_location, cavity_position)
+	return pl.get_deflation_curve_slope_id(sample_ID, depressurized_date, depressurized_time, transfer_location, cavity_position)
 
 def load_saved_slopes():
 	"""Load all saved slopes into a dictionary keyed by slope_id."""

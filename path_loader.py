@@ -1,10 +1,10 @@
 editing_mode = True
 
-depressurized_date = '20260315'
-depressurized_time = '19:55:13'
+depressurized_date = '20260404'
+depressurized_time = '14:38:46'
 end_hour = None # None to not give end limit (if end_hour given and end_day not given, uses only day of depressurization up to this hour)
 end_day = None # None to not give end limit (use all files in specified folder)
-sample_ID = '53'
+sample_ID = '37'
 transfer_location = 'o(5,1)'
 if sample_ID == '37': transfer_location = '$(6,3)'
 if sample_ID == '43': transfer_location = 'o(3,8)'
@@ -21,6 +21,7 @@ plot_depressurizations = [
     ('20260303', '22:21:14'),
     ('20260308', '21:18:24'),
     ('20260315', '19:55:13'),
+    ('20260404', '13:31:36'),
 
     # SF6 Inflations
     # ('20251227', '16:12:52'),
@@ -29,6 +30,7 @@ plot_depressurizations = [
     # ('20260117', '12:59:23'),
     # ('20260203', '18:36:23'),
     # ('20260221', '21:03:55'),
+    # ('20260404', '14:38:46'),
 
     # CO2 curves
     # ('20251008', '14:56:36'),

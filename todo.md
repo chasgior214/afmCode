@@ -27,6 +27,7 @@ general code cleanup/some refactoring, documentation
 - Check accuracy by comparing results of both an H2 and a long one to what I got previously
 - Add test for finding algorithm across a large series of images with known well locations, should find them all with tight tolerance
 - look again at if fit window not including the vertex can be used to reject fits. Using it caused problems before
+- Try doing paraboloid fit only on pixels with <85 phase and again only on pixels >95 phase when there's phase hopping present
 
 ## Inadmissible solutions
 - If there is no point in the image data within ~5 nm of the vertex (play with the exact number), reject it (root sum of squares → need to convert x/y to nm from um)
