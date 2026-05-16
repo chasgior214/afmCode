@@ -1,5 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import csv
+from datetime import datetime
+from matplotlib.patches import Rectangle
+from matplotlib.widgets import Slider, Button
+from matplotlib.colors import is_color_like
+
 import AFMImage
 import AFMImageCollection
 import surface_analysis as sa
@@ -7,11 +13,6 @@ import path_loader as pl
 import visualizations as vis
 import stitching
 import well_mapping as wm
-import csv
-from datetime import datetime
-from matplotlib.patches import Rectangle
-from matplotlib.widgets import Slider, Button
-from matplotlib.colors import is_color_like
 
 # Image Filtering Configuration
 # Set any of these to filter which images are processed:

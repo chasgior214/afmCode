@@ -1,36 +1,40 @@
 editing_mode = True
 
-depressurized_date = '20260404'
-depressurized_time = '14:38:46'
+depressurized_date = '20260424'
+depressurized_time = '22:24:29'
 end_hour = None # None to not give end limit (if end_hour given and end_day not given, uses only day of depressurization up to this hour)
 end_day = None # None to not give end limit (use all files in specified folder)
 sample_ID = '37'
 transfer_location = 'o(5,1)'
 if sample_ID == '37': transfer_location = '$(6,3)'
 if sample_ID == '43': transfer_location = 'o(3,8)'
-cavity_position = 'red'
+cavity_position = 'blue'
 
 # Additional depressurization date/time combinations can be added to this list to plot multiple datasets at once (see plot_curves.py)
 plot_depressurizations = [
     # (depressurized_date, depressurized_time), # Plotted by default when no others specified
 
     # sample53 calibration curves
-    ('20260117', '13:51:30'),
-    ('20260221', '22:11:57'),
-    ('20260301', '14:05:11'),
-    ('20260303', '22:21:14'),
-    ('20260308', '21:18:24'),
-    ('20260315', '19:55:13'),
-    ('20260404', '13:31:36'),
+    # ('20260117', '13:51:30'),
+    # ('20260221', '22:11:57'),
+    # ('20260301', '14:05:11'),
+    # ('20260303', '22:21:14'),
+    # ('20260308', '21:18:24'),
+    # ('20260315', '19:55:13'),
+    # ('20260404', '13:31:36'),
+    # ('20260411', '15:02:55'),
 
     # SF6 Inflations
-    # ('20251227', '16:12:52'),
-    # ('20260103', '14:24:35'),
-    # ('20260108', '21:18:54'),
-    # ('20260117', '12:59:23'),
-    # ('20260203', '18:36:23'),
-    # ('20260221', '21:03:55'),
-    # ('20260404', '14:38:46'),
+    ('20251227', '16:12:52'),
+    ('20260103', '14:24:35'),
+    ('20260108', '21:18:54'),
+    ('20260117', '12:59:23'),
+    ('20260203', '18:36:23'),
+    ('20260221', '21:03:55'),
+    ('20260404', '14:38:46'),
+    ('20260405', '19:09:01'),
+    ('20260411', '17:07:16'),
+    ('20260424', '22:24:29'),
 
     # CO2 curves
     # ('20251008', '14:56:36'),

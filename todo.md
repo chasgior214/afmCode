@@ -7,6 +7,7 @@ general code cleanup/some refactoring, documentation
 - keep modularizing
     - membrane_relative_positions is a good next target
         - UI should be in a separate module from the automated tracking algorithm
+    - better folder structure (ex AFMImage.py and gas_constants.py should be in different folders)
 - make it simpler to find all the depressurizations, sorted/filtered by sample, gas, time, wells captured, etc
     - implement it into plot_recent_deflation_curve_slopes instead of the current workaround
     - would be nice to just tell it to show me all of the deflations of a certain gas instead of manually looking up the depressurization dates/times in Excel
