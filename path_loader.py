@@ -1,7 +1,7 @@
 editing_mode = True
 
-depressurized_date = '20260424'
-depressurized_time = '22:24:29'
+depressurized_date = '20260516'
+depressurized_time = '13:56:07'
 end_hour = None # None to not give end limit (if end_hour given and end_day not given, uses only day of depressurization up to this hour)
 end_day = None # None to not give end limit (use all files in specified folder)
 sample_ID = '37'
@@ -35,6 +35,7 @@ plot_depressurizations = [
     ('20260405', '19:09:01'),
     ('20260411', '17:07:16'),
     ('20260424', '22:24:29'),
+    ('20260516', '13:56:07'),
 
     # CO2 curves
     # ('20251008', '14:56:36'),

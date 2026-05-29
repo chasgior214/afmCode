@@ -173,7 +173,8 @@ class MembraneNavigator:
                         height_map,
                         rel_x,
                         rel_y,
-                        pixel_size
+                        pixel_size,
+                        fit_window_diameter=1.8,
                     )
 
                 if fit_result:

@@ -96,8 +96,9 @@ class AFMImage:
             if index is not None:
                 return np.rot90(self.wave_data[:, :, index], k=1) * unit_conversion
             elif channel_name is not None:
-                if channel_name in self.channel_names:
-                    index = self.channel_names.index(channel_name)
+                if channel_name not in self.channel_names:
+                    return None
+                index = self.channel_names.index(channel_name)
                 return np.rot90(self.wave_data[:, :, index], k=1) * unit_conversion
         return None
 

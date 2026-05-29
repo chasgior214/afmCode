@@ -17,10 +17,10 @@ x_scale = 'minutes'
 
 # List of substrings to filter filenames. Empty list = no filtering.
 filter_substrings = [
-    # 'blue', 'red'
+    'blue', 'red'
     # 'green', 'orange', 'black'
     # '(6, 2)'
-    '(3, 9)', '(6, 6)', '(5, 5)'
+    # '(3, 9)', '(6, 6)', '(5, 5)'
 ]
 # Filter settings
 filter_at_least_n_points = 0  # if positive integer n, only show CSVs with at least n data points
@@ -106,7 +106,7 @@ _all_x_vals = []
 _all_y_vals = []
 
 # Plot each CSV as a scatter plot
-markers = ['x', '*', '+', 'o', 's', '^', '>', 'd']
+markers = ['x', '*', '+', 'o', 's', '^', '>', '<', 'v', 'd', 'p', 'h']
 
 for idx, entry in enumerate(csv_entries):
     csv_file = entry['path']
