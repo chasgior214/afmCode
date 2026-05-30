@@ -13,6 +13,7 @@ import path_loader as pl
 import visualizations as vis
 import stitching
 import well_mapping as wm
+from gui_components import maximize_matplotlib_window
 
 # Image Filtering Configuration
 # Set any of these to filter which images are processed:
@@ -312,15 +313,7 @@ class WellPositionsReviewer:
         plt.show(block=False)
         # Maximize the window if possible
         # Done after show() to ensure the window handle exists
-        plt.pause(0.02)
-        manager = plt.get_current_fig_manager()
-        try:
-            manager.window.showMaximized()
-        except Exception:
-            try:
-                manager.window.state('zoomed')
-            except Exception:
-                pass
+        maximize_matplotlib_window(pause_seconds=0.02)
         self.fig.canvas.start_event_loop()
 
     def refresh_data(self):

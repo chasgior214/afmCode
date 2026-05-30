@@ -2,6 +2,34 @@ import numpy as np
 from matplotlib import patches
 import matplotlib.pyplot as plt
 
+def maximize_matplotlib_window(pause_seconds=0):
+    """Maximize the current Matplotlib window.
+
+    Matplotlib exposes backend-specific window objects, so maximizing requires
+    trying the common APIs used by Qt, Tk, and Wx backends. Unsupported backends
+    are ignored so plots still display normally.
+
+    Parameters
+    ----------
+    pause_seconds : float, optional
+        If provided, briefly pause before accessing the manager. This is useful
+        after ``plt.show(block=False)`` so the GUI backend has time to create the
+        native window handle.
+    """
+    plt.pause(pause_seconds)
+    manager = plt.get_current_fig_manager()
+
+    maximize_attempts = (
+        lambda: manager.window.showMaximized(),
+        lambda: manager.window.state('zoomed'),
+        lambda: manager.frame.Maximize(True),
+    )
+    for maximize in maximize_attempts:
+        try:
+            maximize()
+        except Exception:
+            continue
+
 class DualHandleSlider:
     """A two-ended slider widget for selecting a numeric range.
 

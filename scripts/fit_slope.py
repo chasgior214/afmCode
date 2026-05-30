@@ -20,6 +20,7 @@ import re
 import tkinter as tk
 from tkinter import ttk
 
+from gui_components import maximize_matplotlib_window
 import path_loader as pl
 deflation_curve_slope_path = pl.deflation_curve_slope_path
 
@@ -820,15 +821,7 @@ def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 	plt.tight_layout()
 	
 	# Maximize the window
-	try:
-		manager = plt.get_current_fig_manager()
-		manager.window.state('zoomed')  # For TkAgg backend
-	except Exception:
-		try:
-			manager = plt.get_current_fig_manager()
-			manager.window.showMaximized()  # For Qt backends
-		except Exception:
-			pass  # If maximizing fails, just show normally
+	maximize_matplotlib_window()
 	
 	# Trigger initial update if we have a selection or warning
 	if initial_selected_idx is not None or warning_msg:

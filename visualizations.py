@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button
 from matplotlib import patches
-from gui_components import DualHandleSlider
+from gui_components import DualHandleSlider, maximize_matplotlib_window
 import surface_analysis as sa
 
 def select_heights(image, initial_line_height=0, initial_selected_slots=None):
@@ -1309,15 +1309,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
 
     # Maximize the window if possible
     # Done after show() to ensure the window handle exists
-    plt.pause(0.02)
-    manager = plt.get_current_fig_manager()
-    try:
-        manager.window.showMaximized()
-    except Exception:
-        try:
-            manager.window.state('zoomed')
-        except Exception:
-            pass
+    maximize_matplotlib_window(pause_seconds=0.02)
     fig.canvas.start_event_loop()
 
     if aborted:

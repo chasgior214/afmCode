@@ -1,4 +1,3 @@
-from AFMImage import AFMImage
 import matplotlib.pyplot as plt
 from pathlib import Path
 import re
@@ -6,8 +5,11 @@ import numpy as np
 import pandas as pd
 import tkinter as tk
 from tkinter import ttk, messagebox
-import visualizations as vis
 from datetime import datetime
+
+from AFMImage import AFMImage
+import visualizations as vis
+from gui_components import maximize_matplotlib_window
 
 class AFMImageCollection:
     def __init__(self, folder_path: Path|str, start_datetime=None, end_datetime=None):
@@ -176,17 +178,7 @@ class AFMImageCollection:
                 axes[1].set_title("Phase values less than 90 are set to 0")
 
                 cid = fig.canvas.mpl_connect('button_press_event', lambda event: on_click(event, image))
-                mng = plt.get_current_fig_manager()
-                try:
-                    mng.window.state('zoomed')  # For TkAgg backend on Windows
-                except AttributeError:
-                 try:
-                    mng.window.showMaximized()  # For Qt5Agg backend
-                 except AttributeError:
-                    try:
-                        mng.frame.Maximize(True)  # For WxAgg backend
-                    except AttributeError:
-                        print("Maximization not supported on this backend.")
+                maximize_matplotlib_window()
                 plt.show()
         
         if rejected_images:
