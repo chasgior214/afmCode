@@ -65,7 +65,7 @@ def select_heights(image, initial_line_height=0, initial_selected_slots=None):
     aborted = False  # Set True when user presses Tab to cancel/exit
 
     image_axes = []  # Filled after axes are created; used for syncing/indicators
-    paraboloid_window_um = 1.0  # Default diameter in microns for circular fit region
+    paraboloid_window_um = 1.8  # Default diameter in microns for circular fit region
     paraboloid_fit_info = None
     paraboloid_slider = None
     paraboloid_vertex_text = None

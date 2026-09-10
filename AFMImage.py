@@ -359,6 +359,9 @@ class AFMImage:
         return self._extract_parameter('FileName')
     
     # If I have a need to check if a channel was saved raw or flattened, look for FlattenOrder {channel_index} in the note.
+        # -1 means no flattening, 4 is histo flatten, 0 through 3 are for nth order line flattening
+        # If flattened during save, it also saves enough data to recover the raw data by undoing the flattening with "ultra restore"
+        # Could raise a warning if the raw image channel has a flattening order >-1
 
     ## Helper method to extract parameters from the note
     def _extract_parameter(self, key, alternative_keys=None):

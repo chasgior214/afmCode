@@ -21,6 +21,17 @@ general code cleanup/some refactoring, documentation
 
 # Well Locator Improvement Plan
 ## Next Steps
+- IDEA FOR NEXT WAY TO DO BETTER
+    0. Fit a plane to the (flattened image's) substrate?
+    1. Find mask of deviations > 5 nm from substrate
+    2. Find the circles of the proper area which best fit the mask
+    3. Have it take the area integral of the (signed) height above/below the substrate within the circle
+    4. Find the equivalent peak height for a paraboloid with that volume
+        - Hopefully makes it so the intermediate heights where it’s not a nice praboloid can be used in analysis, and also work for wells whose bulge is slightly oblong like red's
+    - If multiple wells are/should be in an image, can add additional constraints on relative positions of circle centres. Can include wells that aren’t part of the “map” and wells that are partly out of or even mostly out of the image
+    - How to deal with wells not fully in an image?
+        - If more than some given portion is in the image, could check if what is in view is symmetrical to a given degree, and if so use a mirror of the visible portion as a substitute for what's out of frame
+    - Compare to current method: if for clean images it gives nearly identical results to current method, how well it does with no user input after the first well, etc
 - Pick when to ask for user input. Don't want it to fail silently on skipping wells it should get points for
 - Check that the ellipse described by the paraboloid fit is roughly circular
 - Try using c term in paraboloid fit to reject fits with low rotational symmetry
@@ -109,6 +120,7 @@ Don’t hesitate to raise failures. I’ll learn from why they happened and eith
 # Other Improvements
 - incorporate well mapping to stitching to account for drift
 - ability to show movie of deflation over time (with both interpolated and just raw data as options)
+- add calculation of permeation coefficients
 
 # To Organize
 

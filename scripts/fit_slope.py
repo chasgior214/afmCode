@@ -1,6 +1,11 @@
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 # Set any filter to None to disable it
-filter_by_sample = '37'
-filter_by_transfer_location = '$(6,3)'
+import path_loader as pl
+filter_by_sample = pl.sample_ID # '37'
+filter_by_transfer_location = pl.transfer_location # '$(6,3)'
 filter_by_cavity_position = None
 filter_by_depressurized_date = None # 'YYYYMMDD' string
 filter_by_depressurized_time = None # 'HHMMSS' string
@@ -8,9 +13,6 @@ filter_at_least_n_points = None  # integer n, only show CSVs with at least n dat
 filter_at_least_n_positive_points = 2  # integer n, only show CSVs with at least n positive deflection points
 
 ##############################################################################
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import csv
 import numpy as np
@@ -21,7 +23,6 @@ import tkinter as tk
 from tkinter import ttk
 
 from gui_components import maximize_matplotlib_window
-import path_loader as pl
 deflation_curve_slope_path = pl.deflation_curve_slope_path
 
 def load_csv(path):
@@ -821,7 +822,7 @@ def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 	plt.tight_layout()
 	
 	# Maximize the window
-	maximize_matplotlib_window()
+	maximize_matplotlib_window(0.02)
 	
 	# Trigger initial update if we have a selection or warning
 	if initial_selected_idx is not None or warning_msg:

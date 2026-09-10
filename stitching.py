@@ -1,14 +1,14 @@
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
-from AFMImage import compute_x_pixel_coords, compute_y_pixel_coords
+from AFMImage import AFMImage, compute_x_pixel_coords, compute_y_pixel_coords
 from datetime import datetime
 
-def stitch_maps(images, pixel_size=None, overlap_mode='average'):
+def stitch_maps(images: list[AFMImage], pixel_size=None, overlap_mode='average'):
     """
     Stitch together multiple AFM maps into a single large map.
 
     Args:
-        images (list): List of AFMImage objects.
+        images (list[AFMImage]): List of AFMImage objects.
         pixel_size (float, optional): Pixel size in microns. If None, uses median of inputs.
         overlap_mode (str): Strategy for overlapping regions.
             'average': Average values.
@@ -163,7 +163,7 @@ if __name__ == '__main__':
     # Load images
     print("Loading images...")
     collection = AFMImageCollection.AFMImageCollection(pl.afm_images_path, pl.depressurized_datetime)
-    filtered_collection = collection.filter_images(image_range='0002-0008')
+    filtered_collection = collection.filter_images(image_range='0000-9999')
     images = filtered_collection.images
     print(f"Stitching {images[0].bname} to {images[-1].bname}")
 

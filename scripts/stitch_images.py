@@ -1,0 +1,2 @@
+# TODO make stitching.py contain the logic for stitching, have this script for setting the inputs in a few variables and running it
+# default to stich is what's in path_loader for path and depressurized_datetime
