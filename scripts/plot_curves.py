@@ -7,24 +7,27 @@ import matplotlib.pyplot as plt
 
 import path_loader as pl
 
-# Plot options
+#########################################################################################################################
+# Plot options. Set list of depressurizations to plot in path_loader.py (plot_depressurizations variable)
 plot_type = 'scatter'
-# plot_type = 'line'
+plot_type = 'line'
 
-show_legend = 1
+show_legend = 0
 x_scale = 'hours'
-x_scale = 'minutes'
+# x_scale = 'minutes'
 
 # List of substrings to filter filenames. Empty list = no filtering.
 filter_substrings = [
-    'blue', 'red'
+    # 'blue', 'red',
     # 'green', 'orange', 'black'
+    # 'red'
     # '(6, 2)'
     # '(3, 9)', '(6, 6)', '(5, 5)'
 ]
 # Filter settings
 filter_at_least_n_points = 0  # if positive integer n, only show CSVs with at least n data points
 filter_at_least_n_positive_points = 0  # if positive integer n, only show CSVs with at least n positive deflection points
+#########################################################################################################################
 
 # Folder containing the CSV files
 folder = pl.deflation_curves_path

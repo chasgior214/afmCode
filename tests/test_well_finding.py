@@ -1,8 +1,8 @@
 """
-Tests for MembraneNavigator well tracking within a single image.
+Tests for track_wells well tracking within a single image.
 
 These tests verify that given a well map and initial well position,
-MembraneNavigator correctly tracks all wells in a single image within tight tolerances.
+track_wells correctly tracks all wells in a single image within a tolerance.
 """
 
 import pytest
@@ -46,18 +46,13 @@ XY_TOLERANCE_UM = 0.2  # tolerance for x/y position
 DEFLECTION_TOLERANCE_NM = 20.0  # tolerance for deflection
 
 
-class TestMembraneNavigatorSingleImage:
+class TestTrackWellsSingleImage:
     """
-    Test suite for MembraneNavigator.track_wells on a single image.
+    Test suite for track_wells on a single image.
     
-    Tests that given an initial well position and well map, the navigator
+    Tests that given an initial well position and well map, track_wells
     correctly finds all wells visible in the image within tolerance.
     """
-
-    @pytest.fixture
-    def navigator(self):
-        """Create a MembraneNavigator instance."""
-        return mrp.MembraneNavigator()
 
     @pytest.fixture
     def test_images(self):
@@ -69,9 +64,9 @@ class TestMembraneNavigatorSingleImage:
                 images[filename] = AFMImage.AFMImage(filepath)
         return images
 
-    def test_tracks_all_wells_in_single_image(self, navigator, test_images):
+    def test_tracks_all_wells_in_single_image(self, test_images):
         """
-        Verify that MembraneNavigator finds all expected wells in a single image.
+        Verify that track_wells finds all expected wells in a single image.
         
         For each test image:
         1. Run track_wells with the initial well position
@@ -89,7 +84,7 @@ class TestMembraneNavigatorSingleImage:
             expected_wells = config["expected_wells"]
             
             # Run track_wells on single image
-            results = navigator.track_wells(
+            results = mrp.track_wells(
                 image_collection=[image],
                 initial_well_name=initial_well,
                 initial_well_coords=well_map[initial_well],
@@ -144,9 +139,9 @@ class TestMembraneNavigatorSingleImage:
                     f"error = {deflection_error:.1f} nm"
                 )
 
-    def test_no_missing_wells(self, navigator, test_images):
+    def test_no_missing_wells(self, test_images):
         """
-        Verify the navigator doesn't miss any expected wells.
+        Verify the track_wells function doesn't miss any expected wells.
         """
         missing_wells = []
         
@@ -160,7 +155,7 @@ class TestMembraneNavigatorSingleImage:
             initial_pos = config["initial_well_position"]
             expected_wells = config["expected_wells"]
             
-            results = navigator.track_wells(
+            results = mrp.track_wells(
                 image_collection=[image],
                 initial_well_name=initial_well,
                 initial_well_coords=well_map[initial_well],
@@ -175,11 +170,11 @@ class TestMembraneNavigatorSingleImage:
                     missing_wells.append((filename, well_name))
         
         assert len(missing_wells) == 0, (
-            f"Navigator missed {len(missing_wells)} expected wells:\n" +
+            f"track_wells missed {len(missing_wells)} expected wells:\n" +
             "\n".join(f"  {fn}: '{well}'" for fn, well in missing_wells)
         )
 
-    def test_accuracy_statistics(self, navigator, test_images):
+    def test_accuracy_statistics(self, test_images):
         """
         Compute and report accuracy statistics across all test wells.
         """
@@ -195,7 +190,7 @@ class TestMembraneNavigatorSingleImage:
             initial_pos = config["initial_well_position"]
             expected_wells = config["expected_wells"]
             
-            results = navigator.track_wells(
+            results = mrp.track_wells(
                 image_collection=[image],
                 initial_well_name=initial_well,
                 initial_well_coords=well_map[initial_well],
@@ -220,7 +215,7 @@ class TestMembraneNavigatorSingleImage:
         if errors:
             xy_errors = [e['xy'] for e in errors]
             deflection_errors = [e['deflection'] for e in errors]
-            print(f"\nMembraneNavigator accuracy statistics:")
+            print(f"\ntrack_wells accuracy statistics:")
             print(f"  XY         - Mean: {np.mean(xy_errors):.4f} μm, Max: {np.max(xy_errors):.4f} μm, Std: {np.std(xy_errors):.4f} μm")
             print(f"  Deflection - Mean: {np.mean(deflection_errors):.1f} nm, Max: {np.max(deflection_errors):.1f} nm, Std: {np.std(deflection_errors):.1f} nm")
             print(f"  Total wells tested: {len(errors)}")

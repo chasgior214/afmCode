@@ -4,9 +4,11 @@ general code cleanup/some refactoring, documentation
 - update to igor2?
     - currently have to change "1:_numpy.complex" to "1:complex" on line 110 on install due to being out of date
     - ain't broke don't fix it?
+    - if I do, confirm exact same results
 - keep modularizing
     - membrane_relative_positions is a good next target
         - UI should be in a separate module from the automated tracking algorithm
+            - and can have the user use it from a script in the scripts dir
     - better folder structure (ex AFMImage.py and gas_constants.py should be in different folders)
 - make it simpler to find all the depressurizations, sorted/filtered by sample, gas, time, wells captured, etc
     - implement it into plot_recent_deflation_curve_slopes instead of the current workaround
@@ -15,14 +17,13 @@ general code cleanup/some refactoring, documentation
 # New Pressure Logger
 - Make PressureSeries hold more metadata (what time period it was in which cell, gas, etc)
     - Connect it to Excel integration
-- Make functions to plot the pressures in a PressureSeries over time
 - Test what happens if the Arduino is unplugged while logging
 - predictions for what pressure will level off to when cell left attached to gas tank
 
 # Well Locator Improvement Plan
 ## Next Steps
 - IDEA FOR NEXT WAY TO DO BETTER
-    0. Fit a plane to the (flattened image's) substrate?
+    0. Fit a plane to the (flattened image's) substrate
     1. Find mask of deviations > 5 nm from substrate
     2. Find the circles of the proper area which best fit the mask
     3. Have it take the area integral of the (signed) height above/below the substrate within the circle
@@ -40,6 +41,7 @@ general code cleanup/some refactoring, documentation
 - Add test for finding algorithm across a large series of images with known well locations, should find them all with tight tolerance
 - look again at if fit window not including the vertex can be used to reject fits. Using it caused problems before
 - Try doing paraboloid fit only on pixels with <85 phase and again only on pixels >95 phase when there's phase hopping present
+- Could find wells without user saying which is which if the wells in the images are all (or even the only possible set the could be) of the ones in the well map
 
 ## Inadmissible solutions
 - If there is no point in the image data within ~5 nm of the vertex (play with the exact number), reject it (root sum of squares → need to convert x/y to nm from um)
@@ -55,6 +57,7 @@ There's many other checks I could add (both to be used on new images and to vali
 - Can use some of the things I've implemented in the automated well finding to validate older results
 - A given positive deflection should mean at least a given "volume" is above the substrate (and a negative volume "removed" from the substrate for negative deflections)
 - No saved points are outside the image xy bounds (or at least within a very small margin of them)
+- Can I do some uncertainty analysis by using both the trace and retrace?
 
 ## Better Vertex Finding Algorithm
 - When multiple wells present in the same image, check that they are, within a tight margin (0.5 um to start), found to be within where they’d each predict the others to be
@@ -121,6 +124,7 @@ Don’t hesitate to raise failures. I’ll learn from why they happened and eith
 - incorporate well mapping to stitching to account for drift
 - ability to show movie of deflation over time (with both interpolated and just raw data as options)
 - add calculation of permeation coefficients
+- ability to read images taken at 90/180/270 deg from default orientation and use them in well finding and stitching
 
 # To Organize
 

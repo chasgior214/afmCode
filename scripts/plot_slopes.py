@@ -81,8 +81,8 @@ consensus_slopes = {
         'orange': 0.012,
         'red': 0.061
     },
-    'SF6': {
-        'blue': 0.04, # second time there was a slope of about 0.1, investigate more
+    'SF6': { # second deflation measurements are from a hanful of points, need to analyze all images
+        'blue': 0.04, # second deflation there was a slope of about 0.1, investigate more
         'red': 0.00047
     }
 }
