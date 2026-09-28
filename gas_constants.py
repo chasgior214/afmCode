@@ -47,6 +47,7 @@ molecular_weights = {
 T = 22 + 273.15  # 22 C in Kelvin
 R =  8.31446261815324 # J/(mol·K)
 N_A = 6.02214076e23  # molecules per mole
+P_ATM = 101.325 # kPa
 
 molar_masses_kg_per_mol = {gas: mw / 1000 for gas, mw in molecular_weights.items()}  # kg/mol
 

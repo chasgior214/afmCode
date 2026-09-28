@@ -1,6 +1,7 @@
 import igor.binarywave
 import numpy as np
 from datetime import datetime, timedelta
+from pathlib import Path
 
 
 # Pixel Coordinate Functions (module-level for reuse without AFMImage object)
@@ -13,7 +14,6 @@ def compute_x_pixel_coords(x_pixel_count, pixel_size):
     """
     return (np.arange(x_pixel_count) + 0.5) * pixel_size
 
-
 def compute_y_pixel_coords(y_pixel_count, pixel_size):
     """
     Compute y-coordinates of pixel centers in microns.
@@ -23,24 +23,20 @@ def compute_y_pixel_coords(y_pixel_count, pixel_size):
     """
     return (y_pixel_count - np.arange(y_pixel_count) - 0.5) * pixel_size
 
-
 def index_to_x_coord(x_index, x_pixel_count, pixel_size):
     """Convert a column index to the x-coordinate at the center of that pixel."""
     x_index = int(np.clip(x_index, 0, x_pixel_count - 1))
     return (x_index + 0.5) * pixel_size
-
 
 def x_to_nearest_index(x_um, x_pixel_count, pixel_size):
     """Convert an x-coordinate (in microns) to the nearest column index."""
     idx_float = (x_um / pixel_size) - 0.5
     return int(np.clip(int(round(idx_float)), 0, x_pixel_count - 1))
 
-
 def index_to_y_coord(y_index, y_pixel_count, pixel_size):
     """Convert a row index to the y-coordinate at the center of that pixel."""
     y_index = int(np.clip(y_index, 0, y_pixel_count - 1))
     return (y_pixel_count - (y_index + 0.5)) * pixel_size
-
 
 def y_to_nearest_index(y_um, y_pixel_count, pixel_size):
     """Convert a y-coordinate (in microns) to the nearest row index."""
@@ -69,7 +65,7 @@ class AFMImage:
     """
 
     # Class initialization and loading of the .ibw file
-    def __init__(self, file_path):
+    def __init__(self, file_path: str | Path):
         self.data = self.load_ibw_file(file_path)
         if not self.data or 'wave' not in self.data:
             raise RuntimeError(f"Cannot load wave from {file_path}")
@@ -81,7 +77,7 @@ class AFMImage:
         self.labels = wave['labels']
         self.channel_names = [label.decode('latin-1', 'replace') for label in self.labels[2]][1:]
 
-    def load_ibw_file(self, file_path):
+    def load_ibw_file(self, file_path: str | Path):
         """Load an Igor Binary Wave (.ibw) file from the specified file path."""
         try:
             return igor.binarywave.load(file_path)
@@ -90,16 +86,21 @@ class AFMImage:
             return None
     
     # Channel Data Methods
-    def get_channel_data(self, index=None, channel_name=None, unit_conversion=1):
+    def get_channel_index(self, channel_name: str):
+        """Get the index of a channel by its name."""
+        if channel_name in self.channel_names:
+            return self.channel_names.index(channel_name)
+        return None
+
+    def get_channel_data(self, index: int | None = None, channel_name: str | None = None, unit_conversion: float = 1):
         """Get channel data for a specific index or channel name with optional unit conversion."""
         if self.wave_data is not None:
             if index is not None:
                 return np.rot90(self.wave_data[:, :, index], k=1) * unit_conversion
             elif channel_name is not None:
-                if channel_name not in self.channel_names:
-                    return None
-                index = self.channel_names.index(channel_name)
-                return np.rot90(self.wave_data[:, :, index], k=1) * unit_conversion
+                index = self.get_channel_index(channel_name)
+                if index is not None:
+                    return np.rot90(self.wave_data[:, :, index], k=1) * unit_conversion
         return None
 
     def get_number_of_arrays(self):
@@ -169,6 +170,20 @@ class AFMImage:
         """Get the flattened Z trace (assuming postprocessing was done in Igor which flattened the Z trace and put that flattened image in 'ZSensorTraceMod0'). Converts units to nm."""
         return self.get_channel_data(channel_name='ZSensorTraceMod0', unit_conversion=1e9)
 
+    def get_channel_flattened_state(self, channel_name: str):
+        """Checks what kind of flattening was applied in Igor to produce the given channel. -1 means no flattening, 4 is histo flatten, 0 through 3 are for nth order line flattening."""
+        return self._extract_parameter(f'FlattenOrder {self.get_channel_index(channel_name)}')
+
+    def check_base_channel_is_raw(self, channel_name: str):
+        """Checks if the channel used to produce the given channel was raw or flattened. If the base channel was flattened, it will raise a warning.
+        
+        Assumes the base channel has the same name as the given channel but without the 'Modn' suffix where n is an integer (default naming by Igor when flattening to make a new channel)."""
+        base_channel_name = channel_name.split('Mod')[0]
+        base_channel_flattened_state = self.get_channel_flattened_state(base_channel_name)
+        if int(base_channel_flattened_state) > -1:
+            raise Exception(f"Warning: The base channel '{base_channel_name}' used to produce '{channel_name}' was flattened (FlattenOrder = {base_channel_flattened_state})")
+    # If flattened during save, it also saves enough data to recover the raw data by undoing the flattening with "ultra restore"
+        # Flatten offsets and slopes are saved by channel in the note, so I could conceivably use Python to recover the raw data instead of Igor, but I'll want to use Igor for histo flatten anyway so not worth it
 
     # Metadata Extraction Methods
     ## Imaging parameters
@@ -262,19 +277,19 @@ class AFMImage:
         """Get the y-coordinates of pixel centers in microns."""
         return compute_y_pixel_coords(self.get_x_y_pixel_counts()[1], self.get_pixel_size())
 
-    def index_to_x_center(self, x_index):
+    def index_to_x_center(self, x_index: int):
         """Convert a column index to the x-coordinate at the center of that pixel."""
         return index_to_x_coord(x_index, self.get_x_y_pixel_counts()[0], self.get_pixel_size())
 
-    def x_to_nearest_index(self, x_um):
+    def x_to_nearest_index(self, x_um: float):
         """Convert an x-coordinate (in microns) to the nearest column index."""
         return x_to_nearest_index(x_um, self.get_x_y_pixel_counts()[0], self.get_pixel_size())
 
-    def index_to_y_center(self, y_index):
+    def index_to_y_center(self, y_index: int):
         """Convert a row index to the y-coordinate at the center of that pixel."""
         return index_to_y_coord(y_index, self.get_x_y_pixel_counts()[1], self.get_pixel_size())
 
-    def y_to_nearest_index(self, y_um):
+    def y_to_nearest_index(self, y_um: float):
         """Convert a y-coordinate (in microns) to the nearest row index."""
         return y_to_nearest_index(y_um, self.get_x_y_pixel_counts()[1], self.get_pixel_size())
 
@@ -327,7 +342,7 @@ class AFMImage:
         """
         return self.get_scan_end_datetime() - timedelta(seconds=self.get_imaging_duration())
 
-    def get_line_acquisition_datetime(self, line_index):
+    def get_line_acquisition_datetime(self, line_index: int):
         """
         Calculate the acquisition time for a specific line index.
         
@@ -357,11 +372,6 @@ class AFMImage:
     ## Other Metadata Methods
     def get_filename(self):
         return self._extract_parameter('FileName')
-    
-    # If I have a need to check if a channel was saved raw or flattened, look for FlattenOrder {channel_index} in the note.
-        # -1 means no flattening, 4 is histo flatten, 0 through 3 are for nth order line flattening
-        # If flattened during save, it also saves enough data to recover the raw data by undoing the flattening with "ultra restore"
-        # Could raise a warning if the raw image channel has a flattening order >-1
 
     ## Helper method to extract parameters from the note
     def _extract_parameter(self, key, alternative_keys=None):
