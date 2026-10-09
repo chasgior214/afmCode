@@ -347,8 +347,8 @@ def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 	scat_slope_local3 = axes[2].scatter(times[~excluded_mask], slopes_local3[~excluded_mask], s=12, color='tab:cyan', marker='s', label='local 3-pt fit')
 	axes[2].set_ylabel('Slope (nm/min)')
 	axes[2].set_xlabel('Time (minutes)')
-	# place legend inside the bottom-left corner of the bottom subplot
-	axes[2].legend(loc='lower left', fontsize=9)
+	# place legend inside the bottom-right corner of the bottom subplot
+	axes[2].legend(loc='lower right', fontsize=9)
 
 	try:
 		x_left = -0.1

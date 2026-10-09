@@ -10,6 +10,22 @@ import path_loader as pl
 import gas_constants as gc
 deflation_curve_slope_path = pl.deflation_curve_slope_path
 
+""" TODO
+- Erfan's markers as a purple filled in circle (control) and a purple unfilled circle (pore)
+- add sample26 slopes to the plot, markers all black
+    - open square B1
+    - open circle B2
+    - open triangle B3
+    - closed square B4
+    - closed circle B5
+- tidier x-axis labels
+- make 3 more plots like the current ones but with y-axis as permeation coefficient
+    - BIG: need to move from just having consensus slopes to having heights to go with them
+        - also need to deal with term in equation for air pressure differential (not for sample26 though)
+        - for curves I calculated slopes for before I started saving points used, can have a script that goes through the recorded slope (and R^2/any other info saved) and finds the points used to calculate the slope and then save them like fit_slope.py does now
+    - add perm coeffs from other labs to these
+"""
+
 consensus_slopes = {
     'H2': {
         'green': 2.1,
@@ -81,6 +97,10 @@ consensus_slopes = {
         'orange': 0.012,
         'red': 0.061
     },
+    'n-C4H10': {
+        'blue': 0.142,
+        'red': 0.0620
+    },
     'SF6': { # second deflation measurements are from a hanful of points, need to analyze all images
         'blue': 0.04, # second deflation there was a slope of about 0.1, investigate more
         'red': 0.00047
@@ -125,11 +145,11 @@ erfan_slopes = {
 color_to_marker = {
     'black': 'x',
     'green': '+',
-    'orange': 'o',
-    'blue': '*',
+    'orange': '2',
+    'blue': 'o',
     'red': '^'
 }
-unfilled_colors = {'orange', 'red'}
+unfilled_colors = {'blue', 'red'}
 
 def plot_recent_deflation_curve_slopes():
     # --- define which depressurizations to plot ---
@@ -340,13 +360,19 @@ def plot_recent_deflation_curve_slopes():
     plt.tight_layout()
     plt.show()
 
-def plot_slope_vs_diameter(diameter_dict = gc.kinetic_diameters_Breck):
-    # plot the slopes versus kinetic diameters. Colour the points by the keys of the slope dictionaries. Make the orange and red point markers unfilled.
-    for gas, slopes in [('H2', consensus_slopes['H2']), ('He', consensus_slopes['He']), ('CO2', consensus_slopes['CO2']), ('Ar', consensus_slopes['Ar']), ('CH4', consensus_slopes['CH4']), ('N2', consensus_slopes['N2']), ('C2H4', consensus_slopes['C2H4']), ('C3H8', consensus_slopes['C3H8']), ('C2H6', consensus_slopes['C2H6']), ('O2', consensus_slopes['O2']), ('SF6', consensus_slopes['SF6'])]:
-        if not gas in diameter_dict:
-            print(f"Gas {gas} not in diameter_dict, skipping.")
+def plot_slope_vs_molecule_size(molecule_size_dict = gc.kinetic_diameters_Breck):
+    # plot the slopes versus kinetic diameters. Colour the points by the keys of the slope dictionaries
+    for gas, slopes in consensus_slopes.items():
+        if not gas in molecule_size_dict:
+            print(f"Gas {gas} not in molecule_size_dict, skipping.")
             continue
-        kd = diameter_dict[gas]
+        kd = molecule_size_dict[gas]
+        if molecule_size_dict == gc.kinetic_diameters_Breck:
+            # for these two gases, the Breck kinetic diameters are identical
+            if gas == 'C3H8':
+                kd -= 0.01
+            elif gas == 'n-C4H10':
+                kd += 0.01
         for color, slope in slopes.items():
             marker = color_to_marker[color]
             if color in unfilled_colors:
@@ -356,19 +382,28 @@ def plot_slope_vs_diameter(diameter_dict = gc.kinetic_diameters_Breck):
     plt.yscale('log')
 
     # put labels for each gas kinematic diameters on the x axis
-    for gas in ['H2', 'He', 'CO2', 'Ar', 'CH4', 'N2', 'C2H4', 'C3H8', 'C2H6', 'O2', 'SF6']:
-        if not gas in diameter_dict:
+    for gas in consensus_slopes.keys():
+        if not gas in molecule_size_dict:
             continue
-        kd = diameter_dict[gas]
+        kd = molecule_size_dict[gas]
+        if molecule_size_dict == gc.kinetic_diameters_Breck and gas in ('C3H8', 'n-C4H10'):
+            # for these two gases, the Breck kinetic diameters are identical
+            gas = 'C3H8/n-C4H10'
         plt.axvline(x=kd, color='gray', linestyle='--', linewidth=0.5)
         plt.text(kd, plt.ylim()[0], gas, verticalalignment='bottom', horizontalalignment='right')
     
     # plot Erfan's slopes as dotted horizontal lines about as long as the markers already plotted. The controls in grey, the pores in cyan
     for gas, slopes in erfan_slopes.items():
-        if not gas in diameter_dict:
-            print(f"Gas {gas} not in diameter_dict, skipping.")
+        if not gas in molecule_size_dict:
+            print(f"Gas {gas} not in molecule_size_dict, skipping.")
             continue
-        kd = diameter_dict[gas]
+        kd = molecule_size_dict[gas]
+        if molecule_size_dict == gc.kinetic_diameters_Breck:
+            # for these two gases, the Breck kinetic diameters are identical
+            if gas == 'C3H8':
+                kd -= 0.01
+            elif gas == 'n-C4H10':
+                kd += 0.01
         for condition, slope in slopes.items():
             if condition == 'control':
                 line_color = 'gray'
@@ -381,10 +416,10 @@ def plot_slope_vs_diameter(diameter_dict = gc.kinetic_diameters_Breck):
     plt.legend(loc='upper right')
 
     plt.ylabel('Deflation Curve Slope (nm/min)')
-    if diameter_dict == gc.kinetic_diameters_Breck:
+    if molecule_size_dict == gc.kinetic_diameters_Breck:
         plt.xlabel('Breck Kinetic Diameter (Å)')
         plt.title('Deflation Curve Slopes vs Gas Kinetic Diameter (Breck, except C2H6)')
-    elif diameter_dict == gc.Svehla_LJ_diameters:
+    elif molecule_size_dict == gc.Svehla_LJ_diameters:
         plt.xlabel('Svehla LJ Diameter (Å)')
         plt.title('Deflation Curve Slopes vs Gas Molecular Size (Svehla LJ Diameter)')
     else:
@@ -396,7 +431,7 @@ def plot_slope_vs_molecular_weight():
     # do the same but plot slopes versus molecular weights
     plt.figure()
     delta_for_close_mws = 0.4
-    for gas, slopes in [('H2', consensus_slopes['H2']), ('He', consensus_slopes['He']), ('CO2', consensus_slopes['CO2']), ('Ar', consensus_slopes['Ar']), ('CH4', consensus_slopes['CH4']), ('N2', consensus_slopes['N2']), ('C2H4', consensus_slopes['C2H4']), ('C3H8', consensus_slopes['C3H8']), ('C2H6', consensus_slopes['C2H6']), ('O2', consensus_slopes['O2']), ('SF6', consensus_slopes['SF6'])]:
+    for gas, slopes in consensus_slopes.items():
         mw = gc.molecular_weights[gas]
         if gas in ['N2', 'CO2']:
             mw -= delta_for_close_mws
@@ -411,7 +446,7 @@ def plot_slope_vs_molecular_weight():
     plt.yscale('log')
 
     # put labels for each gas molecular weights on the x axis
-    for gas in ['H2', 'He', 'Ar', 'CH4', 'O2', 'C2H6', 'SF6']:
+    for gas in ['H2', 'He', 'Ar', 'CH4', 'O2', 'C2H6', 'SF6', 'n-C4H10']:
         mw = gc.molecular_weights[gas]
         plt.axvline(x=mw, color='gray', linestyle='--', linewidth=0.5)
         plt.text(mw, plt.ylim()[0], gas, verticalalignment='bottom', horizontalalignment='right')
@@ -440,17 +475,11 @@ def plot_slope_vs_molecular_weight():
 
     # plot lines proportional to 1/sqrt(molecular weight) which intersect the blue, red, and green H2 points
     h2_mw = gc.molecular_weights['H2']
-    h2_slope_blue = consensus_slopes['H2']['blue']
-    h2_slope_red = consensus_slopes['H2']['red']
-    h2_slope_green = consensus_slopes['H2']['green']
     mw_range = np.linspace(0.5, 150, 1000)
-    plt.plot(mw_range, h2_slope_blue * (h2_mw / mw_range) ** 0.5, color='blue', linestyle='--')
-    plt.plot(mw_range, h2_slope_red * (h2_mw / mw_range) ** 0.5, color='red', linestyle='--')
-    plt.plot(mw_range, h2_slope_green * (h2_mw / mw_range) ** 0.5, color='green', linestyle='--')
-    # add lines to legend
-    plt.plot([], [], color='blue', linestyle='--', label='1/sqrt(MW) through Blue H2')
-    plt.plot([], [], color='red', linestyle='--', label='1/sqrt(MW) through Red H2')
-    plt.plot([], [], color='green', linestyle='--', label='1/sqrt(MW) through Green H2')
+    colors_for_sqrt_mw_lines = ['blue', 'red', 'green']
+    for color in colors_for_sqrt_mw_lines:
+        plt.plot(mw_range, consensus_slopes['H2'][color] * (h2_mw / mw_range) ** 0.5, color=color, linestyle='--')
+        plt.plot([], [], color=color, linestyle='--', label=f'1/sqrt(MW) through {color} H2')
 
     plt.legend(loc='upper center')
     plt.xlabel('Molecular Weight (amu)')
@@ -460,14 +489,20 @@ def plot_slope_vs_molecular_weight():
     plt.grid(True)
     plt.show()
 
-def plot_normalized_slope_vs_diameter(diameter_dict = gc.kinetic_diameters_Breck):
-    # make a plot with diameter on the x axis and slope normalized by multiplying by the square root of (molar mass * 2 * π * R * T) on the y axis
+def plot_normalized_slope_vs_molecule_size(molecule_size_dict = gc.kinetic_diameters_Breck):
+    # make a plot with molecule size on the x axis and slope normalized by multiplying by the square root of (molar mass * 2 * π * R * T) on the y axis
     plt.figure()
-    for gas, slopes in [('H2', consensus_slopes['H2']), ('He', consensus_slopes['He']), ('CO2', consensus_slopes['CO2']), ('Ar', consensus_slopes['Ar']), ('CH4', consensus_slopes['CH4']), ('N2', consensus_slopes['N2']), ('C2H4', consensus_slopes['C2H4']), ('C3H8', consensus_slopes['C3H8']), ('C2H6', consensus_slopes['C2H6']), ('O2', consensus_slopes['O2']), ('SF6', consensus_slopes['SF6'])]:
-        if not gas in diameter_dict:
-            print(f"Gas {gas} not in diameter_dict, skipping.")
+    for gas, slopes in consensus_slopes.items():
+        if not gas in molecule_size_dict:
+            print(f"Gas {gas} not in molecule_size_dict, skipping.")
             continue
-        kd = diameter_dict[gas]
+        kd = molecule_size_dict[gas]
+        if molecule_size_dict == gc.kinetic_diameters_Breck:
+            # for these two gases, the Breck kinetic diameters are identical
+            if gas == 'C3H8':
+                kd -= 0.01
+            elif gas == 'n-C4H10':
+                kd += 0.01
         mm = gc.molar_masses_kg_per_mol[gas]
         for color, slope in slopes.items():
             norm_slope = slope * ((mm * 2 * np.pi * gc.R * gc.T) ** 0.5)
@@ -479,19 +514,28 @@ def plot_normalized_slope_vs_diameter(diameter_dict = gc.kinetic_diameters_Breck
     plt.yscale('log')
 
     # put labels for each gas kinematic diameters on the x axis
-    for gas in ['H2', 'He', 'CO2', 'Ar', 'CH4', 'N2', 'O2', 'C2H4', 'C3H8', 'C2H6', 'SF6']:
-        if not gas in diameter_dict:
+    for gas in consensus_slopes.keys():
+        if not gas in molecule_size_dict:
             continue
-        kd = diameter_dict[gas]
+        kd = molecule_size_dict[gas]
+        if molecule_size_dict == gc.kinetic_diameters_Breck and (gas == 'C3H8' or gas == 'n-C4H10'):
+            # for these two gases, the Breck kinetic diameters are identical
+            gas = 'C3H8/n-C4H10'
         plt.axvline(x=kd, color='gray', linestyle='--', linewidth=0.5)
         plt.text(kd, plt.ylim()[0], gas, verticalalignment='bottom', horizontalalignment='right')
 
     # plot Erfan's slopes as dotted horizontal lines about as long as the markers already plotted. The controls in grey, the pores in cyan
     for gas, slopes in erfan_slopes.items():
-        if not gas in diameter_dict:
-            print(f"Gas {gas} not in diameter_dict, skipping.")
+        if not gas in molecule_size_dict:
+            print(f"Gas {gas} not in molecule_size_dict, skipping.")
             continue
-        kd = diameter_dict[gas]
+        kd = molecule_size_dict[gas]
+        if molecule_size_dict == gc.kinetic_diameters_Breck:
+            # for these two gases, the Breck kinetic diameters are identical
+            if gas == 'C3H8':
+                kd -= 0.01
+            elif gas == 'n-C4H10':
+                kd += 0.01
         mm = gc.molar_masses_kg_per_mol[gas]
         for condition, slope in slopes.items():
             norm_slope = slope * ((mm * 2 * np.pi * gc.R * gc.T) ** 0.5)
@@ -506,10 +550,10 @@ def plot_normalized_slope_vs_diameter(diameter_dict = gc.kinetic_diameters_Breck
     plt.legend(loc='upper right')
 
     plt.ylabel('Normalized Deflation Curve Slope (nm/min * sqrt(kg * J)/mol)')
-    if diameter_dict == gc.kinetic_diameters_Breck:
+    if molecule_size_dict == gc.kinetic_diameters_Breck:
         plt.xlabel('Breck Kinetic Diameter (Å)')
         plt.title('Normalized Deflation Curve Slopes vs Gas Kinetic Diameter (Breck, except C2H6)')
-    elif diameter_dict == gc.Svehla_LJ_diameters:
+    elif molecule_size_dict == gc.Svehla_LJ_diameters:
         plt.xlabel('Svehla LJ Diameter (Å)')
         plt.title('Normalized Deflation Curve Slopes vs Gas Molecular Size (Svehla LJ Diameter)')
     else:
@@ -517,7 +561,7 @@ def plot_normalized_slope_vs_diameter(diameter_dict = gc.kinetic_diameters_Breck
     plt.grid(True)
     plt.show()
 
-plot_recent_deflation_curve_slopes()
-plot_slope_vs_diameter()
+# plot_recent_deflation_curve_slopes()
+plot_slope_vs_molecule_size()
 plot_slope_vs_molecular_weight()
-plot_normalized_slope_vs_diameter()
+plot_normalized_slope_vs_molecule_size()

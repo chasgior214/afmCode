@@ -157,6 +157,7 @@ def _stitch_single_channel(img, data, img_bounds, x_coords, y_coords, n_x, n_y, 
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
+    from matplotlib.patches import Rectangle
     import AFMImageCollection
     import path_loader as pl
 
@@ -218,6 +219,16 @@ if __name__ == '__main__':
     # show just the earliest image
     fig, ax = plt.subplots(1, 1, figsize=(18, 6))
     ax.imshow(results[2][1], extent=results[2][2], origin='lower', cmap='turbo', vmin=global_min, vmax=global_max)
+    first_image_x_min, first_image_y_min, first_image_x_max, first_image_y_max = images[0].image_bounds_absolute_positions()
+    ax.add_patch(Rectangle(
+        (first_image_x_min, first_image_y_min),
+        first_image_x_max - first_image_x_min,
+        first_image_y_max - first_image_y_min,
+        fill=False,
+        edgecolor='red',
+        linestyle=':',
+        linewidth=1,
+    ))
     ax.set_title("Mode: earliest")
     ax.set_xlabel("X (um)")
     ax.set_ylabel("Y (um)")

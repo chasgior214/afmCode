@@ -21,8 +21,7 @@ a uniform pressure diference (https://academic.oup.com/qjmam/article/9/1/84/1832
 predicts that the internal pressure varies with the maximum membrane deflection (h) as
 P + (P_0 - P_atm) = c h^3
 where c is a material- and membrane thickness-dependent constant
-
-For our membranes, c is ~1.4-1.6 * 10^-4 kPa/nm^3
+    - c for two membranes under the same graphene sheet is nearly the same
 """
 
 

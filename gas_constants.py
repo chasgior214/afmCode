@@ -1,6 +1,7 @@
 import numpy as np
 kinetic_diameters_Breck = {
     'H2': 2.89,
+    'D2': 2.89, # same as H2
     'He': 2.60,
     'Ne': 2.75,
     'Ar': 3.40,
@@ -18,11 +19,13 @@ kinetic_diameters_Breck = {
     'C2H4': 3.90,
     'C2H6': 4.44, # Breck did not give a value for C2H6, but this value is widely used alongside his values
     'C3H8': 4.30,
-    'n-C4H10': 4.3
+    'n-C4H10': 4.3,
+    'iso-C4H10': 5.0
 }
 
 molecular_weights = {
     'H2': 2.016,
+    'D2': 4.0282,
     'He': 4.0026,
     'Ne': 20.180,
     'Ar': 39.95,
@@ -41,6 +44,7 @@ molecular_weights = {
     'C2H6': 30.070,
     'C3H8': 44.097,
     'n-C4H10': 58.124,
+    'iso-C4H10': 58.124,
     'CH3OCH3': 46.069
 }
 
@@ -67,6 +71,7 @@ min_1_dimensions = {
     'C3H8': 4.020, # [1]
     'C2H6': 3.809, # [1]
     'n-C4H10': 4.01, # [2]
+    'iso-C4H10': 4.63, # [2]
     'O2': 2.930, # [1]
     'SF6': 4.871, # [1]
     'CH3OCH3': 4.083 # [1]
@@ -82,6 +87,7 @@ min_2_dimensions = {
     'C3H8': 4.516, # [1]
     'C2H6': 4.079, # [1]
     'n-C4H10': 4.52, # [2]
+    'iso-C4H10': 6.00, # [2]
     'O2': 2.985, # [1]
     'SF6': 5.266, # [1]
     'CH3OCH3': 4.127 # [1]
@@ -93,6 +99,7 @@ min_2_dimensions = {
     # method 2 is graphically determined using experimental viscosity data
 Svehla_LJ_diameters = {
     'H2': 2.827, # method 1
+    'D2': 2.827, # same as H2
     'He': 2.551, # method 2
     'Ne': 2.820, # method 1
     'Ar': 3.542, # method 1
@@ -111,6 +118,7 @@ Svehla_LJ_diameters = {
     'C2H6': 4.443, # method 1
     'C3H8': 5.118, # method 1
     'n-C4H10': 4.687, # method 1
+    'iso-C4H10': 5.278, # method 1
     'CH3OCH3': 4.307 # method 1
 }
 
@@ -155,11 +163,15 @@ if __name__ == "__main__":
         mw = molecular_weights.get(gas)
         if mw is None:
             continue
-        if mw - prev_mw < min_gap:
+        if gas == 'n-C4H10' or gas == 'iso-C4H10':
+            pass
+        elif mw - prev_mw < min_gap:
             offset_idx = (offset_idx + 1) % len(y_offsets)
         else:
             offset_idx = 0
         ax.axvline(mw, color='gray', alpha=0.3, linewidth=0.7)
+        if gas == 'n-C4H10' or gas == 'iso-C4H10':
+            gas = 'n- and iso-C4H10'
         ax.text(
             mw,
             y_offsets[offset_idx],

@@ -4,12 +4,11 @@ Two main additions:
         - Needs to deal with edge cases where much of an image is the well
             - Initially, just don't use those images (don't use images with < 5 um in largest dimension)
             - How does Igor flatten in such cases?
-		- Should handle the substrate being a different height than the graphene
-            - First determine if this will make a significant difference in permeation coefficient. If not, put this down below with later section
-            - Figure out which the deflection should measure from even though it makes almost no difference, need to have it stick to one vs the other
-                - The substrate I think because the volume below that is included in the other part of the calculation?
-                    - I won't have access to the substrate height for many images, though the step between the substrate and the top of the graphene could be calculated across all images of the sample given the pipeline automation in part 2 below like c in Hencky's solution will be, so could use that times the well area and add that to the volume
-                        - If thickness times area is small compared to volume, leave out in first implementation
+		- Should handle the substrate being a different height than the graphene after first implementation
+            - Height for integration should be measured from substrate surface because the volume below that is included in the other part of the calculation
+                - I won't have access to the substrate height for many images, though the step between the substrate and the top of the graphene could be calculated across all images of the sample given the pipeline automation in part 2 below like c in Hencky's solution will be, so could use that times the well area and add that to the volume
+                    - for max thickness used ~ 4 nm, permeance changes 5% when h = 80 nm, 10% when h = 40 nm
+                - Having it stick to measuring height from substrate instead of jumping between height from substrate vs height from graphene terraces keeps volume from jumping between images
             - Can assume that the well is mostly surrounded by graphene as opposed to mostly surrounded by bare substrate
                 - What if there's multiple step heights of graphene?
                     - Then determining the reference height used for the membrane bulge (before adding thickness to substrate times area) is the same as between the substrate and the first step: use whatever step is surrounding most of the well
@@ -20,12 +19,14 @@ Two main additions:
             - Can start with something simple like 3-nm deviation. Later can move to estimating noise in substrate height to define the cutoff
         - Or should I use phase or amplitude, or a combination of all three?
             - Likely. Will want to identify wells that are basically level to the substrate, including those not in maps that are potentially only partially covered
+            - Could amplitude gradients be useful?
 	c) Fit circles of the proper area to the mask
 		- Good check to add: use the spacing between wells to identify the max number of wells that an image could contain, and also what their relative positions should be (can account for the potential of the die not being aligned to the piezo's x and y axes)
             - Can do this for all wells whether they're on the map or not, and even if they're mostly out of the image
         - Note that the area used here isn't likely to be the DRIE-etched area, as the membrane can bulge up above some of the substrate just outside the well
             - And the area can differ between wells and even for a given well over time based on how inflated they are
                 - Between wells, differences in tension/etc can mean a different area for two wells at a given pressure
+            - Not so much due to bulging up outside the wells as this extended area shows up for negative deflections too. Higher than 3 um surface diameter likely caused by undercut of the photoresist during HF etching, but rest of wells are etched isotropically by DRIE with the photoresist on and should be close to the 3um
 	d) Have it take the area integral of the (signed) height above/below the substrate within the circle
 		- How to deal with wells not fully in an image?
 			- Don't count them at all for first implementation
@@ -33,7 +34,7 @@ Two main additions:
                 - Or with the full pipeline described in part 2 below, could be possible to cross-reference what the volume for that membrane is when the parts of the height that can be seen match the heights of that membrane in another image
         - When it's all working, try to see how estimated permeation coefficient changes at different height levels (or even when the membrane is just above or a bit below substrate level)
 	e) Find the equivalent peak height for a symmetrical bulge with that volume
-		- Start with Hencky's solution, and start with an assumption of c = 1.5e-4 kPa/nm^3
+		- Start with Hencky's solution, and start with an assumption of c = 1.5e-4 kPa/nm^3 → NOPE. Too different between samples
 			- Perhaps just save volumes and as part of 2b below build the system that calculates the equivalent height/needed things for permeation
 			- Try paraboloid later for comparison for curiosity
 		- Ask Boutilier if using change in volume directly is beneficial instead of pi * R^2 * a * h (and maybe same for dV/dt)? Whether or not I do, compare what that gives to the volume above the substrate I get
@@ -41,6 +42,8 @@ Two main additions:
     - For each image it analyses, validate that it's base layer wasn't flattened and that the layer it uses is histo flattened. Else stop and raise to user
 		- Added function for these checks to AFM image class
 		    - Check they work on the ones I did ultra restore for and then histo flattened
+                - They have a flatten order 0 on the base channel. Does that matter?
+                    - A flatten order 0 with flatten offsets and flatten slopes set to 0 is identical to a flatten order of -1, so if it's not -1, can have it check for a no-op "flatten" and treat that as a pass
     - How to deal with debris on red? If it makes < 2% difference, maybe don’t worry about it? Otherwise, can calculate volume of it and subtract that
 
 2) Permeation calculations and pipelining:
@@ -79,3 +82,4 @@ Two main additions:
     - A detailed uncertainty analysis could be great for the thesis. Ideas for ways to probe uncertainty:
         - Use measured V and dV/dt in q = dn/dt / P = 1/(R_u * T) * (V / P * dP/dt + dV/dt), see difference it makes
         - 
+    - Confirmed that all data in the original .ibw files is present in the flattened .ibw files, only need to keep the ones with flattened images on my computer/OneDrive (leave originals on AFM computer drive)
