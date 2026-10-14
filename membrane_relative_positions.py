@@ -19,7 +19,8 @@ from gui_components import maximize_matplotlib_window
 # Set any of these to filter which images are processed:
 filter_start_datetime = None  # None or datetime object, e.g., datetime(2025, 12, 5, 17, 0, 0)
 filter_end_datetime = None    # None or datetime object
-filter_image_range = None     # None or String "AAAA-BBBB" e.g., "0001-0050", or 'AAAA-' for all from AAAA onward, or '-BBBB' for all up to BBBB. 'AAAA' for a single image
+filter_image_range = '0002-0100'     # None or String "AAAA-BBBB" e.g., "0001-0050", or 'AAAA-' for all from AAAA onward, or '-BBBB' for all up to BBBB. 'AAAA' for a single image
+
 
 # GOAL: have my system know where the wells are relative to each other, so for any images with multiple wells, I only point out one well, and it figures out where the others are, gets the deflections autonomously, and logs the data
 
@@ -984,21 +985,17 @@ if __name__ == "__main__":
     location = pl.transfer_location
     well_map = wm.load_well_map(sample_ID, location).wells
 
-    image_collection = AFMImageCollection.AFMImageCollection(pl.afm_images_path, pl.depressurized_datetime)
+    image_collection = AFMImageCollection.AFMImageCollection(pl.afm_images_path, pl.depressurized_datetime, image_range=filter_image_range)
     
     # Apply image filters
     original_count = len(image_collection)
-    filtered_collection = image_collection.filter_images(
-        start_datetime=filter_start_datetime,
-        end_datetime=filter_end_datetime,
-        image_range=filter_image_range
-    )
+    filtered_collection = image_collection.filter_images(filter_start_datetime, filter_end_datetime)
     
     if not filtered_collection.images:
         print("No images matched the filter criteria.")
         exit(1)
     
-    print(f"Processing {len(filtered_collection)} images (filtered from {original_count} total)")
+    print(f"Processing {len(filtered_collection)} images (filtered from {original_count} loaded within filename range)")
     
     # Show the first filtered image to point out a well
     first_image = filtered_collection.images[0]

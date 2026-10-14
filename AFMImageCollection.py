@@ -11,8 +11,38 @@ from AFMImage import AFMImage
 import visualizations as vis
 from gui_components import maximize_matplotlib_window
 
+
+def _parse_image_range(image_range: str):
+    """Return inclusive number bounds; invalid ranges leave images unfiltered."""
+    if image_range is None:
+        return None, None
+    cleaned = image_range.strip()
+    start_part, sep, end_part = cleaned.partition('-')
+    if not sep and cleaned.isdigit():
+        return int(cleaned), int(cleaned)
+    if (sep and (start_part or end_part)
+            and (not start_part or start_part.isdigit())
+            and (not end_part or end_part.isdigit())):
+        return (int(start_part) if start_part else None,
+                int(end_part) if end_part else None)
+    raise ValueError(f"Warning: Invalid image_range format '{image_range}'. Expected 'AAAA-BBBB', 'AAAA-', '-BBBB', or 'AAAA'.")
+
+
+def _matches_image_range(name, range_start, range_end):
+    if range_start is None and range_end is None:
+        return True
+    if isinstance(name, bytes):
+        name = name.decode('latin-1', errors='ignore')
+    match = re.search(r'(\d+)', name)
+    if match is None:
+        return False
+    number = int(match.group(1))
+    return ((range_start is None or number >= range_start)
+            and (range_end is None or number <= range_end))
+
+
 class AFMImageCollection:
-    def __init__(self, folder_path: Path|str, start_datetime=None, end_datetime=None):
+    def __init__(self, folder_path: Path|str, start_datetime=None, end_datetime=None, image_range=None):
         """
         Initialize AFMImageCollection with optional datetime filtering.
         
@@ -24,13 +54,18 @@ class AFMImageCollection:
             Only include images taken at or after this datetime
         end_datetime : datetime, optional
             Only include images taken at or before this datetime
+        image_range : str, optional
+            String "AAAA-BBBB" to filter by filename numbers. E.g., "0001-0050", or 'AAAA-' for all from AAAA onward, or '-BBBB' for all up to BBBB. Can use AAAA for single image.
         """
-        self.images = self.load_ibw_files_from_folder(folder_path, start_datetime, end_datetime)
+        self.images = self.load_ibw_files_from_folder(folder_path, start_datetime, end_datetime, image_range)
 
-    def load_ibw_files_from_folder(self, folder_path: Path|str, start_datetime=None, end_datetime=None):
+    def load_ibw_files_from_folder(self, folder_path: Path|str, start_datetime=None, end_datetime=None, image_range=None):
         images = [] 
         folder = Path(folder_path)
+        range_start, range_end = _parse_image_range(image_range)
         for file_path in folder.glob('*.ibw'):
+            if not _matches_image_range(file_path.stem, range_start, range_end):
+                continue
             try:
                 afm_image = AFMImage(file_path)
                 
@@ -73,37 +108,8 @@ class AFMImageCollection:
             filtered = [img for img in filtered if img.get_scan_end_datetime() <= end_datetime]
         
         if image_range is not None:
-            cleaned = image_range.strip()
-            start_part, sep, end_part = cleaned.partition('-')
-            if not sep:
-                if cleaned.isdigit():
-                    range_start = range_end = int(cleaned)
-                else:
-                    print(f"Warning: Invalid image_range format '{image_range}'. Expected 'AAAA-BBBB', 'AAAA-', '-BBBB', or 'AAAA'.")
-                    range_start = range_end = None
-            else:
-                if (start_part and not start_part.isdigit()) or (end_part and not end_part.isdigit()) or (not start_part and not end_part):
-                    print(f"Warning: Invalid image_range format '{image_range}'. Expected 'AAAA-BBBB', 'AAAA-', or '-BBBB'.")
-                    range_start = range_end = None
-                else:
-                    range_start = int(start_part) if start_part else None
-                    range_end = int(end_part) if end_part else None
-
-            if range_start is not None or range_end is not None:
-                def get_image_number(img):
-                    # Extract numeric portion from bname (e.g., "Image0001" -> 1)
-                    bname = img.bname
-                    if isinstance(bname, bytes):
-                        bname = bname.decode('latin-1', errors='ignore')
-                    num_match = re.search(r'(\d+)', bname)
-                    return int(num_match.group(1)) if num_match else None
-                
-                filtered = [
-                    img for img in filtered
-                    if (num := get_image_number(img)) is not None
-                    and (range_start is None or num >= range_start)
-                    and (range_end is None or num <= range_end)
-                ]
+            range_start, range_end = _parse_image_range(image_range)
+            filtered = [img for img in filtered if _matches_image_range(img.bname, range_start, range_end)]
         # Create a new collection with filtered images
         new_collection = object.__new__(AFMImageCollection)
         new_collection.images = filtered
