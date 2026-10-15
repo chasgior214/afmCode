@@ -19,12 +19,12 @@ from gui_components import maximize_matplotlib_window
 # Set any of these to filter which images are processed:
 filter_start_datetime = None  # None or datetime object, e.g., datetime(2025, 12, 5, 17, 0, 0)
 filter_end_datetime = None    # None or datetime object
-filter_image_range = '0002-0100'     # None or String "AAAA-BBBB" e.g., "0001-0050", or 'AAAA-' for all from AAAA onward, or '-BBBB' for all up to BBBB. 'AAAA' for a single image
+filter_image_range = '601-700'     # None or String "AAAA-BBBB" e.g., "0001-0050", or 'AAAA-' for all from AAAA onward, or '-BBBB' for all up to BBBB. 'AAAA' for a single image
 
 
 # GOAL: have my system know where the wells are relative to each other, so for any images with multiple wells, I only point out one well, and it figures out where the others are, gets the deflections autonomously, and logs the data
 
-def track_wells(image_collection, initial_well_name, initial_well_coords, well_map, initial_well_absolute_pos=None, initial_well_fixed_z=None, edge_tolerance=0, each_found_well_updates_all_well_positions=False):
+def track_wells(image_collection, initial_well_name, initial_well_coords, well_map, initial_well_absolute_pos=None, edge_tolerance=0, each_found_well_updates_all_well_positions=False, initial_selected_slots=None):
     """
     Track wells across an image collection.
     
@@ -35,6 +35,11 @@ def track_wells(image_collection, initial_well_name, initial_well_coords, well_m
         well_map: Dictionary mapping well names to their map coordinates (x, y).
         initial_well_absolute_pos: Optional (x, y) absolute position of the initial well. 
                                     If None, it will be determined from the first image (requires user interaction or pre-selection).
+        initial_selected_slots: Optional [substrate, extremum] selections from select_heights.
+                                Each point is (z_nm, x_um, y_um, x_pixel, y_pixel).
+                                Preserve these points for the initial well in the first image;
+                                subsequent measurements use automatic fitting.
+                                Use [None, extremum] for automatic substrate estimation.
         edge_tolerance: Optional tolerance distance (in μm) to allow fitting wells just outside image bounds. 
                         If a well's predicted center is within this distance from the image edge, 
                         fitting will be attempted using the closest point within the image. Default is 0 (disabled).
@@ -69,6 +74,7 @@ def track_wells(image_collection, initial_well_name, initial_well_coords, well_m
     
     results = []
     images = image_collection.images if hasattr(image_collection, 'images') else image_collection
+    selected_substrate, selected_extremum = initial_selected_slots or (None, None)
 
     for image in images:
         print(f"Processing image {image.bname}")
@@ -138,6 +144,9 @@ def track_wells(image_collection, initial_well_name, initial_well_coords, well_m
 
             reverse = bool(scan_direction)  # scan down -> earlier lines are higher y values
             expected.sort(key=lambda item: item['position'][1], reverse=reverse)
+            # Anchor predictions to the manual selection before other wells can update them.
+            if image is images[0] and selected_extremum is not None:
+                expected.sort(key=lambda item: item['name'] != initial_well_name)
             return expected
 
         while remaining_wells:
@@ -162,17 +171,18 @@ def track_wells(image_collection, initial_well_name, initial_well_coords, well_m
             rel_x = clamped_x - absolute_image_bounds[0]
             rel_y = clamped_y - absolute_image_bounds[1]
 
-            # Check if should use fixed position for the initial well in the first image
-            if image == images[0] and well == initial_well_name and initial_well_fixed_z is not None:
+            # Preserve the selected extremum for the initial well in the first image
+            is_initial_well = image is images[0] and well == initial_well_name
+            if is_initial_well and selected_extremum is not None:
                 print(f"Using user-supplied position for {well} in {image.bname}")
-                fit_result = {'vx': rel_x, 'vy': rel_y, 'vz': initial_well_fixed_z}
+                fit_result = {'vx': selected_extremum[1], 'vy': selected_extremum[2], 'vz': selected_extremum[0]}
             else:
                 fit_result = sa.find_best_paraboloid_fit(
                     height_map,
                     rel_x,
                     rel_y,
                     pixel_size,
-                    fit_window_diameter=1.8,
+                    fit_window_diameter=2.4,
                 )
 
             if fit_result:
@@ -183,7 +193,10 @@ def track_wells(image_collection, initial_well_name, initial_well_coords, well_m
                 # Calculate Substrate Height
                 y_idx = int(np.clip(round(y_pixel_count - 0.5 - vertex_y_um / pixel_size), 0, y_pixel_count - 1))
                 row_data = height_map[y_idx, :]
-                substrate_z_nm = sa.calculate_substrate_height(row_data)
+                if is_initial_well and selected_substrate is not None:
+                    substrate_z_nm = selected_substrate[0]
+                else:
+                    substrate_z_nm = sa.calculate_substrate_height(row_data)
 
                 deflection = vertex_z_nm - substrate_z_nm
 
@@ -192,14 +205,17 @@ def track_wells(image_collection, initial_well_name, initial_well_coords, well_m
 
                 # Point 1 (Substrate) calculations
                 # Find x index closest to substrate height in the row
-                finite_indices = np.where(np.isfinite(row_data))[0]
-                closest_idx_in_finite = np.argmin(np.abs(row_data[finite_indices] - substrate_z_nm))
-                p1_x_pixel = int(finite_indices[closest_idx_in_finite])
+                if is_initial_well and selected_substrate is not None:
+                    p1_z_nm, p1_x_um, p1_y_um, p1_x_pixel, p1_y_pixel = selected_substrate
+                else:
+                    finite_indices = np.where(np.isfinite(row_data))[0]
+                    closest_idx_in_finite = np.argmin(np.abs(row_data[finite_indices] - substrate_z_nm))
+                    p1_x_pixel = int(finite_indices[closest_idx_in_finite])
 
-                p1_x_um = float(x_coords[p1_x_pixel])
-                p1_y_pixel = int(y_idx)
-                p1_y_um = float((y_pixel_count - (y_idx + 0.5)) * pixel_size)
-                p1_z_nm = float(substrate_z_nm)
+                    p1_x_um = float(x_coords[p1_x_pixel])
+                    p1_y_pixel = int(y_idx)
+                    p1_y_um = float((y_pixel_count - (y_idx + 0.5)) * pixel_size)
+                    p1_z_nm = float(substrate_z_nm)
 
                 # Point 2 (Extremum) calculations
                 p2_x_um = float(vertex_x_um)
@@ -207,6 +223,8 @@ def track_wells(image_collection, initial_well_name, initial_well_coords, well_m
                 p2_z_nm = float(vertex_z_nm)
                 p2_x_pixel = int(np.argmin(np.abs(x_coords - vertex_x_um)))
                 p2_y_pixel = int(np.clip(round(y_pixel_count - 0.5 - vertex_y_um / pixel_size), 0, y_pixel_count - 1))
+                if is_initial_well and selected_extremum is not None:
+                    p2_z_nm, p2_x_um, p2_y_um, p2_x_pixel, p2_y_pixel = selected_extremum
 
                 result_entry = {
                     'Well': well,
@@ -857,20 +875,7 @@ class WellPositionsReviewer:
             # Convert new entries to same format as CSV rows
             new_rows = []
             for entry in well_entries:
-                new_rows.append({
-                    'Time (minutes)': entry.get('Time (minutes)'),
-                    'Deflection (nm)': entry.get('Deflection (nm)'),
-                    'Point 1 X Pixel': entry.get('Point 1 X Pixel'),
-                    'Point 1 Y Pixel': entry.get('Point 1 Y Pixel'),
-                    'Point 1 X (um)': entry.get('Point 1 X (um)'),
-                    'Point 1 Y (um)': entry.get('Point 1 Y (um)'),
-                    'Point 1 Z (nm)': entry.get('Point 1 Z (nm)'),
-                    'Point 2 X Pixel': entry.get('Point 2 X Pixel'),
-                    'Point 2 Y Pixel': entry.get('Point 2 Y Pixel'),
-                    'Point 2 X (um)': entry.get('Point 2 X (um)'),
-                    'Point 2 Y (um)': entry.get('Point 2 Y (um)'),
-                    'Point 2 Z (nm)': entry.get('Point 2 Z (nm)'),
-                })
+                new_rows.append({field: entry.get(field, '') for field in header})
             
             # Merge and sort
             all_rows = existing_entries + new_rows
@@ -933,7 +938,6 @@ class WellPositionsReviewer:
             abs_x = extremum[1] + ox
             abs_y = extremum[2] + oy
             initial_pos = (abs_x, abs_y)
-            initial_z = extremum[0]
             
             # Slice images
             all_images = self.image_collection.images
@@ -956,7 +960,7 @@ class WellPositionsReviewer:
                 self.well_map.get(new_well_name, (0,0)), 
                 self.well_map,
                 initial_well_absolute_pos=initial_pos,
-                initial_well_fixed_z=initial_z,
+                initial_selected_slots=slots,
                 edge_tolerance=0.3,
                 each_found_well_updates_all_well_positions=True
             )
@@ -1026,6 +1030,7 @@ if __name__ == "__main__":
                 well_clicked_on_coords, 
                 well_map, 
                 initial_well_absolute_pos=initial_pos,
+                initial_selected_slots=slots,
                 edge_tolerance=0.3,
                 each_found_well_updates_all_well_positions=True
             )

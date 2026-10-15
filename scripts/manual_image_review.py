@@ -300,6 +300,14 @@ if len(deflections) == 0:
     print("No deflection data; ending program")
     quit()
 
+# plot deflection vs time
+plt.scatter(times, deflections)
+plt.xlabel('Time since depressurization (minutes)')
+plt.ylabel('Deflection (nm)')
+plt.title('Deflection vs Time for Export')
+plt.grid(True)
+plt.show()
+
 # save to CSV
 if pl.editing_mode:
     dir_path = pl.deflation_curves_path
@@ -341,14 +349,6 @@ if pl.editing_mode:
                 p2y_um,
                 p2z_nm,
             ])
-
-# plot deflection vs time
-plt.scatter(times, deflections)
-plt.xlabel('Time since depressurization (minutes)')
-plt.ylabel('Deflection (nm)')
-plt.title('Deflection vs Time')
-plt.grid(True)
-plt.show()
 
 # collection.review_phase()
 

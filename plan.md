@@ -9,6 +9,7 @@ Two main additions:
                 - I won't have access to the substrate height for many images, though the step between the substrate and the top of the graphene could be calculated across all images of the sample given the pipeline automation in part 2 below like c in Hencky's solution will be, so could use that times the well area and add that to the volume
                     - for max thickness used ~ 4 nm, permeance changes 5% when h = 80 nm, 10% when h = 40 nm
                 - Having it stick to measuring height from substrate instead of jumping between height from substrate vs height from graphene terraces keeps volume from jumping between images
+                - Maybe just always have it do the image analysis with the substrate terrace around (majority of) the well, and have it add the constant height of graphene thickness * well area afterwards
             - Can assume that the well is mostly surrounded by graphene as opposed to mostly surrounded by bare substrate
                 - What if there's multiple step heights of graphene?
                     - Then determining the reference height used for the membrane bulge (before adding thickness to substrate times area) is the same as between the substrate and the first step: use whatever step is surrounding most of the well
@@ -41,9 +42,6 @@ Two main additions:
 	- Compare to results of current method when done. Especially for clean images of symmetrical wells, should get near-identical results
     - For each image it analyses, validate that it's base layer wasn't flattened and that the layer it uses is histo flattened. Else stop and raise to user
 		- Added function for these checks to AFM image class
-		    - Check they work on the ones I did ultra restore for and then histo flattened
-                - They have a flatten order 0 on the base channel. Does that matter?
-                    - A flatten order 0 with flatten offsets and flatten slopes set to 0 is identical to a flatten order of -1, so if it's not -1, can have it check for a no-op "flatten" and treat that as a pass
     - How to deal with debris on red? If it makes < 2% difference, maybe don’t worry about it? Otherwise, can calculate volume of it and subtract that
 
 2) Permeation calculations and pipelining:

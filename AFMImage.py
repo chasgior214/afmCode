@@ -175,13 +175,22 @@ class AFMImage:
         return self._extract_parameter(f'FlattenOrder {self.get_channel_index(channel_name)}')
 
     def check_base_channel_is_raw(self, channel_name: str):
-        """Checks if the channel used to produce the given channel was raw or flattened. If the base channel was flattened, it will raise a warning.
+        """Checks if the channel used to produce the given channel was raw or flattened. If the base channel was flattened, it will raise a warning. Allows for the possibility that the base channel was flattened but then restored to raw data in Igor, which changes the flatten order to 0 with flatten offsets and flatten slopes set to 0 (identical to the raw data within machine precision, on the order of a few picometers).
         
         Assumes the base channel has the same name as the given channel but without the 'Modn' suffix where n is an integer (default naming by Igor when flattening to make a new channel)."""
         base_channel_name = channel_name.split('Mod')[0]
+        if self.get_channel_index(base_channel_name) is None:
+            raise ValueError(f"Missing base channel '{base_channel_name}'")
         base_channel_flattened_state = self.get_channel_flattened_state(base_channel_name)
+        if int(base_channel_flattened_state) == 0:
+            index = self.get_channel_index(base_channel_name)
+            arrays = [self._extract_parameter(f'Flatten {name} {index}')
+                      for name in ('Offsets', 'Slopes')]
+            values = [[float(v) for v in value.split(',') if v.strip()] for value in arrays]
+            if all(v and np.all(np.isfinite(v)) and np.all(np.array(v) == 0) for v in values):
+                return
         if int(base_channel_flattened_state) > -1:
-            raise Exception(f"Warning: The base channel '{base_channel_name}' used to produce '{channel_name}' was flattened (FlattenOrder = {base_channel_flattened_state})")
+            raise ValueError(f"The base channel '{base_channel_name}' used to produce '{channel_name}' was flattened (FlattenOrder = {base_channel_flattened_state})")
     # If flattened during save, it also saves enough data to recover the raw data by undoing the flattening with "ultra restore"
         # Flatten offsets and slopes are saved by channel in the note, so I could conceivably use Python to recover the raw data instead of Igor, but I'll want to use Igor for histo flatten anyway so not worth it
 
