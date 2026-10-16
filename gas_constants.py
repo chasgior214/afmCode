@@ -1,8 +1,8 @@
 import numpy as np
-kinetic_diameters_Breck = {
+kinetic_diameters_Breck = { # These are exatcly the values from Breck's "Zeolite Molecular Sieves" (including number of trailing zeros), specifically Table 8.14 of the 1984 reprint on page 636, aside from C2H6 and D2
     'H2': 2.89,
     'D2': 2.89, # same as H2
-    'He': 2.60,
+    'He': 2.6,
     'Ne': 2.75,
     'Ar': 3.40,
     'Kr': 3.60,
@@ -11,14 +11,14 @@ kinetic_diameters_Breck = {
     'N2': 3.64,
     'O2': 3.46,
     'CO': 3.76,
-    'CO2': 3.30,
-    'SF6': 5.50,
+    'CO2': 3.3,
+    'SF6': 5.5,
 
-    'CH4': 3.80,
-    'C2H2': 3.30,
-    'C2H4': 3.90,
-    'C2H6': 4.44, # Breck did not give a value for C2H6, but this value is widely used alongside his values
-    'C3H8': 4.30,
+    'CH4': 3.8,
+    'C2H2': 3.3,
+    'C2H4': 3.9,
+    'C2H6': 3.8, # Stated as 3.8 in both Table 8.17 and in Figure 8.14, where it is noted in the caption to be the same as methane
+    'C3H8': 4.3,
     'n-C4H10': 4.3,
     'iso-C4H10': 5.0
 }
