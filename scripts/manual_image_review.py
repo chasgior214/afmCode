@@ -2,26 +2,27 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from AFMImageCollection import AFMImageCollection
-from datetime import timedelta, datetime
+from datetime import datetime
 import numpy as np
 import matplotlib.pyplot as plt
-import visualizations as vis
 import csv
+
+from AFMImageCollection import AFMImageCollection
 import path_loader as pl
 
 
-def _build_initial_selections(collection: AFMImageCollection, csv_path: Path, depressurized_dt: datetime):
+def _load_saved_csv(collection: AFMImageCollection, csv_path: Path, depressurized_dt: datetime):
+    """Return selections for loaded images and saved rows outside those images"""
     if not csv_path.exists():
         print(f"No existing CSV at {csv_path} to preload selections from")
-        return None
+        return None, []
 
     with open(csv_path, newline='') as handle:
         rows = list(csv.DictReader(handle))
 
     if not rows:
         print(f"Existing CSV at {csv_path} has no rows to preload")
-        return None
+        return None, []
 
     image_windows = []
     for idx, image in enumerate(collection):
@@ -36,7 +37,6 @@ def _build_initial_selections(collection: AFMImageCollection, csv_path: Path, de
         start_dt = image.get_scan_start_datetime()
         start_offset = (start_dt - depressurized_dt).total_seconds()
         end_offset = (end_dt - depressurized_dt).total_seconds()
-        pixel_size = image.get_pixel_size()
         x_coords = image.get_x_pixel_coords()
 
         image_windows.append({
@@ -46,7 +46,6 @@ def _build_initial_selections(collection: AFMImageCollection, csv_path: Path, de
             'start_offset': start_offset,
             'end_offset': end_offset,
             'duration': imaging_duration,
-            'pixel_size': pixel_size,
             'x_coords': x_coords,
             'x_pixels': x_pixels,
             'y_pixels': y_pixels,
@@ -54,7 +53,7 @@ def _build_initial_selections(collection: AFMImageCollection, csv_path: Path, de
 
     if not image_windows:
         print("No image metadata available to preload selections")
-        return None
+        return None, rows
 
     def _parse_index(val):
         if val is None:
@@ -80,6 +79,7 @@ def _build_initial_selections(collection: AFMImageCollection, csv_path: Path, de
 
 
     initial = {}
+    retained_rows = []
     matched_count = 0
     for row in rows:
         time_val = row.get('Time (minutes)')
@@ -110,7 +110,7 @@ def _build_initial_selections(collection: AFMImageCollection, csv_path: Path, de
                     window = info
                     break
         if window is None:
-            print(f"Could not match saved point at {time_minutes} minutes to any image window")
+            retained_rows.append(row)
             continue
 
         idx = window['index']
@@ -199,34 +199,16 @@ def _build_initial_selections(collection: AFMImageCollection, csv_path: Path, de
         matched_count += 1
 
     if matched_count:
-        print(f"Preloaded {matched_count} saved selection(s) from {csv_path}")
-    return initial if matched_count else None
+        print(f"Preloaded {matched_count} saved selection(s) in the image review range from {csv_path}")
+    return (initial if matched_count else None), retained_rows
 
 
 depressurized_datetime = pl.depressurized_datetime
-end_day = pl.end_day
-end_hour = pl.end_hour
-if end_day is not None:
-    end_datetime = depressurized_datetime.replace(day=end_day)
-    if end_hour is not None:
-        end_datetime = end_datetime.replace(hour=end_hour)
-elif end_hour is not None:
-    end_datetime = depressurized_datetime.replace(hour=end_hour)
-
-folder_path = pl.afm_images_path
-
-if end_day is not None or end_hour is not None:
-    collection = AFMImageCollection(folder_path,
-                                    start_datetime=depressurized_datetime,
-                                    end_datetime=end_datetime)
-else:
-    collection = AFMImageCollection(folder_path,
-                                    start_datetime=depressurized_datetime)
-num_images = len(collection)
+collection = AFMImageCollection(pl.afm_images_path, depressurized_datetime, pl.end_datetime, pl.image_range)
 
 print("=================================================")
 print(f"Depressurized at {depressurized_datetime}\n")
-print(f"Number of images in the array: {num_images}")
+print(f"Number of images in the array: {len(collection)}")
 print("=================================================")
 
 
@@ -235,7 +217,7 @@ deflections = []
 pixel_coords = []
 physical_coords = []
 
-initial_selections = _build_initial_selections(collection, pl.deflation_curve_path, depressurized_datetime)
+initial_selections, retained_rows = _load_saved_csv(collection, pl.deflation_curve_path, depressurized_datetime)
 
 # Open an interactive navigator so the user can pick images in any order
 selections = collection.navigate_images(initial_selections=initial_selections)
@@ -296,17 +278,42 @@ for idx in sorted(selections.keys()):
 print(deflections)
 print(times)
 
-if len(deflections) == 0:
+# Retain saved data outside the loaded images and replace the reviewed portion
+CSV_FIELDS = [
+    'Time (minutes)',
+    'Deflection (nm)',
+    'Point 1 X Pixel',
+    'Point 1 Y Pixel',
+    'Point 1 X (um)',
+    'Point 1 Y (um)',
+    'Point 1 Z (nm)',
+    'Point 2 X Pixel',
+    'Point 2 Y Pixel',
+    'Point 2 X (um)',
+    'Point 2 Y (um)',
+    'Point 2 Z (nm)',
+]
+export_rows = [[row.get(field, '') for field in CSV_FIELDS] for row in retained_rows]
+for (t, d, (p1x, p1y, p2x, p2y), (p1x_um, p1y_um, p1z_nm, p2x_um, p2y_um, p2z_nm)) in zip(times, deflections, pixel_coords, physical_coords):
+    export_rows.append([
+        t, d,
+        p1x, p1y, p1x_um, p1y_um, p1z_nm,
+        p2x, p2y, p2x_um, p2y_um, p2z_nm,
+    ])
+export_rows.sort(key=lambda row: float(row[0]))
+
+if not export_rows and not initial_selections:
     print("No deflection data; ending program")
     quit()
 
 # plot deflection vs time
-plt.scatter(times, deflections)
-plt.xlabel('Time since depressurization (minutes)')
-plt.ylabel('Deflection (nm)')
-plt.title('Deflection vs Time for Export')
-plt.grid(True)
-plt.show()
+if export_rows:
+    plt.scatter([float(row[0]) for row in export_rows], [float(row[1]) for row in export_rows])
+    plt.xlabel('Time since depressurization (minutes)')
+    plt.ylabel('Deflection (nm)')
+    plt.title('Deflection vs Time for Export')
+    plt.grid(True)
+    plt.show()
 
 # save to CSV
 if pl.editing_mode:
@@ -319,36 +326,8 @@ if pl.editing_mode:
         input("Press Enter to continue...")
     with open(file_path, mode='w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow([
-            'Time (minutes)',
-            'Deflection (nm)',
-            'Point 1 X Pixel',
-            'Point 1 Y Pixel',
-            'Point 1 X (um)',
-            'Point 1 Y (um)',
-            'Point 1 Z (nm)',
-            'Point 2 X Pixel',
-            'Point 2 Y Pixel',
-            'Point 2 X (um)',
-            'Point 2 Y (um)',
-            'Point 2 Z (nm)'
-        ])
-        for (t, d, (p1x, p1y, p2x, p2y),
-                (p1x_um, p1y_um, p1z_nm, p2x_um, p2y_um, p2z_nm)) in zip(times, deflections, pixel_coords, physical_coords):
-            writer.writerow([
-                t,
-                d,
-                p1x,
-                p1y,
-                p1x_um,
-                p1y_um,
-                p1z_nm,
-                p2x,
-                p2y,
-                p2x_um,
-                p2y_um,
-                p2z_nm,
-            ])
+        writer.writerow(CSV_FIELDS)
+        writer.writerows(export_rows)
 
 # collection.review_phase()
 

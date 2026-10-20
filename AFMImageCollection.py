@@ -44,7 +44,7 @@ def _matches_image_range(name, range_start, range_end):
 class AFMImageCollection:
     def __init__(self, folder_path: Path|str, start_datetime=None, end_datetime=None, image_range=None):
         """
-        Initialize AFMImageCollection with optional datetime filtering.
+        Initialize AFMImageCollection with optional datetime and image range filtering.
         
         Parameters:
         -----------

@@ -1,14 +1,19 @@
 editing_mode = True
 
-depressurized_date = '20260516'
-depressurized_time = '13:56:07'
-end_hour = None # None to not give end limit (if end_hour given and end_day not given, uses only day of depressurization up to this hour)
-end_day = None # None to not give end limit (use all files in specified folder)
+# Deflation and sample information
+depressurized_date = '20260617'
+depressurized_time = '18:50:46'
 sample_ID = '37'
-transfer_location = 'o(5,1)'
+transfer_location = 'k(3,6.5)'
 if sample_ID == '37': transfer_location = '$(6,3)'
 if sample_ID == '43': transfer_location = 'o(3,8)'
-cavity_position = 'blue'
+cavity_position = 'red'
+
+# Filter which images are processed
+end_hour = None # None to not give end limit (if end_hour given and end_day not given, uses only day of depressurization up to end_hour)
+end_day = None # None to not give end limit
+image_range = "5500-" # None or String "AAAA-BBBB" e.g., "0001-0050", or 'AAAA-' for all from AAAA onward, or '-BBBB' for all up to BBBB. 'AAAA' for a single image
+
 
 # Additional depressurization date/time combinations can be added to this list to plot multiple datasets at once (see plot_curves.py)
 plot_depressurizations = [
@@ -90,6 +95,15 @@ from pathlib import Path
 
 depressurized_time = depressurized_time.replace(':', '')  # 'HHMMSS' format
 depressurized_datetime = datetime.strptime(depressurized_date + depressurized_time, '%Y%m%d%H%M%S')
+
+if end_day is not None:
+    end_datetime = depressurized_datetime.replace(day=end_day)
+    if end_hour is not None:
+        end_datetime = end_datetime.replace(hour=end_hour)
+elif end_hour is not None:
+    end_datetime = depressurized_datetime.replace(hour=end_hour)
+else:
+    end_datetime = None
 
 plot_depressurizations = [(date, time.replace(':', '')) for date, time in plot_depressurizations]
 
