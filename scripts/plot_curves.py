@@ -10,10 +10,11 @@ import path_loader as pl
 #########################################################################################################################
 # Plot options. Set list of depressurizations to plot in path_loader.py (plot_depressurizations variable)
 plot_type = 'scatter'
-plot_type = 'line'
+# plot_type = 'line'
 
-show_legend = 0
-x_scale = 'hours'
+show_legend = 1
+x_scale = 'days'
+# x_scale = 'hours'
 # x_scale = 'minutes'
 
 # List of substrings to filter filenames. Empty list = no filtering.
@@ -118,6 +119,8 @@ for idx, entry in enumerate(csv_entries):
     df['Time to plot'] = df['Time (minutes)']
     if x_scale == 'hours':
         df['Time to plot'] = df['Time (minutes)'] / 60.0
+    elif x_scale == 'days':
+        df['Time to plot'] = df['Time (minutes)'] / (60.0 * 24.0)
     legend_label = csv_file.stem.removeprefix('deflation_curve_')
     if plot_type == 'scatter':
         if len({entry['target_idx'] for entry in csv_entries}) == 1: # all same depressurization
@@ -139,6 +142,8 @@ for idx, entry in enumerate(csv_entries):
         slope, intercept = saved_slopes[slope_id]
         if x_scale == 'hours':
             slope *= 60.0  # convert nm/min to nm/hour
+        elif x_scale == 'days':
+            slope *= 60.0 * 24.0  # convert nm/min to nm/day
         if not df.empty:
             x_vals = df['Time to plot']
             x_min, x_max = x_vals.min(), x_vals.max()

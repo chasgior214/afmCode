@@ -11,7 +11,9 @@ import gas_constants as gc
 deflation_curve_slope_path = pl.deflation_curve_slope_path
 
 """ TODO
-- Erfan's markers as a purple filled in circle (control) and a purple unfilled circle (pore)
+- new type of marker for estimated upper bound on slope (for controls for SF6)
+    - dotted horizontal line (like I had Erfan's slopes) of the colour of the normal marker?
+- Erfan's markers as an orange filled in circle (control) and a purple unfilled square (pore)
 - add sample26 slopes to the plot, markers all black
     - open square B1
     - open circle B2

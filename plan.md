@@ -10,6 +10,7 @@ Two main additions:
                     - for max thickness used ~ 4 nm, permeance changes 5% when h = 80 nm, 10% when h = 40 nm
                 - Having it stick to measuring height from substrate instead of jumping between height from substrate vs height from graphene terraces keeps volume from jumping between images
                 - Maybe just always have it do the image analysis with the substrate terrace around (majority of) the well, and have it add the constant height of graphene thickness * well area afterwards
+            - Where the different terrace levels are in x,y,z could be included in the map?
             - Can assume that the well is mostly surrounded by graphene as opposed to mostly surrounded by bare substrate
                 - What if there's multiple step heights of graphene?
                     - Then determining the reference height used for the membrane bulge (before adding thickness to substrate times area) is the same as between the substrate and the first step: use whatever step is surrounding most of the well

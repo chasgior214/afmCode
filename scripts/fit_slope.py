@@ -510,6 +510,10 @@ def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 		if event.inaxes is None or event.xdata is None or event.ydata is None:
 			return
 
+		# Let the toolbar handle clicks while zooming or panning.
+		if event.inaxes.get_navigate_mode() is not None:
+			return
+
 		# Right-click (button==3):
 		if getattr(event, "button", None) == 3:
 			# Store start position to distinguish click from drag in release event
