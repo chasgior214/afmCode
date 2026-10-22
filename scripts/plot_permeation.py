@@ -11,8 +11,6 @@ import gas_constants as gc
 deflation_curve_slope_path = pl.deflation_curve_slope_path
 
 """ TODO
-- new type of marker for estimated upper bound on slope (for controls for SF6)
-    - dotted horizontal line (like I had Erfan's slopes) of the colour of the normal marker?
 - Erfan's markers as an orange filled in circle (control) and a purple unfilled square (pore)
 - add sample26 slopes to the plot, markers all black
     - open square B1
@@ -103,9 +101,12 @@ consensus_slopes = {
         'blue': 0.142,
         'red': 0.0620
     },
-    'SF6': { # second deflation measurements are from a hanful of points, need to analyze all images
-        'blue': 0.04, # second deflation there was a slope of about 0.1, investigate more
-        'red': 0.00047
+    'SF6': {
+        'blue': 0.04,
+        'red': 0.00044,
+        'green': 8.64e-5,
+        'black': 6.60e-5,
+        'orange': 4.84e-5
     }
 }
 
@@ -370,10 +371,14 @@ def plot_slope_vs_molecule_size(molecule_size_dict = gc.kinetic_diameters_Breck)
             continue
         kd = molecule_size_dict[gas]
         if molecule_size_dict == gc.kinetic_diameters_Breck:
-            # for these two gases, the Breck kinetic diameters are identical
+            # for CH4 and C2H6 and for C3H8 and n-C4H10, the Breck kinetic diameters are identical
             if gas == 'C3H8':
                 kd -= 0.01
             elif gas == 'n-C4H10':
+                kd += 0.01
+            elif gas == 'CH4':
+                kd -= 0.01
+            elif gas == 'C2H6':
                 kd += 0.01
         for color, slope in slopes.items():
             marker = color_to_marker[color]
@@ -388,9 +393,12 @@ def plot_slope_vs_molecule_size(molecule_size_dict = gc.kinetic_diameters_Breck)
         if not gas in molecule_size_dict:
             continue
         kd = molecule_size_dict[gas]
-        if molecule_size_dict == gc.kinetic_diameters_Breck and gas in ('C3H8', 'n-C4H10'):
-            # for these two gases, the Breck kinetic diameters are identical
-            gas = 'C3H8/n-C4H10'
+        # for CH4 and C2H6 and for C3H8 and n-C4H10, the Breck kinetic diameters are identical
+        if molecule_size_dict == gc.kinetic_diameters_Breck:
+            if gas in ('CH4', 'C2H6'):
+                gas = 'CH4/C2H6'
+            elif gas in ('C3H8', 'n-C4H10'):
+                gas = 'C3H8/n-C4H10'
         plt.axvline(x=kd, color='gray', linestyle='--', linewidth=0.5)
         plt.text(kd, plt.ylim()[0], gas, verticalalignment='bottom', horizontalalignment='right')
     
@@ -401,10 +409,14 @@ def plot_slope_vs_molecule_size(molecule_size_dict = gc.kinetic_diameters_Breck)
             continue
         kd = molecule_size_dict[gas]
         if molecule_size_dict == gc.kinetic_diameters_Breck:
-            # for these two gases, the Breck kinetic diameters are identical
+            # for CH4 and C2H6 and for C3H8 and n-C4H10, the Breck kinetic diameters are identical
             if gas == 'C3H8':
                 kd -= 0.01
             elif gas == 'n-C4H10':
+                kd += 0.01
+            elif gas == 'CH4':
+                kd -= 0.01
+            elif gas == 'C2H6':
                 kd += 0.01
         for condition, slope in slopes.items():
             if condition == 'control':
@@ -420,7 +432,7 @@ def plot_slope_vs_molecule_size(molecule_size_dict = gc.kinetic_diameters_Breck)
     plt.ylabel('Deflation Curve Slope (nm/min)')
     if molecule_size_dict == gc.kinetic_diameters_Breck:
         plt.xlabel('Breck Kinetic Diameter (Å)')
-        plt.title('Deflation Curve Slopes vs Gas Kinetic Diameter (Breck, except C2H6)')
+        plt.title('Deflation Curve Slopes vs Gas Kinetic Diameter (Breck)')
     elif molecule_size_dict == gc.Svehla_LJ_diameters:
         plt.xlabel('Svehla LJ Diameter (Å)')
         plt.title('Deflation Curve Slopes vs Gas Molecular Size (Svehla LJ Diameter)')
@@ -500,10 +512,14 @@ def plot_normalized_slope_vs_molecule_size(molecule_size_dict = gc.kinetic_diame
             continue
         kd = molecule_size_dict[gas]
         if molecule_size_dict == gc.kinetic_diameters_Breck:
-            # for these two gases, the Breck kinetic diameters are identical
+            # for CH4 and C2H6 and for C3H8 and n-C4H10, the Breck kinetic diameters are identical
             if gas == 'C3H8':
                 kd -= 0.01
             elif gas == 'n-C4H10':
+                kd += 0.01
+            elif gas == 'CH4':
+                kd -= 0.01
+            elif gas == 'C2H6':
                 kd += 0.01
         mm = gc.molar_masses_kg_per_mol[gas]
         for color, slope in slopes.items():
@@ -520,9 +536,12 @@ def plot_normalized_slope_vs_molecule_size(molecule_size_dict = gc.kinetic_diame
         if not gas in molecule_size_dict:
             continue
         kd = molecule_size_dict[gas]
-        if molecule_size_dict == gc.kinetic_diameters_Breck and (gas == 'C3H8' or gas == 'n-C4H10'):
-            # for these two gases, the Breck kinetic diameters are identical
-            gas = 'C3H8/n-C4H10'
+        # for CH4 and C2H6 and for C3H8 and n-C4H10, the Breck kinetic diameters are identical
+        if molecule_size_dict == gc.kinetic_diameters_Breck:
+            if gas == 'CH4' or gas == 'C2H6':
+                gas = 'CH4/C2H6'
+            elif gas == 'C3H8' or gas == 'n-C4H10':
+                gas = 'C3H8/n-C4H10'
         plt.axvline(x=kd, color='gray', linestyle='--', linewidth=0.5)
         plt.text(kd, plt.ylim()[0], gas, verticalalignment='bottom', horizontalalignment='right')
 
@@ -533,10 +552,14 @@ def plot_normalized_slope_vs_molecule_size(molecule_size_dict = gc.kinetic_diame
             continue
         kd = molecule_size_dict[gas]
         if molecule_size_dict == gc.kinetic_diameters_Breck:
-            # for these two gases, the Breck kinetic diameters are identical
+            # for CH4 and C2H6 and for C3H8 and n-C4H10, the Breck kinetic diameters are identical
             if gas == 'C3H8':
                 kd -= 0.01
             elif gas == 'n-C4H10':
+                kd += 0.01
+            elif gas == 'CH4':
+                kd -= 0.01
+            elif gas == 'C2H6':
                 kd += 0.01
         mm = gc.molar_masses_kg_per_mol[gas]
         for condition, slope in slopes.items():
@@ -554,7 +577,7 @@ def plot_normalized_slope_vs_molecule_size(molecule_size_dict = gc.kinetic_diame
     plt.ylabel('Normalized Deflation Curve Slope (nm/min * sqrt(kg * J)/mol)')
     if molecule_size_dict == gc.kinetic_diameters_Breck:
         plt.xlabel('Breck Kinetic Diameter (Å)')
-        plt.title('Normalized Deflation Curve Slopes vs Gas Kinetic Diameter (Breck, except C2H6)')
+        plt.title('Normalized Deflation Curve Slopes vs Gas Kinetic Diameter (Breck)')
     elif molecule_size_dict == gc.Svehla_LJ_diameters:
         plt.xlabel('Svehla LJ Diameter (Å)')
         plt.title('Normalized Deflation Curve Slopes vs Gas Molecular Size (Svehla LJ Diameter)')

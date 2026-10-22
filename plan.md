@@ -36,7 +36,7 @@ Two main additions:
                 - Or with the full pipeline described in part 2 below, could be possible to cross-reference what the volume for that membrane is when the parts of the height that can be seen match the heights of that membrane in another image
         - When it's all working, try to see how estimated permeation coefficient changes at different height levels (or even when the membrane is just above or a bit below substrate level)
 	e) Find the equivalent peak height for a symmetrical bulge with that volume
-		- Start with Hencky's solution, and start with an assumption of c = 1.5e-4 kPa/nm^3 → NOPE. Too different between samples
+		- Start with Hencky's solution, and start with an assumption of c = 1.5e-4 kPa/nm^3 → NOPE. Too different between samples. Need to find c for that membrane when it's fully inflated, tall, and close to Hencky's shape
 			- Perhaps just save volumes and as part of 2b below build the system that calculates the equivalent height/needed things for permeation
 			- Try paraboloid later for comparison for curiosity
 		- Ask Boutilier if using change in volume directly is beneficial instead of pi * R^2 * a * h (and maybe same for dV/dt)? Whether or not I do, compare what that gives to the volume above the substrate I get

@@ -16,6 +16,27 @@ DRIE_VOLUME_BELOW_SUBSTRATE = DRIE_ETCH_DEPTH * np.pi * (WELL_DIAM / 2) ** 2
 
 # Multiplying by sqrt(2 pi M R T) will give effective area
 
+""" Knudsen effusion model for permeation of gas through a small orifice in a thin barrier
+
+permeation coefficient:
+q = A / sqrt(2 pi M R T)
+"""
+
+def knudsen_effusion_predicted_area(q, M, T=gc.T):
+    """Calculate the area of a small orifice in a thin barrier predicted by Knudsen effusion
+
+    Parameters
+    ----------
+    q : float
+        Permeation coefficient (mol/s/Pa)
+    M : float
+        Molar mass of the gas (kg/mol)
+    T : float
+        Temperature (K)
+    """
+    return q * np.sqrt(2 * np.pi * M * gc.R * T)
+
+
 """ Hencky's solution for the deflection of an elastic, circular membrane exposed to
 a uniform pressure diference (https://academic.oup.com/qjmam/article/9/1/84/1832782)
 predicts that the internal pressure varies with the maximum membrane deflection (h) as
@@ -25,6 +46,37 @@ where c is a material- and membrane thickness-dependent constant
 """
 
 
+def hencky_pressure(h, c, P_0, P_atm=gc.P_ATM):
+    """Calculate the pressure of the gas of interest in a cavity using Hencky's solution
+
+    Parameters
+    ----------
+    h : float
+        Height of the membrane deflection (m)
+    c : float
+        Material- and membrane thickness-dependent constant (kPa/m^3)
+    P_0 : float
+        Pressure of air partial pressure in the cavity (kPa)
+    P_atm : float
+        Atmospheric pressure (kPa)
+    """
+    return c * h ** 3 + P_atm - P_0
+
+def hencky_height(P, c, P_0, P_atm=gc.P_ATM):
+    """Calculate the height of a deflected membrane using Hencky's solution
+
+    Parameters
+    ----------
+    P : float
+        Pressure in the cavity (kPa)
+    c : float
+        Material- and membrane thickness-dependent constant (kPa/m^3)
+    P_0 : float
+        Pressure of air partial pressure in the cavity (kPa)
+    P_atm : float
+        Atmospheric pressure (kPa)
+    """
+    return ((P - P_atm + P_0) / c) ** (1 / 3)
 
 def perm_coeff(h, dhdt, P_charge, P_air_cav, well_depth=DRIE_ETCH_DEPTH, well_diam=WELL_DIAM, a=0.5):
     """Calculate the permeation coefficient of a membrane

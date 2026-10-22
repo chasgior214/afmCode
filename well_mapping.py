@@ -127,6 +127,7 @@ if __name__ == "__main__":
             center_y = y_idx * y_spacing
             circle = plt.Circle((center_x, center_y), 2, color='blue', fill=True, linewidth=2)
             plt.gca().add_artist(circle)
+            plt.text(center_x, center_y, well_name, ha='center', va='center', color='red')
         plt.xlim(0, x_spacing*15)
         plt.ylim(0, y_spacing*17)
         plt.gca().set_aspect('equal', adjustable='box')

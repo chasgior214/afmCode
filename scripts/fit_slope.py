@@ -663,7 +663,13 @@ def plot_deflection_curve(curve_path, deflation_curve_slope_id):
 			update_plots()
 
 	def on_key(event):
-		"""Handle key press events. Space bar saves the currently selected slope. Arrow keys navigate points."""
+		"""Space saves the selected slope, arrows navigate points, and u restores excluded points."""
+		if event.key == 'u':
+			if np.any(excluded_mask):
+				excluded_mask[:] = False
+				update_plots()
+			return
+
 		# Arrow key navigation
 		if event.key == 'left':
 			if selected_idx[0] is None:
